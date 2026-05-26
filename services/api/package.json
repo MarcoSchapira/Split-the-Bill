@@ -10,7 +10,10 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "npm run test:unit && npm run test:integration",
+    "test:unit": "vitest run src/auth/password.test.ts src/auth/jwt.test.ts src/http/errors.test.ts",
+    "test:db:prepare": "dotenv -e .env.test -- node scripts/verify-test-environment.cjs && dotenv -e .env.test -- prisma migrate deploy && dotenv -e .env.test -- prisma generate",
+    "test:integration": "npm run test:db:prepare && dotenv -e .env.test -- vitest run src/app.integration.test.ts"
   },
   "keywords": [],
   "author": "",
@@ -34,8 +37,12 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^25.9.1",
     "@types/pg": "^8.20.0",
+    "@types/supertest": "^7.2.0",
+    "dotenv-cli": "^11.0.0",
     "prisma": "^7.8.0",
+    "supertest": "^7.2.2",
     "ts-node-dev": "^2.0.0",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.7"
   }
 }

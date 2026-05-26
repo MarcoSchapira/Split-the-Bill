@@ -8,11 +8,14 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  name         String
-  passwordHash String   @map("password_hash")
-  createdAt    DateTime @default(now()) @map("created_at")
+  id             String   @id @default(uuid())
+  email          String   @unique
+  name           String?
+  passwordHash   String?  @map("password_hash")
+  authProvider   String   @default("local") @map("auth_provider")
+  providerUserId String?  @map("provider_user_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
   memberships GroupMember[]
 

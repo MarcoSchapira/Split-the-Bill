@@ -8,11 +8,4 @@ export const createGroupSchema = z
   })
   .strict();
 
-export const addGroupMemberSchema = z
-  .object({
-    email: z.string().trim().email().transform((email) => email.toLowerCase()),
-  })
-  .strict();
-
 export type CreateGroupInput = z.infer<typeof createGroupSchema>;
-export type AddGroupMemberInput = z.infer<typeof addGroupMemberSchema>;

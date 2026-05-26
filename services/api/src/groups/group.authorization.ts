@@ -31,14 +31,3 @@ export async function requireGroupMember(
 
   return membership;
 }
-
-export async function requireGroupOwner(
-  userId: string,
-  groupId: string,
-): Promise<void> {
-  const membership = await requireGroupMember(userId, groupId);
-
-  if (membership.role !== "owner") {
-    throw new ApiError(403, "GROUP_OWNER_REQUIRED", "Only the group owner can add members");
-  }
-}

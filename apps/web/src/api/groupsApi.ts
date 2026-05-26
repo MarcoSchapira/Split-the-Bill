@@ -1,5 +1,5 @@
 import { apiClient } from './client'
-import type { GroupDetail, GroupMember, GroupSummary } from './types'
+import type { GroupDetail, GroupInvitation, GroupSummary } from './types'
 
 export async function listGroups(): Promise<GroupSummary[]> {
   const response = await apiClient.get<{ groups: GroupSummary[] }>('/groups')
@@ -20,13 +20,13 @@ export async function getGroup(groupId: string): Promise<GroupDetail> {
   return response.data.group
 }
 
-export async function addMember(
+export async function inviteGroupMember(
   groupId: string,
   email: string,
-): Promise<GroupMember> {
-  const response = await apiClient.post<{ member: GroupMember }>(
-    `/groups/${groupId}/members`,
+): Promise<GroupInvitation> {
+  const response = await apiClient.post<{ invitation: GroupInvitation }>(
+    `/groups/${groupId}/invitations`,
     { email },
   )
-  return response.data.member
+  return response.data.invitation
 }

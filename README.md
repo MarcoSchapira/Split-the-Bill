@@ -26,14 +26,24 @@ npm install
 npm run dev
 ```
 
-## Authentication milestone
+## Application features
 
-The API now supports local JWT authentication and authenticated group management:
+The API supports local JWT authentication, invitation-based connections, groups, and
+CAD bill splitting:
 
 - `POST /auth/register`, `POST /auth/login`, and protected `GET /auth/me`
-- Protected `POST /groups`, `GET /groups`, `GET /groups/:groupId`, and owner-only `POST /groups/:groupId/members`
+- Protected `POST /groups`, `GET /groups`, and `GET /groups/:groupId`
+- `POST /friend-invitations`, `POST /groups/:groupId/invitations`, `GET /invitations`,
+  and invitation accept/decline `PATCH` endpoints
+- `GET /friends`, `POST /bills`, `PATCH /bills/:billId`, `DELETE /bills/:billId`,
+  `GET /dashboard`, and `GET /activity`
 
-Copy the documented API values from `services/api/.env.example`, set a long local `JWT_SECRET`, then apply the Prisma migrations and run `npm run db:generate` before using auth-backed routes.
+Creating a group adds only its creator immediately. Friends and additional group
+members must accept an in-app invitation before bills can include them.
+
+Copy the documented API values from `services/api/.env.example`, set a long local
+`JWT_SECRET`, then apply the Prisma migrations and run `npm run db:generate` before
+using auth-backed routes.
 
 The web app reads `VITE_API_URL` from `apps/web/.env` when provided and defaults to `http://localhost:3000`.
 

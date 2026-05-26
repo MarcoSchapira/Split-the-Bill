@@ -1,9 +1,7 @@
-import { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/prisma";
 import { safeUserSelect } from "../auth/auth.types";
-import { ApiError } from "../http/errors";
-import { requireGroupMember, requireGroupOwner } from "./group.authorization";
-import type { AddGroupMemberInput, CreateGroupInput } from "./group.types";
+import { requireGroupMember } from "./group.authorization";
+import type { CreateGroupInput } from "./group.types";
 
 const memberWithUser = {
   id: true,
@@ -79,38 +77,4 @@ export async function getGroup(userId: string, groupId: string) {
     ...group,
     role: membership.role,
   };
-}
-
-export async function addGroupMember(
-  actingUserId: string,
-  groupId: string,
-  input: AddGroupMemberInput,
-) {
-  await requireGroupOwner(actingUserId, groupId);
-
-  const user = await prisma.user.findUnique({
-    where: { email: input.email },
-    select: { id: true },
-  });
-
-  if (!user) {
-    throw new ApiError(404, "USER_NOT_FOUND", "No registered user found with that email");
-  }
-
-  try {
-    return await prisma.groupMember.create({
-      data: {
-        groupId,
-        userId: user.id,
-        role: "member",
-      },
-      select: memberWithUser,
-    });
-  } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      throw new ApiError(409, "MEMBER_ALREADY_ADDED", "User is already a group member");
-    }
-
-    throw error;
-  }
 }

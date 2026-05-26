@@ -39,6 +39,13 @@ beforeAll(() => {
 });
 
 beforeEach(async () => {
+  await prisma.activityRecipient.deleteMany();
+  await prisma.activityEvent.deleteMany();
+  await prisma.billShare.deleteMany();
+  await prisma.bill.deleteMany();
+  await prisma.groupInvitation.deleteMany();
+  await prisma.friendInvitation.deleteMany();
+  await prisma.friendship.deleteMany();
   await prisma.groupMember.deleteMany();
   await prisma.group.deleteMany();
   await prisma.user.deleteMany();
@@ -172,7 +179,7 @@ describe("group authorization API", () => {
     expect(outsiderGroups.body.groups).toEqual([]);
   });
 
-  it("allows members to view while only owners can add registered members", async () => {
+  it("adds group members only after a registered recipient accepts an invitation", async () => {
     const owner = await register("owner@example.com");
     const member = await register("member@example.com");
     const nextMember = await register("next@example.com");
@@ -183,36 +190,202 @@ describe("group authorization API", () => {
       .send({ name: "Dinner Club" });
     const groupId = created.body.group.id as string;
 
-    const addMember = await request(app)
-      .post(`/groups/${groupId}/members`)
+    const invitation = await request(app)
+      .post(`/groups/${groupId}/invitations`)
       .set(bearer(owner.token))
       .send({ email: " MEMBER@example.com " });
+    const directAddition = await request(app)
+      .post(`/groups/${groupId}/members`)
+      .set(bearer(owner.token))
+      .send({ email: nextMember.user.email });
+    const beforeAcceptance = await request(app)
+      .get(`/groups/${groupId}`)
+      .set(bearer(member.token));
+    const memberInvites = await request(app)
+      .post(`/groups/${groupId}/invitations`)
+      .set(bearer(member.token))
+      .send({ email: nextMember.user.email });
+    const acceptance = await request(app)
+      .patch(`/group-invitations/${invitation.body.invitation.id as string}`)
+      .set(bearer(member.token))
+      .send({ decision: "accept" });
     const memberView = await request(app)
       .get(`/groups/${groupId}`)
       .set(bearer(member.token));
     const outsiderView = await request(app)
       .get(`/groups/${groupId}`)
       .set(bearer(outsider.token));
-    const nonOwnerAdd = await request(app)
-      .post(`/groups/${groupId}/members`)
+    const acceptedMemberInvitation = await request(app)
+      .post(`/groups/${groupId}/invitations`)
       .set(bearer(member.token))
       .send({ email: nextMember.user.email });
     const missingUser = await request(app)
-      .post(`/groups/${groupId}/members`)
+      .post(`/groups/${groupId}/invitations`)
       .set(bearer(owner.token))
       .send({ email: "missing@example.com" });
     const duplicate = await request(app)
-      .post(`/groups/${groupId}/members`)
+      .post(`/groups/${groupId}/invitations`)
       .set(bearer(owner.token))
       .send({ email: member.user.email });
 
-    expect(addMember.status).toBe(201);
-    expect(addMember.body.member.role).toBe("member");
+    expect(invitation.status).toBe(201);
+    expect(directAddition.status).toBe(404);
+    expect(beforeAcceptance.status).toBe(403);
+    expect(memberInvites.status).toBe(403);
+    expect(acceptance.status).toBe(200);
+    expect(acceptance.body.invitation.status).toBe("accepted");
     expect(memberView.status).toBe(200);
     expect(memberView.body.group.members).toHaveLength(2);
     expect(outsiderView.status).toBe(403);
-    expect(nonOwnerAdd.status).toBe(403);
+    expect(acceptedMemberInvitation.status).toBe(201);
     expect(missingUser.status).toBe(404);
     expect(duplicate.status).toBe(409);
+  });
+});
+
+describe("friend invitation API", () => {
+  it("requires acceptance before a friendship can be used for direct bills", async () => {
+    const sender = await register("sender@example.com");
+    const recipient = await register("recipient@example.com");
+
+    const invitation = await request(app)
+      .post("/friend-invitations")
+      .set(bearer(sender.token))
+      .send({ email: recipient.user.email });
+    const prematureBill = await request(app)
+      .post("/bills")
+      .set(bearer(sender.token))
+      .send({
+        description: "Coffee",
+        incurredAt: "2026-05-25",
+        totalCents: 800,
+        targetType: "friendship",
+        targetId: "00000000-0000-0000-0000-000000000000",
+        payerId: sender.user.id,
+      });
+    const received = await request(app).get("/invitations").set(bearer(recipient.token));
+    const accepted = await request(app)
+      .patch(`/friend-invitations/${invitation.body.invitation.id as string}`)
+      .set(bearer(recipient.token))
+      .send({ decision: "accept" });
+    const friends = await request(app).get("/friends").set(bearer(sender.token));
+
+    expect(invitation.status).toBe(201);
+    expect(received.body.receivedFriends).toHaveLength(1);
+    expect(prematureBill.status).toBe(403);
+    expect(accepted.body.invitation.status).toBe("accepted");
+    expect(friends.body.friends[0].friend.email).toBe(recipient.user.email);
+  });
+});
+
+describe("bill ledger and dashboard API", () => {
+  async function becomeFriends(first: RegisteredAccount, second: RegisteredAccount) {
+    const invitation = await request(app)
+      .post("/friend-invitations")
+      .set(bearer(first.token))
+      .send({ email: second.user.email });
+    await request(app)
+      .patch(`/friend-invitations/${invitation.body.invitation.id as string}`)
+      .set(bearer(second.token))
+      .send({ decision: "accept" });
+    const friends = await request(app).get("/friends").set(bearer(first.token));
+    return friends.body.friends[0].id as string;
+  }
+
+  it("stores explicit equal shares, permits friend corrections, and removes deleted balances", async () => {
+    const first = await register("first@example.com");
+    const second = await register("second@example.com");
+    const friendshipId = await becomeFriends(first, second);
+
+    const created = await request(app).post("/bills").set(bearer(first.token)).send({
+      description: "Odd total",
+      incurredAt: "2026-05-25",
+      totalCents: 1001,
+      targetType: "friendship",
+      targetId: friendshipId,
+      payerId: first.user.id,
+    });
+    const dashboardAfterCreate = await request(app)
+      .get("/dashboard")
+      .set(bearer(first.token));
+    const updated = await request(app)
+      .patch(`/bills/${created.body.bill.id as string}`)
+      .set(bearer(second.token))
+      .send({
+        description: "Corrected total",
+        incurredAt: "2026-05-25",
+        totalCents: 1000,
+        targetType: "friendship",
+        targetId: friendshipId,
+        payerId: second.user.id,
+      });
+    const dashboardAfterUpdate = await request(app)
+      .get("/dashboard")
+      .set(bearer(first.token));
+    const deleted = await request(app)
+      .delete(`/bills/${created.body.bill.id as string}`)
+      .set(bearer(second.token));
+    const dashboardAfterDelete = await request(app)
+      .get("/dashboard")
+      .set(bearer(first.token));
+
+    expect(created.status).toBe(201);
+    expect(created.body.bill.shares.map((share: { shareCents: number }) => share.shareCents).sort())
+      .toEqual([500, 501]);
+    expect(dashboardAfterCreate.body.dashboard.totalOwedToYouCents).toBe(500);
+    expect(updated.body.bill.payer.id).toBe(second.user.id);
+    expect(dashboardAfterUpdate.body.dashboard.totalYouOweCents).toBe(500);
+    expect(deleted.status).toBe(204);
+    expect(dashboardAfterDelete.body.dashboard.balances[0].balanceCents).toBe(0);
+  });
+
+  it("shows group-only contacts, snapshots shares, and protects retargeting", async () => {
+    const owner = await register("owner@example.com");
+    const member = await register("member@example.com");
+    const outsider = await register("outsider@example.com");
+    const friendshipId = await becomeFriends(member, outsider);
+    const group = await request(app)
+      .post("/groups")
+      .set(bearer(owner.token))
+      .send({ name: "Weekend" });
+    const invitation = await request(app)
+      .post(`/groups/${group.body.group.id as string}/invitations`)
+      .set(bearer(owner.token))
+      .send({ email: member.user.email });
+    await request(app)
+      .patch(`/group-invitations/${invitation.body.invitation.id as string}`)
+      .set(bearer(member.token))
+      .send({ decision: "accept" });
+    const bill = await request(app).post("/bills").set(bearer(owner.token)).send({
+      description: "Cabin",
+      incurredAt: "2026-05-25",
+      totalCents: 2000,
+      targetType: "group",
+      targetId: group.body.group.id,
+      payerId: member.user.id,
+    });
+    const ownerDashboard = await request(app).get("/dashboard").set(bearer(owner.token));
+    const retargetedByMember = await request(app)
+      .patch(`/bills/${bill.body.bill.id as string}`)
+      .set(bearer(member.token))
+      .send({
+        description: "Moved Cabin",
+        incurredAt: "2026-05-25",
+        totalCents: 2000,
+        targetType: "friendship",
+        targetId: friendshipId,
+        payerId: member.user.id,
+      });
+    const activity = await request(app).get("/activity").set(bearer(owner.token));
+
+    expect(bill.status).toBe(201);
+    expect(bill.body.bill.shares).toHaveLength(2);
+    expect(ownerDashboard.body.dashboard.balances[0]).toMatchObject({
+      relationship: "group",
+      balanceCents: -1000,
+    });
+    expect(retargetedByMember.status).toBe(403);
+    expect(activity.body.activity.some((event: { type: string }) => event.type === "BILL_CREATED"))
+      .toBe(true);
   });
 });

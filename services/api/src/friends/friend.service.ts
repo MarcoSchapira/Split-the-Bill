@@ -1,4 +1,4 @@
-import { prisma } from "../db/prisma";
+import type { PrismaTransaction } from "../db/userContext";
 import { safeUserSelect } from "../auth/auth.types";
 import { pairwiseSummaryForBill, type PairwiseSummary } from "../bills/bill-pairwise";
 import { billInclude, listBills, withPermissions } from "../bills/bill.service";
@@ -16,8 +16,8 @@ const friendshipInclude = {
   userB: { select: safeUserSelect },
 } as const;
 
-export async function listFriends(userId: string) {
-  const friendships = await prisma.friendship.findMany({
+export async function listFriends(tx: PrismaTransaction, userId: string) {
+  const friendships = await tx.friendship.findMany({
     where: { OR: [{ userAId: userId }, { userBId: userId }] },
     orderBy: { createdAt: "desc" },
     include: friendshipInclude,
@@ -30,8 +30,8 @@ export async function listFriends(userId: string) {
   }));
 }
 
-export async function getFriend(userId: string, friendshipId: string) {
-  const friendship = await prisma.friendship.findFirst({
+export async function getFriend(tx: PrismaTransaction, userId: string, friendshipId: string) {
+  const friendship = await tx.friendship.findFirst({
     where: {
       id: friendshipId,
       OR: [{ userAId: userId }, { userBId: userId }],
@@ -45,9 +45,9 @@ export async function getFriend(userId: string, friendshipId: string) {
 
   const friendUserId =
     friendship.userAId === userId ? friendship.userBId : friendship.userAId;
-  const bills = await listBills(userId, { targetType: "friendship", targetId: friendshipId });
+  const bills = await listBills(tx, userId, { targetType: "friendship", targetId: friendshipId });
 
-  const sharedMemberships = await prisma.groupMember.findMany({
+  const sharedMemberships = await tx.groupMember.findMany({
     where: {
       userId,
       group: { members: { some: { userId: friendUserId } } },
@@ -74,7 +74,7 @@ export async function getFriend(userId: string, friendshipId: string) {
   }
 
   if (sharedGroupIds.length > 0) {
-    const groupBills = await prisma.bill.findMany({
+    const groupBills = await tx.bill.findMany({
       where: {
         deletedAt: null,
         groupId: { in: sharedGroupIds },

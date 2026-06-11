@@ -1,4 +1,4 @@
-import { prisma } from "../db/prisma";
+import type { PrismaTransaction } from "../db/userContext";
 import { ApiError } from "../http/errors";
 
 type MembershipAuthorization = {
@@ -6,10 +6,11 @@ type MembershipAuthorization = {
 };
 
 export async function requireGroupMember(
+  tx: PrismaTransaction,
   userId: string,
   groupId: string,
 ): Promise<MembershipAuthorization> {
-  const group = await prisma.group.findUnique({
+  const group = await tx.group.findUnique({
     where: { id: groupId },
     select: {
       members: {

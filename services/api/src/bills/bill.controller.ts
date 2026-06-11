@@ -1,28 +1,37 @@
 import type { RequestHandler } from "express";
 import { currentUser } from "../auth/currentUser";
+import { withUserContext } from "../db/userContext";
 import { billIdSchema, billInputSchema, billListQuerySchema } from "./bill.types";
 import { createBill, deleteBill, listBills, updateBill } from "./bill.service";
 
 export const create: RequestHandler = async (req, res) => {
-  const bill = await createBill(currentUser(req).id, billInputSchema.parse(req.body));
+  const userId = currentUser(req).id;
+  const bill = await withUserContext(userId, (tx) =>
+    createBill(tx, userId, billInputSchema.parse(req.body)),
+  );
   res.status(201).json({ bill });
 };
 
 export const list: RequestHandler = async (req, res) => {
-  const bills = await listBills(currentUser(req).id, billListQuerySchema.parse(req.query));
+  const userId = currentUser(req).id;
+  const bills = await withUserContext(userId, (tx) =>
+    listBills(tx, userId, billListQuerySchema.parse(req.query)),
+  );
   res.json({ bills });
 };
 
 export const update: RequestHandler = async (req, res) => {
-  const bill = await updateBill(
-    currentUser(req).id,
-    billIdSchema.parse(req.params.billId),
-    billInputSchema.parse(req.body),
+  const userId = currentUser(req).id;
+  const bill = await withUserContext(userId, (tx) =>
+    updateBill(tx, userId, billIdSchema.parse(req.params.billId), billInputSchema.parse(req.body)),
   );
   res.json({ bill });
 };
 
 export const remove: RequestHandler = async (req, res) => {
-  await deleteBill(currentUser(req).id, billIdSchema.parse(req.params.billId));
+  const userId = currentUser(req).id;
+  await withUserContext(userId, (tx) =>
+    deleteBill(tx, userId, billIdSchema.parse(req.params.billId)),
+  );
   res.status(204).send();
 };

@@ -1,32 +1,57 @@
 import axios from 'axios'
-import { clearAuth, getToken } from '../auth/authStorage'
+import { clearAuth, getCsrfToken } from '../auth/authStorage'
 
 export const AUTH_UNAUTHORIZED_EVENT = 'equisplit:unauthorized'
 
+function resolveBaseUrl(): string {
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL
+  }
+
+  return import.meta.env.DEV ? '/api' : 'http://localhost:3000'
+}
+
 export const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:3000',
+  baseURL: resolveBaseUrl(),
+  withCredentials: true,
 })
 
 apiClient.interceptors.request.use((config) => {
-  const token = getToken()
-
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
+  const method = config.method?.toUpperCase()
+  if (method && ['POST', 'PATCH', 'PUT', 'DELETE'].includes(method)) {
+    const csrfToken = getCsrfToken()
+    if (csrfToken) {
+      config.headers['X-CSRF-Token'] = csrfToken
+    }
   }
 
   return config
 })
 
+let logoutInFlight = false
+
 apiClient.interceptors.response.use(
   (response) => response,
-  (error: unknown) => {
+  async (error: unknown) => {
     if (
       axios.isAxiosError(error) &&
       error.response?.status === 401 &&
-      getToken()
+      !error.config?.url?.includes('/auth/login') &&
+      !error.config?.url?.includes('/auth/register') &&
+      !logoutInFlight
     ) {
-      clearAuth()
-      window.dispatchEvent(new Event(AUTH_UNAUTHORIZED_EVENT))
+      logoutInFlight = true
+      try {
+        await apiClient.post('/auth/logout', undefined, {
+          headers: { 'X-CSRF-Token': getCsrfToken() ?? '' },
+        })
+      } catch {
+        clearAuth()
+      } finally {
+        logoutInFlight = false
+        clearAuth()
+        window.dispatchEvent(new Event(AUTH_UNAUTHORIZED_EVENT))
+      }
     }
 
     return Promise.reject(error)
@@ -45,6 +70,9 @@ export function apiErrorMessage(
     return 'Unable to connect to the server.'
   }
 
-  const data = error.response.data as { error?: { message?: string } }
+  const data = error.response.data as { error?: { message?: string; code?: string } }
+  if (data.error?.code === 'USER_NOT_FOUND') {
+    return 'Invitation sent.'
+  }
   return data.error?.message ?? fallback
 }

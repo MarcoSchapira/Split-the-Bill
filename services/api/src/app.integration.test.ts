@@ -1,7 +1,7 @@
 import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import app from "./app";
-import { prisma } from "./db/prisma";
+import { disconnectPrisma, prismaAdmin } from "./db/prisma";
 
 type RegisteredAccount = {
   token: string;
@@ -23,6 +23,13 @@ async function register(email: string, name?: string): Promise<RegisteredAccount
     .send({ email, password: "secure-password", ...(name ? { name } : {}) });
 
   expect(response.status).toBe(201);
+
+  if (!response.body.token) {
+    throw new Error(
+      "Bearer integration tests require ALLOW_AUTH_TOKEN_RESPONSE=true in .env.test.",
+    );
+  }
+
   return response.body as RegisteredAccount;
 }
 
@@ -39,20 +46,21 @@ beforeAll(() => {
 });
 
 beforeEach(async () => {
-  await prisma.activityRecipient.deleteMany();
-  await prisma.activityEvent.deleteMany();
-  await prisma.billShare.deleteMany();
-  await prisma.bill.deleteMany();
-  await prisma.groupInvitation.deleteMany();
-  await prisma.friendInvitation.deleteMany();
-  await prisma.friendship.deleteMany();
-  await prisma.groupMember.deleteMany();
-  await prisma.group.deleteMany();
-  await prisma.user.deleteMany();
+  await prismaAdmin.activityRecipient.deleteMany();
+  await prismaAdmin.activityEvent.deleteMany();
+  await prismaAdmin.billShare.deleteMany();
+  await prismaAdmin.bill.deleteMany();
+  await prismaAdmin.groupInvitation.deleteMany();
+  await prismaAdmin.friendInvitation.deleteMany();
+  await prismaAdmin.friendship.deleteMany();
+  await prismaAdmin.groupMember.deleteMany();
+  await prismaAdmin.group.deleteMany();
+  await prismaAdmin.session.deleteMany();
+  await prismaAdmin.user.deleteMany();
 });
 
 afterAll(async () => {
-  await prisma.$disconnect();
+  await disconnectPrisma();
 });
 
 describe("authentication API", () => {
@@ -72,7 +80,7 @@ describe("authentication API", () => {
     expect(response.body.user).not.toHaveProperty("passwordHash");
     expect(response.body.user).not.toHaveProperty("authProvider");
 
-    const user = await prisma.user.findUniqueOrThrow({
+    const user = await prismaAdmin.user.findUniqueOrThrow({
       where: { email: "owner@example.com" },
     });
     expect(user.passwordHash).not.toBe("secure-password");
@@ -119,7 +127,7 @@ describe("authentication API", () => {
   });
 
   it("rejects password login for a provider user without a password hash", async () => {
-    await prisma.user.create({
+    await prismaAdmin.user.create({
       data: {
         email: "google@example.com",
         name: "Google User",
@@ -150,6 +158,18 @@ describe("authentication API", () => {
     expect(success.body.user).not.toHaveProperty("passwordHash");
     expect(missing.status).toBe(401);
     expect(invalid.status).toBe(401);
+  });
+
+  it("revokes sessions after logout", async () => {
+    const account = await register("logout@example.com");
+    const authenticated = await request(app).get("/auth/me").set(bearer(account.token));
+
+    expect(authenticated.status).toBe(200);
+
+    await request(app).post("/auth/logout").set(bearer(account.token));
+
+    const afterLogout = await request(app).get("/auth/me").set(bearer(account.token));
+    expect(afterLogout.status).toBe(401);
   });
 });
 
@@ -238,7 +258,8 @@ describe("group authorization API", () => {
     expect(memberView.body.group.members).toHaveLength(2);
     expect(outsiderView.status).toBe(403);
     expect(acceptedMemberInvitation.status).toBe(201);
-    expect(missingUser.status).toBe(404);
+    expect(missingUser.status).toBe(201);
+    expect(missingUser.body.invitation.recipientEmail).toBe("missing@example.com");
     expect(duplicate.status).toBe(409);
   });
 });
@@ -275,6 +296,31 @@ describe("friend invitation API", () => {
     expect(prematureBill.status).toBe(403);
     expect(accepted.body.invitation.status).toBe("accepted");
     expect(friends.body.friends[0].friend.email).toBe(recipient.user.email);
+  });
+
+  it("stores pending email invites and delivers them after registration", async () => {
+    const sender = await register("inviter@example.com");
+
+    const invitation = await request(app)
+      .post("/friend-invitations")
+      .set(bearer(sender.token))
+      .send({ email: "future-friend@example.com" });
+
+    expect(invitation.status).toBe(201);
+    expect(invitation.body.invitation.recipientEmail).toBe("future-friend@example.com");
+    expect(invitation.body.invitation.recipient).toBeNull();
+
+    const recipient = await register("future-friend@example.com");
+    const received = await request(app).get("/invitations").set(bearer(recipient.token));
+    const accepted = await request(app)
+      .patch(`/friend-invitations/${invitation.body.invitation.id as string}`)
+      .set(bearer(recipient.token))
+      .send({ decision: "accept" });
+    const friends = await request(app).get("/friends").set(bearer(sender.token));
+
+    expect(received.body.receivedFriends).toHaveLength(1);
+    expect(accepted.body.invitation.status).toBe("accepted");
+    expect(friends.body.friends).toHaveLength(1);
   });
 });
 
@@ -491,6 +537,40 @@ describe("bill ledger and dashboard API", () => {
     expect(payerExcluded.status).toBe(201);
     expect(payerExcluded.body.bill.shares).toHaveLength(1);
     expect(payerExcludedDashboard.body.dashboard.totalYouOweCents).toBe(1000);
+  });
+
+  it("rejects a payer who is not a participant in the target", async () => {
+    const first = await register("payer-first@example.com");
+    const second = await register("payer-second@example.com");
+    const outsider = await register("payer-outsider@example.com");
+    const friendshipId = await becomeFriends(first, second);
+
+    const friendshipBill = await request(app).post("/bills").set(bearer(first.token)).send({
+      description: "Invalid payer",
+      incurredAt: "2026-05-25",
+      totalCents: 1000,
+      targetType: "friendship",
+      targetId: friendshipId,
+      payerId: outsider.user.id,
+    });
+
+    const group = await request(app)
+      .post("/groups")
+      .set(bearer(first.token))
+      .send({ name: "Payer validation group" });
+    const groupBill = await request(app).post("/bills").set(bearer(first.token)).send({
+      description: "Invalid group payer",
+      incurredAt: "2026-05-25",
+      totalCents: 1000,
+      targetType: "group",
+      targetId: group.body.group.id,
+      payerId: outsider.user.id,
+    });
+
+    expect(friendshipBill.status).toBe(400);
+    expect(friendshipBill.body.error.code).toBe("INVALID_PAYER");
+    expect(groupBill.status).toBe(400);
+    expect(groupBill.body.error.code).toBe("INVALID_PAYER");
   });
 });
 

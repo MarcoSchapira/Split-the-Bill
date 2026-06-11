@@ -73,8 +73,8 @@ export function AppLayout() {
     }
   }
 
-  function logout() {
-    auth.logout()
+  async function logout() {
+    await auth.logout()
     navigate('/login', { replace: true })
   }
 

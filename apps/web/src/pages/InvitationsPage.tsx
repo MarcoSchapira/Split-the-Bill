@@ -97,14 +97,14 @@ export function InvitationsPage() {
           <div className="sent-invitations">
             {invitations?.sentFriends.map((invite) => (
               <SentRow
-                description={`Friend request to ${displayName(invite.recipient)}`}
+                description={`Friend request to ${inviteRecipientLabel(invite)}`}
                 invite={invite}
                 key={invite.id}
               />
             ))}
             {invitations?.sentGroups.map((invite) => (
               <SentRow
-                description={`${displayName(invite.recipient)} to ${invite.group.name}`}
+                description={`${inviteRecipientLabel(invite)} to ${invite.group.name}`}
                 invite={invite}
                 key={invite.id}
               />
@@ -119,6 +119,14 @@ export function InvitationsPage() {
       </div>
     </section>
   )
+}
+
+function inviteRecipientLabel(invite: FriendInvitation | GroupInvitation): string {
+  if (invite.recipient) {
+    return displayName(invite.recipient)
+  }
+
+  return invite.recipientEmail ?? 'pending recipient'
 }
 
 function InvitationRow({

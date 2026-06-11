@@ -1,4 +1,4 @@
-import { prisma } from "../db/prisma";
+import type { PrismaTransaction } from "../db/userContext";
 import { safeUserSelect } from "../auth/auth.types";
 
 type BalanceContact = {
@@ -13,16 +13,16 @@ type BalanceContact = {
   balanceCents: number;
 };
 
-export async function getDashboard(userId: string) {
+export async function getDashboard(tx: PrismaTransaction, userId: string) {
   const [friendships, bills] = await Promise.all([
-    prisma.friendship.findMany({
+    tx.friendship.findMany({
       where: { OR: [{ userAId: userId }, { userBId: userId }] },
       include: {
         userA: { select: safeUserSelect },
         userB: { select: safeUserSelect },
       },
     }),
-    prisma.bill.findMany({
+    tx.bill.findMany({
       where: {
         deletedAt: null,
         shares: { some: { userId } },

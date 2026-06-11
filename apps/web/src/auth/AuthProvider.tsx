@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type PropsWithChildren } from 'react'
 import {
   getCurrentUser,
   loginUser,
+  logoutUser,
   registerUser,
   type LoginInput,
   type RegisterInput,
@@ -9,12 +10,11 @@ import {
 import { AUTH_UNAUTHORIZED_EVENT } from '../api/client'
 import type { User } from '../api/types'
 import { AuthContext } from './AuthContext'
-import { clearAuth, getToken, saveAuth } from './authStorage'
+import { clearAuth, getStoredUser, saveUser } from './authStorage'
 
 export function AuthProvider({ children }: PropsWithChildren) {
-  const [user, setUser] = useState<User | null>(null)
-  const [storedToken] = useState(() => getToken())
-  const [isLoading, setIsLoading] = useState(storedToken !== null)
+  const [user, setUser] = useState<User | null>(() => getStoredUser())
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     const clearSession = () => {
@@ -33,14 +33,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     let isActive = true
 
-    if (!storedToken) {
-      return
-    }
-
     void getCurrentUser()
       .then((currentUser) => {
         if (isActive) {
-          saveAuth(storedToken, currentUser)
+          saveUser(currentUser)
           setUser(currentUser)
         }
       })
@@ -59,7 +55,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return () => {
       isActive = false
     }
-  }, [storedToken])
+  }, [])
 
   const value = useMemo(
     () => ({
@@ -68,17 +64,21 @@ export function AuthProvider({ children }: PropsWithChildren) {
       isLoading,
       async login(input: LoginInput) {
         const auth = await loginUser(input)
-        saveAuth(auth.token, auth.user)
+        saveUser(auth.user)
         setUser(auth.user)
       },
       async register(input: RegisterInput) {
         const auth = await registerUser(input)
-        saveAuth(auth.token, auth.user)
+        saveUser(auth.user)
         setUser(auth.user)
       },
-      logout() {
-        clearAuth()
-        setUser(null)
+      async logout() {
+        try {
+          await logoutUser()
+        } finally {
+          clearAuth()
+          setUser(null)
+        }
       },
     }),
     [isLoading, user],

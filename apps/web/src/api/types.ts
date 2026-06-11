@@ -6,7 +6,6 @@ export type User = {
 };
 
 export type AuthResponse = {
-  token: string;
   user: User;
 };
 
@@ -109,8 +108,9 @@ export type FriendInvitation = {
   status: InvitationStatus;
   createdAt: string;
   respondedAt: string | null;
+  recipientEmail: string | null;
   sender: User;
-  recipient: User;
+  recipient: User | null;
 };
 
 export type GroupInvitation = FriendInvitation & {

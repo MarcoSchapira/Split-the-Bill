@@ -24,3 +24,11 @@ export async function getCurrentUser(): Promise<User> {
   const response = await apiClient.get<{ user: User }>('/auth/me')
   return response.data.user
 }
+
+export async function logoutUser(): Promise<void> {
+  await apiClient.post('/auth/logout')
+}
+
+export async function refreshSession(): Promise<void> {
+  await apiClient.post('/auth/refresh')
+}

@@ -1,5 +1,5 @@
 import type { Prisma } from "../generated/prisma/client";
-import { prisma } from "../db/prisma";
+import type { PrismaTransaction } from "../db/userContext";
 import { safeUserSelect } from "../auth/auth.types";
 
 type ActivityInput = {
@@ -37,8 +37,8 @@ export async function createActivity(
   });
 }
 
-export async function listActivity(userId: string) {
-  return prisma.activityEvent.findMany({
+export async function listActivity(tx: PrismaTransaction, userId: string) {
+  return tx.activityEvent.findMany({
     where: {
       recipients: {
         some: { userId },

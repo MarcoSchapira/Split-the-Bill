@@ -4,3 +4,6 @@ node_modules
 .env.test
 
 /src/generated/prisma
+
+# API keys (local secrets)
+api_keys/resend.txt

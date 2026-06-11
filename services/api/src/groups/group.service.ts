@@ -1,4 +1,4 @@
-import { prisma } from "../db/prisma";
+import type { PrismaTransaction } from "../db/userContext";
 import { safeUserSelect } from "../auth/auth.types";
 import { requireGroupMember } from "./group.authorization";
 import type { CreateGroupInput } from "./group.types";
@@ -12,8 +12,8 @@ const memberWithUser = {
   },
 } as const;
 
-export async function createGroup(userId: string, input: CreateGroupInput) {
-  const group = await prisma.group.create({
+export async function createGroup(tx: PrismaTransaction, userId: string, input: CreateGroupInput) {
+  const group = await tx.group.create({
     data: {
       name: input.name,
       members: {
@@ -36,8 +36,8 @@ export async function createGroup(userId: string, input: CreateGroupInput) {
   };
 }
 
-export async function listGroups(userId: string) {
-  const memberships = await prisma.groupMember.findMany({
+export async function listGroups(tx: PrismaTransaction, userId: string) {
+  const memberships = await tx.groupMember.findMany({
     where: { userId },
     orderBy: { joinedAt: "desc" },
     select: {
@@ -58,9 +58,9 @@ export async function listGroups(userId: string) {
   }));
 }
 
-export async function getGroup(userId: string, groupId: string) {
-  const membership = await requireGroupMember(userId, groupId);
-  const group = await prisma.group.findUniqueOrThrow({
+export async function getGroup(tx: PrismaTransaction, userId: string, groupId: string) {
+  const membership = await requireGroupMember(tx, userId, groupId);
+  const group = await tx.group.findUniqueOrThrow({
     where: { id: groupId },
     select: {
       id: true,

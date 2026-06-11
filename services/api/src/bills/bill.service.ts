@@ -1,4 +1,4 @@
-import { prisma } from "../db/prisma";
+import type { PrismaTransaction } from "../db/userContext";
 import { safeUserSelect } from "../auth/auth.types";
 import { ApiError } from "../http/errors";
 import { requireGroupMember } from "../groups/group.authorization";
@@ -43,12 +43,13 @@ export function withPermissions<T extends { creatorId: string }>(bill: T, userId
 }
 
 async function resolveTargetParticipants(
+  tx: PrismaTransaction,
   actingUserId: string,
   targetType: "friendship" | "group",
   targetId: string,
 ): Promise<TargetParticipants> {
   if (targetType === "friendship") {
-    const friendship = await prisma.friendship.findUnique({ where: { id: targetId } });
+    const friendship = await tx.friendship.findUnique({ where: { id: targetId } });
 
     if (
       !friendship ||
@@ -63,8 +64,8 @@ async function resolveTargetParticipants(
     };
   }
 
-  await requireGroupMember(actingUserId, targetId);
-  const members = await prisma.groupMember.findMany({
+  await requireGroupMember(tx, actingUserId, targetId);
+  const members = await tx.groupMember.findMany({
     where: { groupId: targetId },
     orderBy: { userId: "asc" },
     select: { userId: true },
@@ -76,8 +77,14 @@ async function resolveTargetParticipants(
   };
 }
 
-async function findVisibleBill(userId: string, billId: string) {
-  const bill = await prisma.bill.findFirst({
+function assertPayerIsParticipant(payerId: string, participantIds: string[]) {
+  if (!participantIds.includes(payerId)) {
+    throw new ApiError(400, "INVALID_PAYER", "Payer must be a participant in this bill's target");
+  }
+}
+
+async function findVisibleBill(tx: PrismaTransaction, userId: string, billId: string) {
+  const bill = await tx.bill.findFirst({
     where: {
       id: billId,
       deletedAt: null,
@@ -96,49 +103,52 @@ async function findVisibleBill(userId: string, billId: string) {
   return bill;
 }
 
-export async function createBill(actingUserId: string, input: BillInput) {
-  const target = await resolveTargetParticipants(actingUserId, input.targetType, input.targetId);
+export async function createBill(tx: PrismaTransaction, actingUserId: string, input: BillInput) {
+  const target = await resolveTargetParticipants(tx, actingUserId, input.targetType, input.targetId);
+  assertPayerIsParticipant(input.payerId, target.userIds);
   const shares = buildSharesFromInput(input.totalCents, target.userIds, input.shares);
   const recipientIds = shares.map((share) => share.userId);
 
-  return prisma.$transaction(async (tx) => {
-    const bill = await tx.bill.create({
-      data: {
-        description: input.description,
-        incurredAt: input.incurredAt,
-        totalCents: input.totalCents,
-        targetType: input.targetType,
-        payerId: input.payerId,
-        creatorId: actingUserId,
-        ...(target.friendshipId ? { friendshipId: target.friendshipId } : {}),
-        ...(target.groupId ? { groupId: target.groupId } : {}),
-        shares: { create: shares },
-      },
-      include: billInclude,
-    });
-    await createActivity(tx, {
-      actorId: actingUserId,
-      recipientIds,
-      billId: bill.id,
-      type: "BILL_CREATED",
-      message: `added the bill "${input.description}".`,
-    });
-    return withPermissions(bill, actingUserId);
+  const bill = await tx.bill.create({
+    data: {
+      description: input.description,
+      incurredAt: input.incurredAt,
+      totalCents: input.totalCents,
+      targetType: input.targetType,
+      payerId: input.payerId,
+      creatorId: actingUserId,
+      ...(target.friendshipId ? { friendshipId: target.friendshipId } : {}),
+      ...(target.groupId ? { groupId: target.groupId } : {}),
+      shares: { create: shares },
+    },
+    include: billInclude,
   });
+  await createActivity(tx, {
+    actorId: actingUserId,
+    recipientIds,
+    billId: bill.id,
+    type: "BILL_CREATED",
+    message: `added the bill "${input.description}".`,
+  });
+  return withPermissions(bill, actingUserId);
 }
 
-export async function listBills(userId: string, query: BillListQuery = {}) {
+export async function listBills(
+  tx: PrismaTransaction,
+  userId: string,
+  query: BillListQuery = {},
+) {
   let whereTarget = {};
 
   if (query.targetType && query.targetId) {
-    await resolveTargetParticipants(userId, query.targetType, query.targetId);
+    await resolveTargetParticipants(tx, userId, query.targetType, query.targetId);
     whereTarget =
       query.targetType === "friendship"
         ? { friendshipId: query.targetId }
         : { groupId: query.targetId };
   }
 
-  const bills = await prisma.bill.findMany({
+  const bills = await tx.bill.findMany({
     where: {
       deletedAt: null,
       ...whereTarget,
@@ -154,8 +164,13 @@ export async function listBills(userId: string, query: BillListQuery = {}) {
   return bills.map((bill) => withPermissions(bill, userId));
 }
 
-export async function updateBill(actingUserId: string, billId: string, input: BillInput) {
-  const bill = await findVisibleBill(actingUserId, billId);
+export async function updateBill(
+  tx: PrismaTransaction,
+  actingUserId: string,
+  billId: string,
+  input: BillInput,
+) {
+  const bill = await findVisibleBill(tx, actingUserId, billId);
   const currentTargetId = bill.targetType === "friendship" ? bill.friendshipId : bill.groupId;
   const targetChanged =
     input.targetType !== bill.targetType || input.targetId !== currentTargetId;
@@ -165,10 +180,12 @@ export async function updateBill(actingUserId: string, billId: string, input: Bi
   }
 
   const resolvedTarget = await resolveTargetParticipants(
+    tx,
     actingUserId,
     input.targetType,
     input.targetId,
   );
+  assertPayerIsParticipant(input.payerId, resolvedTarget.userIds);
   const shares = buildSharesFromInput(
     input.totalCents,
     resolvedTarget.userIds,
@@ -178,44 +195,40 @@ export async function updateBill(actingUserId: string, billId: string, input: Bi
     ...new Set([...bill.shares.map((share) => share.user.id), ...shares.map((share) => share.userId)]),
   ];
 
-  return prisma.$transaction(async (tx) => {
-    await tx.billShare.deleteMany({ where: { billId } });
-    const updated = await tx.bill.update({
-      where: { id: billId },
-      data: {
-        description: input.description,
-        incurredAt: input.incurredAt,
-        totalCents: input.totalCents,
-        targetType: input.targetType,
-        payerId: input.payerId,
-        friendshipId: resolvedTarget.friendshipId ?? null,
-        groupId: resolvedTarget.groupId ?? null,
-        shares: { create: shares },
-      },
-      include: billInclude,
-    });
-    await createActivity(tx, {
-      actorId: actingUserId,
-      recipientIds,
-      billId,
-      type: "BILL_UPDATED",
-      message: `updated the bill "${input.description}".`,
-    });
-    return withPermissions(updated, actingUserId);
+  await tx.billShare.deleteMany({ where: { billId } });
+  const updated = await tx.bill.update({
+    where: { id: billId },
+    data: {
+      description: input.description,
+      incurredAt: input.incurredAt,
+      totalCents: input.totalCents,
+      targetType: input.targetType,
+      payerId: input.payerId,
+      friendshipId: resolvedTarget.friendshipId ?? null,
+      groupId: resolvedTarget.groupId ?? null,
+      shares: { create: shares },
+    },
+    include: billInclude,
   });
+  await createActivity(tx, {
+    actorId: actingUserId,
+    recipientIds,
+    billId,
+    type: "BILL_UPDATED",
+    message: `updated the bill "${input.description}".`,
+  });
+  return withPermissions(updated, actingUserId);
 }
 
-export async function deleteBill(actingUserId: string, billId: string) {
-  const bill = await findVisibleBill(actingUserId, billId);
+export async function deleteBill(tx: PrismaTransaction, actingUserId: string, billId: string) {
+  const bill = await findVisibleBill(tx, actingUserId, billId);
 
-  await prisma.$transaction(async (tx) => {
-    await tx.bill.update({ where: { id: billId }, data: { deletedAt: new Date() } });
-    await createActivity(tx, {
-      actorId: actingUserId,
-      recipientIds: bill.shares.map((share) => share.user.id),
-      billId,
-      type: "BILL_DELETED",
-      message: `deleted the bill "${bill.description}".`,
-    });
+  await tx.bill.update({ where: { id: billId }, data: { deletedAt: new Date() } });
+  await createActivity(tx, {
+    actorId: actingUserId,
+    recipientIds: bill.shares.map((share) => share.user.id),
+    billId,
+    type: "BILL_DELETED",
+    message: `deleted the bill "${bill.description}".`,
   });
 }

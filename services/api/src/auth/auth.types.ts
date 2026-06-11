@@ -26,9 +26,20 @@ export type AuthenticatedUser = {
 };
 
 export type AuthResponse = {
-  token: string;
   user: AuthenticatedUser;
+  session: {
+    accessToken: string;
+    refreshToken: string;
+  };
 };
+
+export type AuthResponseWithToken = AuthResponse & {
+  token: string;
+};
+
+export function allowAuthTokenResponse(): boolean {
+  return process.env.ALLOW_AUTH_TOKEN_RESPONSE === "true";
+}
 
 export const safeUserSelect = {
   id: true,

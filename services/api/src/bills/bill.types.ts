@@ -7,6 +7,11 @@ const incurredAtSchema = z
 
 export const billIdSchema = z.string().uuid();
 
+export const billShareInputSchema = z.object({
+  userId: z.string().uuid(),
+  shareCents: z.number().int().nonnegative(),
+});
+
 export const billInputSchema = z
   .object({
     description: z.string().trim().min(1).max(120),
@@ -15,6 +20,7 @@ export const billInputSchema = z
     targetType: z.enum(["friendship", "group"]),
     targetId: z.string().uuid(),
     payerId: z.string().uuid(),
+    shares: z.array(billShareInputSchema).min(1).optional(),
   })
   .strict();
 

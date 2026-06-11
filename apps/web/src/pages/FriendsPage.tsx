@@ -53,17 +53,27 @@ export function FriendsPage() {
           <div className="group-list">
             {friends.map((friendship) => {
               const balance = balances.find((item) => item.friendshipId === friendship.id)
+              const balanceCents = balance?.balanceCents ?? 0
+              const balanceClass =
+                balanceCents > 0
+                  ? 'positive'
+                  : balanceCents < 0
+                    ? 'negative'
+                    : 'settled'
+              const balanceLabel =
+                balanceCents > 0
+                  ? formatCad(balanceCents)
+                  : balanceCents < 0
+                    ? formatCad(-balanceCents)
+                    : 'Settled'
+
               return (
                 <Link className="group-row" key={friendship.id} to={`/friends/${friendship.id}`}>
                   <div>
                     <strong>{displayName(friendship.friend)}</strong>
                     <span>{friendship.friend.email}</span>
                   </div>
-                  <small className="balance-chip">
-                    {balance?.balanceCents
-                      ? formatCad(Math.abs(balance.balanceCents))
-                      : 'Settled'}
-                  </small>
+                  <small className={`balance-chip ${balanceClass}`}>{balanceLabel}</small>
                 </Link>
               )
             })}

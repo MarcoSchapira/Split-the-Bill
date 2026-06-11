@@ -51,6 +51,10 @@ export function FriendDetailPage() {
     return <p className="form-error">Friend not found.</p>
   }
 
+  const friendName = friendship ? displayName(friendship.friend) : 'this friend'
+  const sharedGroups = friendship?.sharedGroups ?? []
+  const sharedGroupBillCount = sharedGroups.reduce((sum, group) => sum + group.bills.length, 0)
+
   return (
     <section className="page">
       <Link className="back-link" to="/friends">
@@ -81,6 +85,40 @@ export function FriendDetailPage() {
               onChanged={() => void load()}
             />
           </section>
+          {sharedGroups.length > 0 ? (
+            <section className="friend-shared-groups">
+              <header className="friend-shared-groups-header">
+                <p className="eyebrow">Shared groups</p>
+                <h2>Group bills with {friendName}</h2>
+                <p>Only group bills where you and {friendName} owe each other directly.</p>
+              </header>
+              <div className="friend-shared-groups-list">
+                {sharedGroups.map((group) => (
+                  <section className="panel friend-group-panel" key={group.id}>
+                    <div className="panel-title">
+                      <h2>
+                        <Link to={`/groups/${group.id}`}>{group.name}</Link>
+                      </h2>
+                      <span className="count-pill">{group.bills.length}</span>
+                    </div>
+                    <BillList
+                      bills={group.bills}
+                      emptyMessage={`No direct balances from group bills with ${friendName}.`}
+                      friend={friendship.friend}
+                      friends={friends}
+                      groups={groups}
+                      onChanged={() => void load()}
+                    />
+                  </section>
+                ))}
+              </div>
+              <p className="friend-shared-groups-meta">
+                {sharedGroupBillCount} bill{sharedGroupBillCount === 1 ? '' : 's'} across{' '}
+                {sharedGroups.length} shared group
+                {sharedGroups.length === 1 ? '' : 's'}
+              </p>
+            </section>
+          ) : null}
           {showBillForm ? (
             <Modal onClose={() => setShowBillForm(false)} title={`Add bill with ${displayName(friendship.friend)}`}>
               <BillForm

@@ -3,15 +3,16 @@ import type { PropsWithChildren } from 'react'
 type ModalProps = PropsWithChildren<{
   title: string;
   onClose: () => void;
+  size?: 'default' | 'wide';
 }>
 
-export function Modal({ children, onClose, title }: ModalProps) {
+export function Modal({ children, onClose, size = 'default', title }: ModalProps) {
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
       <section
         aria-label={title}
         aria-modal="true"
-        className="modal-card"
+        className={size === 'wide' ? 'modal-card modal-card--wide' : 'modal-card'}
         role="dialog"
         onMouseDown={(event) => event.stopPropagation()}
       >

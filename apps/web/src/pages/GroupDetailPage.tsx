@@ -143,7 +143,11 @@ export function GroupDetailPage() {
             </div>
           </div>
           {showBillForm ? (
-            <Modal onClose={() => setShowBillForm(false)} title={`Add bill to ${group.name}`}>
+            <Modal
+              onClose={() => setShowBillForm(false)}
+              size="wide"
+              title={`Add bill to ${group.name}`}
+            >
               <BillForm
                 fixedTarget={{ targetType: 'group', targetId: group.id }}
                 friends={friends}

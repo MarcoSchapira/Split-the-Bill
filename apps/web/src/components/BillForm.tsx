@@ -4,8 +4,18 @@ import { apiErrorMessage } from '../api/client'
 import { getGroup } from '../api/groupsApi'
 import type { Bill, FriendshipSummary, GroupSummary, User } from '../api/types'
 import { useAuth } from '../auth/useAuth'
+import {
+  buildSharesFromMemberState,
+  initializeMemberState,
+  syncEqualMemberAmounts,
+  type CustomSplitMode,
+  type MemberSplitState,
+  type SplitKind,
+} from '../utils/billSplit'
 import { notifyDataChanged } from '../utils/events'
 import { displayName } from '../utils/format'
+import { BillSplitMemberList } from './BillSplitMemberList'
+import { SplitControls } from './SplitControls'
 
 type Target = {
   targetType: 'friendship' | 'group';
@@ -17,6 +27,7 @@ type BillFormProps = {
   friends: FriendshipSummary[];
   groups: GroupSummary[];
   fixedTarget?: Target;
+  onTargetChange?: (target: Target | null) => void;
   onCancel: () => void;
   onSaved: (bill: Bill) => void;
 }
@@ -38,6 +49,7 @@ export function BillForm({
   fixedTarget,
   friends,
   groups,
+  onTargetChange,
   onCancel,
   onSaved,
 }: BillFormProps) {
@@ -67,6 +79,8 @@ export function BillForm({
       : choices[0]
         ? { targetType: choices[0].kind, targetId: choices[0].id }
         : null)
+  const initialPayerId = bill?.payer.id ?? auth.user?.id ?? ''
+
   const [selectedTarget, setSelectedTarget] = useState(
     initialTarget ? targetValue(initialTarget) : '',
   )
@@ -77,8 +91,11 @@ export function BillForm({
   const [amount, setAmount] = useState(
     bill ? (bill.totalCents / 100).toFixed(2) : '',
   )
-  const [payerId, setPayerId] = useState(bill?.payer.id ?? auth.user?.id ?? '')
+  const [payerId, setPayerId] = useState(initialPayerId)
   const [loadedGroup, setLoadedGroup] = useState<{ id: string; users: User[] } | null>(null)
+  const [splitKind, setSplitKind] = useState<SplitKind>('equal')
+  const [customMode, setCustomMode] = useState<CustomSplitMode>('amount')
+  const [members, setMembers] = useState<MemberSplitState[]>([])
   const [error, setError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const activeTarget =
@@ -87,6 +104,7 @@ export function BillForm({
 
   useEffect(() => {
     if (!activeTarget || parseTarget(activeTarget).targetType !== 'group') {
+      setLoadedGroup(null)
       return
     }
 
@@ -113,6 +131,11 @@ export function BillForm({
   }, [activeTarget])
 
   const target = activeTarget ? parseTarget(activeTarget) : null
+
+  useEffect(() => {
+    onTargetChange?.(target)
+  }, [onTargetChange, target?.targetType, target?.targetId])
+
   const participants =
     target?.targetType === 'friendship' && auth.user
       ? [
@@ -124,21 +147,99 @@ export function BillForm({
       : target?.targetType === 'group' && loadedGroup?.id === target.targetId
         ? loadedGroup.users
         : []
+
   const selectedPayerId = participants.some((participant) => participant.id === payerId)
     ? payerId
     : (participants[0]?.id ?? '')
+
+  const totalCents = Math.round(Number(amount) * 100)
+  const isGroupTarget = target?.targetType === 'group'
+  const showMemberPanel = participants.length > 0
+
+  const participantKey = participants.map((participant) => participant.id).join(',')
+  const targetKey = target ? `${target.targetType}:${target.targetId}` : ''
+
+  useEffect(() => {
+    if (participants.length === 0) {
+      setMembers([])
+      return
+    }
+
+    const existingShares = bill
+      ? bill.shares.map((share) => ({
+          userId: share.user.id,
+          shareCents: share.shareCents,
+        }))
+      : undefined
+    const isSameBillContext =
+      bill &&
+      target &&
+      bill.targetType === target.targetType &&
+      (bill.friendshipId ?? bill.groupId) === target.targetId
+
+    const initialized = initializeMemberState(participants, {
+      existingShares: isSameBillContext ? existingShares : undefined,
+      totalCents: isSameBillContext ? bill.totalCents : totalCents > 0 ? totalCents : 0,
+    })
+
+    setSplitKind(initialized.splitKind)
+    setCustomMode(initialized.customMode)
+    setMembers(
+      initialized.splitKind === 'equal' && totalCents > 0
+        ? syncEqualMemberAmounts(initialized.members, totalCents)
+        : initialized.members,
+    )
+  }, [participantKey, targetKey, bill?.id])
+
+  useEffect(() => {
+    if (splitKind !== 'equal' || totalCents <= 0 || members.length === 0) {
+      return
+    }
+
+    setMembers((current) => syncEqualMemberAmounts(current, totalCents))
+  }, [amount, splitKind, participantKey])
+
+  function updateMember(userId: string, patch: Partial<MemberSplitState>) {
+    setMembers((current) =>
+      current.map((member) =>
+        member.user.id === userId ? { ...member, ...patch } : member,
+      ),
+    )
+  }
+
+  function toggleIncluded(userId: string) {
+    setMembers((current) => {
+      const next = current.map((member) =>
+        member.user.id === userId ? { ...member, included: !member.included } : member,
+      )
+      return splitKind === 'equal' && totalCents > 0
+        ? syncEqualMemberAmounts(next, totalCents)
+        : next
+    })
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError(null)
 
-    const totalCents = Math.round(Number(amount) * 100)
     if (!activeTarget || !Number.isInteger(totalCents) || totalCents <= 0) {
       setError('Enter a bill target and a positive amount.')
       return
     }
 
     const target = parseTarget(activeTarget)
+    const shareResult = buildSharesFromMemberState({
+      totalCents,
+      splitKind,
+      customMode,
+      members,
+    })
+
+    if (shareResult.error) {
+      setError(shareResult.error)
+      return
+    }
+
     const input = {
       description,
       incurredAt: date,
@@ -146,6 +247,7 @@ export function BillForm({
       targetType: target.targetType,
       targetId: target.targetId,
       payerId: selectedPayerId,
+      ...(shareResult.shares ? { shares: shareResult.shares } : {}),
     }
     setIsSaving(true)
 
@@ -165,9 +267,35 @@ export function BillForm({
   }
 
   const targetLocked = Boolean(fixedTarget && !bill) || Boolean(bill && !bill.canRetarget)
+  const readOnlyValues = splitKind === 'equal'
 
-  return (
-    <form className="stack-form bill-form" onSubmit={submit}>
+  const splitControls = (
+    <SplitControls
+      customMode={customMode}
+      splitKind={splitKind}
+      onCustomModeChange={setCustomMode}
+      onSplitKindChange={setSplitKind}
+    />
+  )
+
+  const memberPanel = showMemberPanel ? (
+    <section className="bill-split-panel">
+      <h3>Who shares this bill?</h3>
+      <BillSplitMemberList
+        customMode={customMode}
+        members={members}
+        payerId={selectedPayerId}
+        readOnlyValues={readOnlyValues}
+        splitKind={splitKind}
+        onAmountChange={(userId, value) => updateMember(userId, { amount: value })}
+        onPercentChange={(userId, value) => updateMember(userId, { percent: value })}
+        onToggleIncluded={toggleIncluded}
+      />
+    </section>
+  ) : null
+
+  const detailsColumn = (
+    <div className="bill-form-details">
       <label>
         Split with
         <select
@@ -219,8 +347,27 @@ export function BillForm({
           ))}
         </select>
       </label>
+      {!isGroupTarget ? splitControls : null}
+      {!isGroupTarget ? memberPanel : null}
+    </div>
+  )
+
+  return (
+    <form
+      className={`stack-form bill-form${isGroupTarget ? ' bill-form--group' : ''}`}
+      onSubmit={submit}
+    >
+      <div className={isGroupTarget ? 'bill-form-layout' : undefined}>
+        {detailsColumn}
+        {isGroupTarget ? (
+          <div className="bill-form-split-column">
+            {splitControls}
+            {memberPanel}
+          </div>
+        ) : null}
+      </div>
       {error ? <p className="form-error">{error}</p> : null}
-      <div className="dialog-actions">
+      <div className="dialog-actions bill-form-actions">
         <button className="quiet-button" onClick={onCancel} type="button">
           Cancel
         </button>

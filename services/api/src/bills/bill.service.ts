@@ -3,9 +3,10 @@ import { safeUserSelect } from "../auth/auth.types";
 import { ApiError } from "../http/errors";
 import { requireGroupMember } from "../groups/group.authorization";
 import { createActivity } from "../activity/activity.service";
+import { buildSharesFromInput } from "./bill-split";
 import type { BillInput, BillListQuery } from "./bill.types";
 
-const billInclude = {
+export const billInclude = {
   payer: { select: safeUserSelect },
   creator: { select: safeUserSelect },
   group: { select: { id: true, name: true } },
@@ -32,7 +33,7 @@ type TargetParticipants = {
   groupId?: string;
 };
 
-function withPermissions<T extends { creatorId: string }>(bill: T, userId: string) {
+export function withPermissions<T extends { creatorId: string }>(bill: T, userId: string) {
   return {
     ...bill,
     canEdit: true,
@@ -75,22 +76,6 @@ async function resolveTargetParticipants(
   };
 }
 
-function equalShares(totalCents: number, participantIds: string[], payerId: string) {
-  if (!participantIds.includes(payerId)) {
-    throw new ApiError(400, "INVALID_PAYER", "Payer must be a participant in the bill");
-  }
-
-  const uniqueParticipants = [...new Set(participantIds)].sort();
-  const ordered = [payerId, ...uniqueParticipants.filter((id) => id !== payerId)];
-  const baseShare = Math.floor(totalCents / ordered.length);
-  const remainder = totalCents % ordered.length;
-
-  return ordered.map((userId, index) => ({
-    userId,
-    shareCents: baseShare + (index < remainder ? 1 : 0),
-  }));
-}
-
 async function findVisibleBill(userId: string, billId: string) {
   const bill = await prisma.bill.findFirst({
     where: {
@@ -113,7 +98,8 @@ async function findVisibleBill(userId: string, billId: string) {
 
 export async function createBill(actingUserId: string, input: BillInput) {
   const target = await resolveTargetParticipants(actingUserId, input.targetType, input.targetId);
-  const shares = equalShares(input.totalCents, target.userIds, input.payerId);
+  const shares = buildSharesFromInput(input.totalCents, target.userIds, input.shares);
+  const recipientIds = shares.map((share) => share.userId);
 
   return prisma.$transaction(async (tx) => {
     const bill = await tx.bill.create({
@@ -132,7 +118,7 @@ export async function createBill(actingUserId: string, input: BillInput) {
     });
     await createActivity(tx, {
       actorId: actingUserId,
-      recipientIds: target.userIds,
+      recipientIds,
       billId: bill.id,
       type: "BILL_CREATED",
       message: `added the bill "${input.description}".`,
@@ -178,15 +164,19 @@ export async function updateBill(actingUserId: string, billId: string, input: Bi
     throw new ApiError(403, "BILL_RETARGET_FORBIDDEN", "Only the bill creator can change its target");
   }
 
-  const target = targetChanged
-    ? await resolveTargetParticipants(actingUserId, input.targetType, input.targetId)
-    : {
-        ...(bill.friendshipId ? { friendshipId: bill.friendshipId } : {}),
-        ...(bill.groupId ? { groupId: bill.groupId } : {}),
-        userIds: bill.shares.map((share) => share.user.id),
-      };
-  const shares = equalShares(input.totalCents, target.userIds, input.payerId);
-  const recipients = [...new Set([...bill.shares.map((share) => share.user.id), ...target.userIds])];
+  const resolvedTarget = await resolveTargetParticipants(
+    actingUserId,
+    input.targetType,
+    input.targetId,
+  );
+  const shares = buildSharesFromInput(
+    input.totalCents,
+    resolvedTarget.userIds,
+    input.shares,
+  );
+  const recipientIds = [
+    ...new Set([...bill.shares.map((share) => share.user.id), ...shares.map((share) => share.userId)]),
+  ];
 
   return prisma.$transaction(async (tx) => {
     await tx.billShare.deleteMany({ where: { billId } });
@@ -198,15 +188,15 @@ export async function updateBill(actingUserId: string, billId: string, input: Bi
         totalCents: input.totalCents,
         targetType: input.targetType,
         payerId: input.payerId,
-        friendshipId: target.friendshipId ?? null,
-        groupId: target.groupId ?? null,
+        friendshipId: resolvedTarget.friendshipId ?? null,
+        groupId: resolvedTarget.groupId ?? null,
         shares: { create: shares },
       },
       include: billInclude,
     });
     await createActivity(tx, {
       actorId: actingUserId,
-      recipientIds: recipients,
+      recipientIds,
       billId,
       type: "BILL_UPDATED",
       message: `updated the bill "${input.description}".`,

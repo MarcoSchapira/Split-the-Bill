@@ -34,8 +34,26 @@ export type FriendshipSummary = {
   friend: User;
 };
 
+export type PairwiseSummary = {
+  amountCents: number;
+  direction: 'friend_owes_you' | 'you_owe_friend';
+  yourShareCents: number;
+  friendShareCents: number;
+};
+
+export type FriendGroupBill = Bill & {
+  pairwise: PairwiseSummary;
+};
+
+export type SharedGroupBills = {
+  id: string;
+  name: string;
+  bills: FriendGroupBill[];
+};
+
 export type FriendshipDetail = FriendshipSummary & {
   bills: Bill[];
+  sharedGroups: SharedGroupBills[];
 };
 
 export type BillShare = {

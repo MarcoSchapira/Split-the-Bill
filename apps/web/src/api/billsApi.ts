@@ -1,6 +1,11 @@
 import { apiClient } from './client'
 import type { Bill } from './types'
 
+export type BillShareInput = {
+  userId: string;
+  shareCents: number;
+};
+
 export type BillInput = {
   description: string;
   incurredAt: string;
@@ -8,6 +13,7 @@ export type BillInput = {
   targetType: 'friendship' | 'group';
   targetId: string;
   payerId: string;
+  shares?: BillShareInput[];
 }
 
 export async function listBills(

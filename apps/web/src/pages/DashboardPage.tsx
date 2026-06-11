@@ -15,6 +15,9 @@ export function DashboardPage() {
   const [friends, setFriends] = useState<FriendshipSummary[]>([])
   const [groups, setGroups] = useState<GroupSummary[]>([])
   const [showBillForm, setShowBillForm] = useState(false)
+  const [billFormTargetType, setBillFormTargetType] = useState<'friendship' | 'group' | null>(
+    null,
+  )
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
@@ -119,10 +122,15 @@ export function DashboardPage() {
         </>
       ) : null}
       {showBillForm ? (
-        <Modal onClose={() => setShowBillForm(false)} title="Add a bill">
+        <Modal
+          onClose={() => setShowBillForm(false)}
+          size={billFormTargetType === 'group' ? 'wide' : 'default'}
+          title="Add a bill"
+        >
           <BillForm
             friends={friends}
             groups={groups}
+            onTargetChange={(nextTarget) => setBillFormTargetType(nextTarget?.targetType ?? null)}
             onCancel={() => setShowBillForm(false)}
             onSaved={() => {
               setShowBillForm(false)

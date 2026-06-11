@@ -388,4 +388,218 @@ describe("bill ledger and dashboard API", () => {
     expect(activity.body.activity.some((event: { type: string }) => event.type === "BILL_CREATED"))
       .toBe(true);
   });
+
+  it("accepts custom friendship shares and updates dashboard balances", async () => {
+    const payer = await register("payer@example.com");
+    const friend = await register("friend@example.com");
+    const friendshipId = await becomeFriends(payer, friend);
+
+    const created = await request(app).post("/bills").set(bearer(payer.token)).send({
+      description: "Custom dinner",
+      incurredAt: "2026-05-25",
+      totalCents: 10_000,
+      targetType: "friendship",
+      targetId: friendshipId,
+      payerId: payer.user.id,
+      shares: [
+        { userId: payer.user.id, shareCents: 7000 },
+        { userId: friend.user.id, shareCents: 3000 },
+      ],
+    });
+    const friendDashboard = await request(app).get("/dashboard").set(bearer(friend.token));
+
+    expect(created.status).toBe(201);
+    expect(
+      created.body.bill.shares
+        .map((share: { userId: string; shareCents: number }) => share.shareCents)
+        .sort(),
+    ).toEqual([3000, 7000]);
+    expect(friendDashboard.body.dashboard.totalYouOweCents).toBe(3000);
+  });
+
+  it("supports partial group membership in custom shares", async () => {
+    const owner = await register("owner-split@example.com");
+    const member = await register("member-split@example.com");
+    const excluded = await register("excluded-split@example.com");
+    const group = await request(app)
+      .post("/groups")
+      .set(bearer(owner.token))
+      .send({ name: "Trip" });
+
+    for (const account of [member, excluded]) {
+      const invitation = await request(app)
+        .post(`/groups/${group.body.group.id as string}/invitations`)
+        .set(bearer(owner.token))
+        .send({ email: account.user.email });
+      await request(app)
+        .patch(`/group-invitations/${invitation.body.invitation.id as string}`)
+        .set(bearer(account.token))
+        .send({ decision: "accept" });
+    }
+
+    const bill = await request(app).post("/bills").set(bearer(owner.token)).send({
+      description: "Partial dinner",
+      incurredAt: "2026-05-25",
+      totalCents: 3000,
+      targetType: "group",
+      targetId: group.body.group.id,
+      payerId: owner.user.id,
+      shares: [
+        { userId: owner.user.id, shareCents: 1500 },
+        { userId: member.user.id, shareCents: 1500 },
+      ],
+    });
+    const excludedDashboard = await request(app).get("/dashboard").set(bearer(excluded.token));
+
+    expect(bill.status).toBe(201);
+    expect(bill.body.bill.shares).toHaveLength(2);
+    expect(excludedDashboard.body.dashboard.balances).toHaveLength(0);
+  });
+
+  it("rejects invalid custom share payloads", async () => {
+    const first = await register("invalid-first@example.com");
+    const second = await register("invalid-second@example.com");
+    const friendshipId = await becomeFriends(first, second);
+
+    const mismatch = await request(app).post("/bills").set(bearer(first.token)).send({
+      description: "Mismatch",
+      incurredAt: "2026-05-25",
+      totalCents: 1000,
+      targetType: "friendship",
+      targetId: friendshipId,
+      payerId: first.user.id,
+      shares: [
+        { userId: first.user.id, shareCents: 400 },
+        { userId: second.user.id, shareCents: 400 },
+      ],
+    });
+    const payerExcluded = await request(app).post("/bills").set(bearer(first.token)).send({
+      description: "Payer excluded",
+      incurredAt: "2026-05-25",
+      totalCents: 1000,
+      targetType: "friendship",
+      targetId: friendshipId,
+      payerId: first.user.id,
+      shares: [{ userId: second.user.id, shareCents: 1000 }],
+    });
+    const payerExcludedDashboard = await request(app)
+      .get("/dashboard")
+      .set(bearer(second.token));
+
+    expect(mismatch.status).toBe(400);
+    expect(mismatch.body.error.code).toBe("INVALID_SHARE_TOTAL");
+    expect(payerExcluded.status).toBe(201);
+    expect(payerExcluded.body.bill.shares).toHaveLength(1);
+    expect(payerExcludedDashboard.body.dashboard.totalYouOweCents).toBe(1000);
+  });
+});
+
+describe("friend detail shared group bills", () => {
+  async function becomeFriends(first: RegisteredAccount, second: RegisteredAccount) {
+    const invitation = await request(app)
+      .post("/friend-invitations")
+      .set(bearer(first.token))
+      .send({ email: second.user.email });
+    await request(app)
+      .patch(`/friend-invitations/${invitation.body.invitation.id as string}`)
+      .set(bearer(second.token))
+      .send({ decision: "accept" });
+    const friends = await request(app).get("/friends").set(bearer(first.token));
+    return friends.body.friends[0].id as string;
+  }
+
+  async function addToGroup(
+    owner: RegisteredAccount,
+    member: RegisteredAccount,
+    groupId: string,
+  ) {
+    const invitation = await request(app)
+      .post(`/groups/${groupId}/invitations`)
+      .set(bearer(owner.token))
+      .send({ email: member.user.email });
+    await request(app)
+      .patch(`/group-invitations/${invitation.body.invitation.id as string}`)
+      .set(bearer(member.token))
+      .send({ decision: "accept" });
+  }
+
+  it("returns pairwise group bills on GET /friends/:id", async () => {
+    const you = await register("pairwise-you@example.com");
+    const friend = await register("pairwise-friend@example.com");
+    const third = await register("pairwise-third@example.com");
+    const friendshipId = await becomeFriends(you, friend);
+    const group = await request(app)
+      .post("/groups")
+      .set(bearer(you.token))
+      .send({ name: "Roommates" });
+
+    await addToGroup(you, friend, group.body.group.id as string);
+    await addToGroup(you, third, group.body.group.id as string);
+
+    await request(app).post("/bills").set(bearer(you.token)).send({
+      description: "Groceries",
+      incurredAt: "2026-05-25",
+      totalCents: 3000,
+      targetType: "group",
+      targetId: group.body.group.id,
+      payerId: you.user.id,
+      shares: [
+        { userId: you.user.id, shareCents: 1000 },
+        { userId: friend.user.id, shareCents: 1000 },
+        { userId: third.user.id, shareCents: 1000 },
+      ],
+    });
+    await request(app).post("/bills").set(bearer(you.token)).send({
+      description: "Hidden third-party payer",
+      incurredAt: "2026-05-25",
+      totalCents: 2000,
+      targetType: "group",
+      targetId: group.body.group.id,
+      payerId: third.user.id,
+      shares: [
+        { userId: you.user.id, shareCents: 1000 },
+        { userId: friend.user.id, shareCents: 1000 },
+      ],
+    });
+    await request(app).post("/bills").set(bearer(friend.token)).send({
+      description: "Coffee",
+      incurredAt: "2026-05-25",
+      totalCents: 800,
+      targetType: "group",
+      targetId: group.body.group.id,
+      payerId: friend.user.id,
+      shares: [
+        { userId: friend.user.id, shareCents: 400 },
+        { userId: you.user.id, shareCents: 400 },
+      ],
+    });
+
+    const detail = await request(app).get(`/friends/${friendshipId}`).set(bearer(you.token));
+
+    expect(detail.status).toBe(200);
+    expect(detail.body.friendship.sharedGroups).toHaveLength(1);
+    expect(detail.body.friendship.sharedGroups[0].name).toBe("Roommates");
+    expect(detail.body.friendship.sharedGroups[0].bills).toHaveLength(2);
+
+    const groceries = detail.body.friendship.sharedGroups[0].bills.find(
+      (bill: { description: string }) => bill.description === "Groceries",
+    );
+    const coffee = detail.body.friendship.sharedGroups[0].bills.find(
+      (bill: { description: string }) => bill.description === "Coffee",
+    );
+
+    expect(groceries.pairwise).toMatchObject({
+      direction: "friend_owes_you",
+      amountCents: 1000,
+    });
+    expect(coffee.pairwise).toMatchObject({
+      direction: "you_owe_friend",
+      amountCents: 400,
+    });
+    expect(
+      detail.body.friendship.sharedGroups[0].bills.some(
+        (bill: { description: string }) => bill.description === "Hidden third-party payer",
+      ),
+    ).toBe(false);
+  });
 });

@@ -1,4 +1,18 @@
+import type { Request } from "express";
 import { z } from "zod";
+
+export const MOBILE_CLIENT_HEADER = "x-equisplit-client";
+export const MOBILE_CLIENT_VALUE = "mobile";
+
+export function isMobileClient(req: Request): boolean {
+  return req.header(MOBILE_CLIENT_HEADER)?.toLowerCase() === MOBILE_CLIENT_VALUE;
+}
+
+export const mobileRefreshSchema = z
+  .object({
+    refreshToken: z.string().min(1),
+  })
+  .strict();
 
 export const registerSchema = z
   .object({
@@ -48,6 +62,17 @@ export type AuthResponseWithToken = AuthResponse & {
 export function allowAuthTokenResponse(): boolean {
   return process.env.ALLOW_AUTH_TOKEN_RESPONSE === "true";
 }
+
+export type MobileAuthJson = {
+  user: AuthenticatedUser;
+  accessToken: string;
+  refreshToken: string;
+};
+
+export type LegacyTokenAuthJson = {
+  user: AuthenticatedUser;
+  token: string;
+};
 
 export const safeUserSelect = {
   id: true,

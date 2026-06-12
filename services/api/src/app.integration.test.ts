@@ -7,6 +7,11 @@ import {
   registerTestUser,
   sendRegistrationCodeForTest,
 } from "./test/registerHelper";
+import { MOBILE_CLIENT_HEADER, MOBILE_CLIENT_VALUE } from "./auth/auth.types";
+
+function mobileClient() {
+  return { [MOBILE_CLIENT_HEADER]: MOBILE_CLIENT_VALUE };
+}
 
 type RegisteredAccount = {
   token: string;
@@ -242,6 +247,82 @@ describe("authentication API", () => {
 
     const afterLogout = await request(app).get("/auth/me").set(bearer(account.token));
     expect(afterLogout.status).toBe(401);
+  });
+
+  it("returns access and refresh tokens for mobile clients on register and login", async () => {
+    await sendRegistrationCodeForTest(app, "mobile@example.com");
+    const code = getRegistrationCodeForTest("mobile@example.com");
+
+    const registerResponse = await request(app)
+      .post("/auth/register")
+      .set(mobileClient())
+      .send({
+        email: "mobile@example.com",
+        name: "Mobile User",
+        password: "secure-password",
+        code,
+      });
+
+    expect(registerResponse.status).toBe(201);
+    expect(registerResponse.body.accessToken).toEqual(expect.any(String));
+    expect(registerResponse.body.refreshToken).toEqual(expect.any(String));
+    expect(registerResponse.body.user).toMatchObject({
+      email: "mobile@example.com",
+      name: "Mobile User",
+    });
+    expect(registerResponse.body.token).toBeUndefined();
+
+    const loginResponse = await request(app)
+      .post("/auth/login")
+      .set(mobileClient())
+      .send({ email: "mobile@example.com", password: "secure-password" });
+
+    expect(loginResponse.status).toBe(200);
+    expect(loginResponse.body.accessToken).toEqual(expect.any(String));
+    expect(loginResponse.body.refreshToken).toEqual(expect.any(String));
+  });
+
+  it("refreshes mobile sessions using a refresh token in the request body", async () => {
+    await sendRegistrationCodeForTest(app, "refresh-mobile@example.com");
+    const code = getRegistrationCodeForTest("refresh-mobile@example.com");
+
+    const registerResponse = await request(app)
+      .post("/auth/register")
+      .set(mobileClient())
+      .send({
+        email: "refresh-mobile@example.com",
+        password: "secure-password",
+        code,
+      });
+
+    const { accessToken, refreshToken } = registerResponse.body as {
+      accessToken: string;
+      refreshToken: string;
+    };
+
+    const meBeforeRefresh = await request(app)
+      .get("/auth/me")
+      .set(bearer(accessToken));
+    expect(meBeforeRefresh.status).toBe(200);
+
+    const refreshResponse = await request(app)
+      .post("/auth/refresh")
+      .set(mobileClient())
+      .send({ refreshToken });
+
+    expect(refreshResponse.status).toBe(200);
+    expect(refreshResponse.body.accessToken).toEqual(expect.any(String));
+    expect(refreshResponse.body.refreshToken).toEqual(expect.any(String));
+    expect(refreshResponse.body.accessToken).not.toBe(accessToken);
+    expect(refreshResponse.body.refreshToken).not.toBe(refreshToken);
+
+    const meAfterRefresh = await request(app)
+      .get("/auth/me")
+      .set(bearer(refreshResponse.body.accessToken));
+    expect(meAfterRefresh.status).toBe(200);
+
+    const oldTokenRejected = await request(app).get("/auth/me").set(bearer(accessToken));
+    expect(oldTokenRejected.status).toBe(401);
   });
 });
 

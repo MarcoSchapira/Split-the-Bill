@@ -9,7 +9,14 @@ import {
   REFRESH_COOKIE,
   ACCESS_COOKIE,
 } from "./cookies";
-import { allowAuthTokenResponse, loginSchema, registerSchema, sendRegistrationCodeSchema } from "./auth.types";
+import {
+  allowAuthTokenResponse,
+  isMobileClient,
+  loginSchema,
+  mobileRefreshSchema,
+  registerSchema,
+  sendRegistrationCodeSchema,
+} from "./auth.types";
 import { loginUser, registerUser, sendRegistrationVerificationCode } from "./auth.service";
 import { verifyJwt } from "./jwt";
 import { revokeSession, revokeSessionByRefreshToken, rotateSession } from "./session.service";
@@ -29,18 +36,52 @@ function attachAuthCookies(
   );
 }
 
-function buildAuthJson(auth: Awaited<ReturnType<typeof loginUser>>) {
-  const body: { user: typeof auth.user; token?: string } = { user: auth.user };
+function buildAuthJson(
+  auth: Awaited<ReturnType<typeof loginUser>>,
+  req: Parameters<RequestHandler>[0],
+) {
+  const body: {
+    user: typeof auth.user;
+    token?: string;
+    accessToken?: string;
+    refreshToken?: string;
+  } = { user: auth.user };
+
+  if (isMobileClient(req)) {
+    body.accessToken = auth.session.accessToken;
+    body.refreshToken = auth.session.refreshToken;
+    return body;
+  }
+
   if (allowAuthTokenResponse()) {
     body.token = auth.session.accessToken;
   }
+
   return body;
+}
+
+function resolveRefreshToken(
+  req: Parameters<RequestHandler>[0],
+): string | undefined {
+  const cookieToken = req.cookies?.[REFRESH_COOKIE] as string | undefined;
+  if (cookieToken) {
+    return cookieToken;
+  }
+
+  if (isMobileClient(req)) {
+    const parsed = mobileRefreshSchema.safeParse(req.body);
+    if (parsed.success) {
+      return parsed.data.refreshToken;
+    }
+  }
+
+  return undefined;
 }
 
 export const register: RequestHandler = async (req, res) => {
   const result = await registerUser(registerSchema.parse(req.body));
   attachAuthCookies(res, result);
-  res.status(201).json(buildAuthJson(result));
+  res.status(201).json(buildAuthJson(result, req));
 };
 
 export const sendRegistrationCode: RequestHandler = async (req, res) => {
@@ -52,11 +93,11 @@ export const sendRegistrationCode: RequestHandler = async (req, res) => {
 export const login: RequestHandler = async (req, res) => {
   const result = await loginUser(loginSchema.parse(req.body));
   attachAuthCookies(res, result);
-  res.json(buildAuthJson(result));
+  res.json(buildAuthJson(result, req));
 };
 
 export const refresh: RequestHandler = async (req, res) => {
-  const refreshToken = req.cookies?.[REFRESH_COOKIE] as string | undefined;
+  const refreshToken = resolveRefreshToken(req);
 
   if (!refreshToken) {
     clearAuthCookies(res);
@@ -76,6 +117,14 @@ export const refresh: RequestHandler = async (req, res) => {
     refreshTokenMaxAgeMs(),
     csrfToken,
   );
+
+  if (isMobileClient(req)) {
+    res.json({
+      accessToken: session.accessToken,
+      refreshToken: session.refreshToken,
+    });
+    return;
+  }
 
   if (allowAuthTokenResponse()) {
     res.json({ token: session.accessToken });
@@ -108,9 +157,9 @@ export const logout: RequestHandler = async (req, res) => {
         // Ignore invalid access tokens during logout.
       }
     } else {
-      const refreshToken = req.cookies?.[REFRESH_COOKIE] as string | undefined;
-      if (refreshToken) {
-        await revokeSessionByRefreshToken(refreshToken);
+      const cookieRefreshToken = req.cookies?.[REFRESH_COOKIE] as string | undefined;
+      if (cookieRefreshToken) {
+        await revokeSessionByRefreshToken(cookieRefreshToken);
       }
     }
   }

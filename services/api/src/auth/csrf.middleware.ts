@@ -2,7 +2,12 @@ import type { NextFunction, Request, Response } from "express";
 import { ApiError } from "../http/errors";
 import { ACCESS_COOKIE, CSRF_COOKIE, REFRESH_COOKIE } from "./cookies";
 
-const CSRF_EXEMPT_PATHS = new Set(["/auth/login", "/auth/register", "/health"]);
+const CSRF_EXEMPT_PATHS = new Set([
+  "/auth/login",
+  "/auth/register",
+  "/auth/register/send-code",
+  "/health",
+]);
 
 function hasBearerAuth(req: Request): boolean {
   return /^Bearer\s+.+/i.test(req.header("authorization") ?? "");

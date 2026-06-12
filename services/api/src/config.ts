@@ -36,6 +36,14 @@ export function assertProductionConfiguration(): void {
   if (process.env.COOKIE_SECURE === "false") {
     console.warn("WARNING: COOKIE_SECURE is false in production");
   }
+
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error("RESEND_API_KEY is required in production");
+  }
+
+  if (!process.env.EMAIL_FROM) {
+    throw new Error("EMAIL_FROM is required in production");
+  }
 }
 
 export function getWebOrigin(): string {

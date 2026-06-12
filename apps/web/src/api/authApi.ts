@@ -8,6 +8,11 @@ export type LoginInput = {
 
 export type RegisterInput = LoginInput & {
   name?: string;
+  code: string;
+}
+
+export async function sendRegistrationCode(email: string): Promise<void> {
+  await apiClient.post('/auth/register/send-code', { email })
 }
 
 export async function loginUser(input: LoginInput): Promise<AuthResponse> {

@@ -5,6 +5,13 @@ export const registerSchema = z
     email: z.string().trim().email().transform((email) => email.toLowerCase()),
     name: z.string().trim().min(1).max(100).optional(),
     password: z.string().min(8).max(100),
+    code: z.string().regex(/^\d{6}$/, "Verification code must be 6 digits"),
+  })
+  .strict();
+
+export const sendRegistrationCodeSchema = z
+  .object({
+    email: z.string().trim().email().transform((email) => email.toLowerCase()),
   })
   .strict();
 
@@ -16,6 +23,7 @@ export const loginSchema = z
   .strict();
 
 export type RegisterInput = z.infer<typeof registerSchema>;
+export type SendRegistrationCodeInput = z.infer<typeof sendRegistrationCodeSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 
 export type AuthenticatedUser = {

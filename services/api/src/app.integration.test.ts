@@ -2,6 +2,11 @@ import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import app from "./app";
 import { disconnectPrisma, prismaAdmin } from "./db/prisma";
+import {
+  getRegistrationCodeForTest,
+  registerTestUser,
+  sendRegistrationCodeForTest,
+} from "./test/registerHelper";
 
 type RegisteredAccount = {
   token: string;
@@ -18,9 +23,7 @@ function bearer(token: string) {
 }
 
 async function register(email: string, name?: string): Promise<RegisteredAccount> {
-  const response = await request(app)
-    .post("/auth/register")
-    .send({ email, password: "secure-password", ...(name ? { name } : {}) });
+  const response = await registerTestUser(app, email, { name });
 
   expect(response.status).toBe(201);
 
@@ -56,6 +59,7 @@ beforeEach(async () => {
   await prismaAdmin.groupMember.deleteMany();
   await prismaAdmin.group.deleteMany();
   await prismaAdmin.session.deleteMany();
+  await prismaAdmin.emailVerification.deleteMany();
   await prismaAdmin.user.deleteMany();
 });
 
@@ -65,10 +69,14 @@ afterAll(async () => {
 
 describe("authentication API", () => {
   it("registers a normalized local user and never returns the password hash", async () => {
+    await sendRegistrationCodeForTest(app, "  Owner@Example.com ");
+    const code = getRegistrationCodeForTest("owner@example.com");
+
     const response = await request(app).post("/auth/register").send({
       email: "  Owner@Example.com ",
       name: "Owner",
       password: "secure-password",
+      code,
     });
 
     expect(response.status).toBe(201);
@@ -85,23 +93,87 @@ describe("authentication API", () => {
     });
     expect(user.passwordHash).not.toBe("secure-password");
     expect(user.authProvider).toBe("local");
+    expect(user.emailVerifiedAt).not.toBeNull();
   });
 
   it("rejects invalid registration input and duplicate normalized emails", async () => {
     const invalid = await request(app)
       .post("/auth/register")
-      .send({ email: "bad-email", password: "short" });
+      .send({ email: "bad-email", password: "short", code: "123456" });
 
     expect(invalid.status).toBe(400);
     expect(invalid.body.error.code).toBe("VALIDATION_ERROR");
 
     await register("member@example.com");
     const duplicate = await request(app)
-      .post("/auth/register")
-      .send({ email: " MEMBER@example.com ", password: "secure-password" });
+      .post("/auth/register/send-code")
+      .send({ email: " MEMBER@example.com " });
 
     expect(duplicate.status).toBe(409);
     expect(duplicate.body.error.code).toBe("EMAIL_ALREADY_REGISTERED");
+  });
+
+  it("requires a valid verification code before creating an account", async () => {
+    await sendRegistrationCodeForTest(app, "verify@example.com");
+
+    const missingCode = await request(app).post("/auth/register").send({
+      email: "verify@example.com",
+      password: "secure-password",
+    });
+
+    expect(missingCode.status).toBe(400);
+    expect(missingCode.body.error.code).toBe("VALIDATION_ERROR");
+
+    const wrongCode = await request(app).post("/auth/register").send({
+      email: "verify@example.com",
+      password: "secure-password",
+      code: "000000",
+    });
+
+    expect(wrongCode.status).toBe(400);
+    expect(wrongCode.body.error.code).toBe("VERIFICATION_CODE_INVALID");
+  });
+
+  it("locks out verification after too many incorrect attempts", async () => {
+    await sendRegistrationCodeForTest(app, "attempts@example.com");
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const response = await request(app).post("/auth/register").send({
+        email: "attempts@example.com",
+        password: "secure-password",
+        code: "000000",
+      });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error.code).toBe("VERIFICATION_CODE_INVALID");
+    }
+
+    const locked = await request(app).post("/auth/register").send({
+      email: "attempts@example.com",
+      password: "secure-password",
+      code: "000000",
+    });
+
+    expect(locked.status).toBe(429);
+    expect(locked.body.error.code).toBe("VERIFICATION_ATTEMPTS_EXCEEDED");
+  });
+
+  it("rejects expired verification codes", async () => {
+    await sendRegistrationCodeForTest(app, "expired@example.com");
+
+    await prismaAdmin.emailVerification.updateMany({
+      where: { email: "expired@example.com" },
+      data: { expiresAt: new Date(Date.now() - 60_000) },
+    });
+
+    const response = await request(app).post("/auth/register").send({
+      email: "expired@example.com",
+      password: "secure-password",
+      code: getRegistrationCodeForTest("expired@example.com"),
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error.code).toBe("VERIFICATION_CODE_INVALID");
   });
 
   it("logs in valid users and gives a generic error for invalid local credentials", async () => {

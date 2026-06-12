@@ -1,6 +1,6 @@
-import type { Express } from "express";
 import type { Agent } from "supertest";
 import { ACCESS_COOKIE, CSRF_COOKIE, REFRESH_COOKIE } from "../auth/cookies";
+import { getRegistrationCodeForTest } from "./registerHelper";
 
 export function parseSetCookie(setCookie: string[] | string | undefined): Record<string, string> {
   const cookies: Record<string, string> = {};
@@ -37,8 +37,16 @@ export async function registerWithCookies(
   agent: Agent,
   email: string,
 ): Promise<{ user: { id: string; email: string }; cookies: Record<string, string> }> {
+  const sendCode = await agent.post("/auth/register/send-code").send({ email });
+  if (sendCode.status !== 204) {
+    throw new Error(`Failed to send registration code for ${email}`);
+  }
+
+  const code = getRegistrationCodeForTest(email);
+
   const response = await agent.post("/auth/register").send({
     email,
+    code,
     password: "secure-password",
   });
 

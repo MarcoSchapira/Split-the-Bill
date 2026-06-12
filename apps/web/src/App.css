@@ -447,6 +447,64 @@
   padding: 10px 12px;
 }
 
+.form-info {
+  background: var(--surface-muted);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 14px;
+  margin: 0;
+  padding: 10px 12px;
+}
+
+.register-steps {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.register-step {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.register-step.is-active {
+  color: var(--text-h);
+  font-weight: 600;
+}
+
+.register-step.is-complete {
+  color: var(--accent);
+}
+
+.verification-code-input {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  letter-spacing: 0.35em;
+  text-align: center;
+}
+
+.register-resend-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: -0.35rem;
+}
+
+.text-button {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.text-button:disabled {
+  color: var(--muted);
+  cursor: not-allowed;
+  text-decoration: none;
+}
+
 .auth-link {
   color: var(--text);
   font-size: 14px;

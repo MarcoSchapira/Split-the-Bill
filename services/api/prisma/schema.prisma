@@ -13,9 +13,10 @@ model User {
   name           String?
   passwordHash   String?  @map("password_hash")
   authProvider   String   @default("local") @map("auth_provider")
-  providerUserId String?  @map("provider_user_id")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  providerUserId String?   @map("provider_user_id")
+  emailVerifiedAt DateTime? @map("email_verified_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
 
   memberships               GroupMember[]
   sentFriendInvitations     FriendInvitation[]  @relation("FriendInvitationSender")
@@ -48,6 +49,18 @@ model Session {
   @@index([expiresAt])
   @@index([refreshTokenHash])
   @@map("sessions")
+}
+
+model EmailVerification {
+  id        String   @id @default(uuid())
+  email     String
+  codeHash  String   @map("code_hash")
+  attempts  Int      @default(0)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([email])
+  @@map("email_verifications")
 }
 
 model Group {

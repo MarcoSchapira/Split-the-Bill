@@ -46,6 +46,19 @@ const authRateLimit = rateLimit({
   },
 });
 
+const sendRegistrationCodeRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    error: {
+      code: "RATE_LIMITED",
+      message: "Too many verification code requests. Try again later.",
+    },
+  },
+});
+
 const invitationRateLimit = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 30,
@@ -57,6 +70,7 @@ const invitationRateLimit = rateLimit({
 });
 
 app.use("/auth/login", authRateLimit);
+app.use("/auth/register/send-code", sendRegistrationCodeRateLimit);
 app.use("/auth/register", authRateLimit);
 app.use("/auth/refresh", authRateLimit);
 app.use("/friend-invitations", invitationRateLimit);

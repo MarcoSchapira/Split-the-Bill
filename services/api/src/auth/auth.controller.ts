@@ -9,8 +9,8 @@ import {
   REFRESH_COOKIE,
   ACCESS_COOKIE,
 } from "./cookies";
-import { allowAuthTokenResponse, loginSchema, registerSchema } from "./auth.types";
-import { loginUser, registerUser } from "./auth.service";
+import { allowAuthTokenResponse, loginSchema, registerSchema, sendRegistrationCodeSchema } from "./auth.types";
+import { loginUser, registerUser, sendRegistrationVerificationCode } from "./auth.service";
 import { verifyJwt } from "./jwt";
 import { revokeSession, revokeSessionByRefreshToken, rotateSession } from "./session.service";
 
@@ -41,6 +41,12 @@ export const register: RequestHandler = async (req, res) => {
   const result = await registerUser(registerSchema.parse(req.body));
   attachAuthCookies(res, result);
   res.status(201).json(buildAuthJson(result));
+};
+
+export const sendRegistrationCode: RequestHandler = async (req, res) => {
+  const input = sendRegistrationCodeSchema.parse(req.body);
+  await sendRegistrationVerificationCode(input.email);
+  res.status(204).send();
 };
 
 export const login: RequestHandler = async (req, res) => {

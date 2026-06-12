@@ -1,6 +1,10 @@
 import { Prisma } from "../generated/prisma/client";
 import { prismaAdmin } from "../db/prisma";
 import { ApiError } from "../http/errors";
+import {
+  sendRegistrationVerificationCode,
+  verifyRegistrationCode,
+} from "./email-verification.service";
 import { claimPendingInvitations } from "../invitations/invitation-claim";
 import {
   safeUserSelect,
@@ -37,6 +41,8 @@ export async function registerUser(input: RegisterInput): Promise<AuthResponse> 
     throw new ApiError(409, "EMAIL_ALREADY_REGISTERED", "Email is already registered");
   }
 
+  await verifyRegistrationCode(input.email, input.code);
+
   const passwordHash = await hashPassword(input.password);
 
   try {
@@ -46,6 +52,7 @@ export async function registerUser(input: RegisterInput): Promise<AuthResponse> 
         name: input.name,
         passwordHash,
         authProvider: "local",
+        emailVerifiedAt: new Date(),
       },
       select: safeUserSelect,
     });
@@ -61,6 +68,8 @@ export async function registerUser(input: RegisterInput): Promise<AuthResponse> 
     throw error;
   }
 }
+
+export { sendRegistrationVerificationCode };
 
 export async function loginUser(input: LoginInput): Promise<AuthResponse> {
   const user = await prismaAdmin.user.findUnique({

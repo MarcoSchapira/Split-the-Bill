@@ -11,6 +11,7 @@ import {
   ACCESS_COOKIE,
   CSRF_COOKIE,
 } from "./test/cookieAuth";
+import { getRegistrationCodeForTest, sendRegistrationCodeForTest } from "./test/registerHelper";
 
 function expectAuthCookies(cookies: Record<string, string>) {
   expect(cookies[ACCESS_COOKIE]).toEqual(expect.any(String));
@@ -41,6 +42,7 @@ beforeEach(async () => {
   await prismaAdmin.groupMember.deleteMany();
   await prismaAdmin.group.deleteMany();
   await prismaAdmin.session.deleteMany();
+  await prismaAdmin.emailVerification.deleteMany();
   await prismaAdmin.user.deleteMany();
 });
 
@@ -51,9 +53,13 @@ afterAll(async () => {
 describe("cookie and CSRF authentication API", () => {
   it("sets auth cookies on register and does not return a token by default", async () => {
     const agent = request.agent(app);
+    await sendRegistrationCodeForTest(app, "cookie-user@example.com");
+    const code = getRegistrationCodeForTest("cookie-user@example.com");
+
     const response = await agent.post("/auth/register").send({
       email: "cookie-user@example.com",
       password: "secure-password",
+      code,
     });
 
     expect(response.status).toBe(201);

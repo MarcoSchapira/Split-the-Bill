@@ -1,7 +1,8 @@
 node_modules/
 dist/
 .env
-.env.local
-.env.test
+.env.*
+!.env.example
+!.env.*.example
 .DS_Store
 services/api/src/generated/

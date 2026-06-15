@@ -41,6 +41,10 @@ final activityApiProvider = Provider<ActivityApi>((ref) {
   return ActivityApi(ref.watch(apiClientProvider));
 });
 
+final receiptsApiProvider = Provider<ReceiptsApi>((ref) {
+  return ReceiptsApi(ref.watch(apiClientProvider));
+});
+
 class AuthState {
   const AuthState({
     required this.user,

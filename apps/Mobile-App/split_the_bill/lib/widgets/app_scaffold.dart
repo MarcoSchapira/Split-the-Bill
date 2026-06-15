@@ -87,14 +87,32 @@ class AppScaffold extends ConsumerWidget {
         ],
       ),
       floatingActionButton: index == 0
-          ? FloatingActionButton.extended(
-              onPressed: () => context.push('/dashboard/add-bill'),
-              backgroundColor: AppColors.accent,
-              foregroundColor: Colors.white,
-              icon: const Icon(Icons.add),
-              label: const Text('Add bill'),
+          ? Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  FloatingActionButton.extended(
+                    heroTag: 'capture-fab',
+                    onPressed: () => context.push('/dashboard/capture'),
+                    backgroundColor: AppColors.accent,
+                    foregroundColor: Colors.white,
+                    icon: const Icon(Icons.camera_alt),
+                    label: const Text('Capture'),
+                  ),
+                  FloatingActionButton.extended(
+                    heroTag: 'add-bill-fab',
+                    onPressed: () => context.push('/dashboard/add-bill'),
+                    backgroundColor: AppColors.accent,
+                    foregroundColor: Colors.white,
+                    icon: const Icon(Icons.add),
+                    label: const Text('Add bill'),
+                  ),
+                ],
+              ),
             )
           : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 }

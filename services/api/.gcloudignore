@@ -1,0 +1,27 @@
+node_modules
+dist
+.env
+.env.*
+keys
+api_keys
+.git
+.gitignore
+.DS_Store
+Thumbs.db
+
+# Tests and coverage (not needed at runtime)
+**/*.test.ts
+coverage
+.vitest
+
+# Local dev utilities
+scripts
+sendTestEmail.js
+
+# Editor and logs
+.vscode
+.idea
+*.log
+npm-debug.log*
+.npm
+*.tsbuildinfo

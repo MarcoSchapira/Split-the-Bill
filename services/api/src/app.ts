@@ -3,7 +3,6 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
-import healthRoutes from "./routes/health.routes";
 import authRoutes from "./auth/auth.routes";
 import groupRoutes from "./groups/group.routes";
 import friendRoutes from "./friends/friend.routes";
@@ -11,6 +10,7 @@ import invitationRoutes from "./invitations/invitation.routes";
 import billRoutes from "./bills/bill.routes";
 import dashboardRoutes from "./dashboard/dashboard.routes";
 import activityRoutes from "./activity/activity.routes";
+import receiptRoutes from "./receipts/receipt.routes";
 import { requireCsrf } from "./auth/csrf.middleware";
 import { getWebOrigin, shouldTrustProxy } from "./config";
 import { errorHandler, notFoundHandler } from "./http/errors";
@@ -76,7 +76,17 @@ app.use("/auth/refresh", authRateLimit);
 app.use("/friend-invitations", invitationRateLimit);
 app.use("/groups/:groupId/invitations", invitationRateLimit);
 
-app.use("/health", healthRoutes);
+app.get("/", (_req, res) => {
+  res.json({ ok: true, message: "API is running" });
+});
+
+app.get("/health", (_req, res) => {
+  res.json({
+    ok: true,
+    timestamp: new Date().toISOString(),
+  });
+});
+
 app.use("/auth", authRoutes);
 app.use("/groups", groupRoutes);
 app.use("/friends", friendRoutes);
@@ -84,6 +94,7 @@ app.use("/", invitationRoutes);
 app.use("/bills", billRoutes);
 app.use("/dashboard", dashboardRoutes);
 app.use("/activity", activityRoutes);
+app.use("/receipts", receiptRoutes);
 app.use(notFoundHandler);
 app.use(errorHandler);
 

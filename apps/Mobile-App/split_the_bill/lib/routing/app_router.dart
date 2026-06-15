@@ -5,6 +5,11 @@ import '../providers/providers.dart';
 import '../screens/activity/activity_screen.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/auth/register_screen.dart';
+import '../models/receipt.dart';
+import '../screens/capture/capture_camera_screen.dart';
+import '../screens/capture/capture_confirm_screen.dart';
+import '../screens/capture/capture_participants_screen.dart';
+import '../screens/capture/capture_split_screen.dart';
 import '../screens/dashboard/dashboard_screen.dart';
 import '../screens/friends/friends_screen.dart';
 import '../screens/groups/groups_screen.dart';
@@ -35,6 +40,28 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/dashboard/add-bill',
         builder: (_, __) => const DashboardAddBillScreen(),
+      ),
+      GoRoute(
+        path: '/dashboard/capture',
+        builder: (_, __) => const CaptureCameraScreen(),
+      ),
+      GoRoute(
+        path: '/dashboard/capture/participants',
+        builder: (_, state) => CaptureParticipantsScreen(
+          flow: state.extra! as CaptureFlowState,
+        ),
+      ),
+      GoRoute(
+        path: '/dashboard/capture/split',
+        builder: (_, state) => CaptureSplitScreen(
+          flow: state.extra! as CaptureFlowState,
+        ),
+      ),
+      GoRoute(
+        path: '/dashboard/capture/confirm',
+        builder: (_, state) => CaptureConfirmScreen(
+          flow: state.extra! as CaptureFlowState,
+        ),
       ),
       GoRoute(
         path: '/friends/:friendshipId',

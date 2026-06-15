@@ -91,6 +91,7 @@ async function findVisibleBill(tx: PrismaTransaction, userId: string, billId: st
       OR: [
         { friendship: { OR: [{ userAId: userId }, { userBId: userId }] } },
         { group: { members: { some: { userId } } } },
+        { targetType: "capture", shares: { some: { userId } } },
       ],
     },
     include: billInclude,
@@ -155,6 +156,7 @@ export async function listBills(
       OR: [
         { friendship: { OR: [{ userAId: userId }, { userBId: userId }] } },
         { group: { members: { some: { userId } } } },
+        { targetType: "capture", shares: { some: { userId } } },
       ],
     },
     orderBy: [{ incurredAt: "desc" }, { createdAt: "desc" }],

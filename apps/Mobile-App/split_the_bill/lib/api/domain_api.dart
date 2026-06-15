@@ -1,5 +1,8 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import '../models/models.dart';
+import '../models/receipt.dart';
 import 'api_client.dart';
 
 class DashboardApi {
@@ -159,6 +162,43 @@ class BillsApi {
       await _client.dio.delete('/bills/$billId');
     } on DioException catch (e) {
       _client.throwApiError(e, 'Unable to delete bill.');
+    }
+  }
+
+  Future<Bill> createCaptureBill(CaptureBillPayload payload) async {
+    try {
+      final response = await _client.dio.post<Map<String, dynamic>>(
+        '/bills/capture',
+        data: payload.toJson(),
+      );
+      return Bill.fromJson(response.data!['bill'] as Map<String, dynamic>);
+    } on DioException catch (e) {
+      _client.throwApiError(e, 'Unable to save capture bill.');
+    }
+  }
+}
+
+class ReceiptsApi {
+  ReceiptsApi(this._client);
+  final ApiClient _client;
+
+  Future<ParsedReceipt> parseReceipt(Uint8List imageBytes, String filename) async {
+    try {
+      final formData = FormData.fromMap({
+        'image': MultipartFile.fromBytes(
+          imageBytes,
+          filename: filename,
+        ),
+      });
+      final response = await _client.dio.post<Map<String, dynamic>>(
+        '/receipts/parse',
+        data: formData,
+      );
+      return ParsedReceipt.fromJson(
+        response.data!['receipt'] as Map<String, dynamic>,
+      );
+    } on DioException catch (e) {
+      _client.throwApiError(e, 'Unable to parse receipt.');
     }
   }
 }

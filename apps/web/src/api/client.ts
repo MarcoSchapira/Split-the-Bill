@@ -8,7 +8,9 @@ function resolveBaseUrl(): string {
     return import.meta.env.VITE_API_URL
   }
 
-  return import.meta.env.DEV ? '/api' : 'http://localhost:3000'
+  return import.meta.env.DEV
+    ? '/api'
+    : 'https://split-the-bill-api-1099488675893.northamerica-northeast2.run.app'
 }
 
 export const apiClient = axios.create({

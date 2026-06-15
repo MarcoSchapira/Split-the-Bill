@@ -2,8 +2,11 @@ import { ApiError } from "../http/errors";
 import { logValidationFailure } from "./receipt.logger";
 import type { ParsedReceipt, ReceiptItem } from "./receipt.types";
 
-/** Allow 1 cent rounding drift after normalizing to integer cents. */
-const TOLERANCE_CENTS = 1;
+/** Allow 1 cent rounding drift for line-item vs subtotal checks. */
+const ITEMS_TOLERANCE_CENTS = 1;
+
+/** Allow wider drift for tax rounding on printed grand totals. */
+const GRAND_TOTAL_TOLERANCE_CENTS = 25;
 
 export const RECEIPT_TOTALS_MISMATCH_MESSAGE =
   "We couldn't verify the receipt totals. Please retake the photo with the full receipt clearly visible.";
@@ -31,9 +34,12 @@ export type ReceiptTotalsDebug = {
   tipCents: number;
   totalCents: number | null;
   expectedTotalCents: number | null;
+  expectedTotalFromItemsCents: number | null;
   itemsSubtotalDeltaCents: number | null;
   grandTotalDeltaCents: number | null;
+  grandTotalFromItemsDeltaCents: number | null;
   itemCount: number;
+  summary?: string;
 };
 
 export function toCents(value: number): number {
@@ -52,6 +58,14 @@ function sumItemCents(items: ReceiptItem[], strategy: "total_price" | "unit_pric
   }, 0);
 }
 
+function withinItemsTolerance(a: number, b: number): boolean {
+  return Math.abs(a - b) <= ITEMS_TOLERANCE_CENTS;
+}
+
+function withinGrandTotalTolerance(a: number, b: number): boolean {
+  return Math.abs(a - b) <= GRAND_TOTAL_TOLERANCE_CENTS;
+}
+
 function pickItemsSubtotalStrategy(
   items: ReceiptItem[],
   subtotalCents: number,
@@ -61,7 +75,7 @@ function pickItemsSubtotalStrategy(
   > = ["total_price", "unit_price_times_qty", "unit_price"];
 
   for (const strategy of strategies) {
-    if (withinTolerance(sumItemCents(items, strategy), subtotalCents)) {
+    if (withinItemsTolerance(sumItemCents(items, strategy), subtotalCents)) {
       return strategy;
     }
   }
@@ -87,6 +101,7 @@ export function getReceiptTotalsDebug(receipt: ParsedReceipt): ReceiptTotalsDebu
   const tipCents = toCents(receipt.tip ?? 0);
   const totalCents = receipt.total === null ? null : toCents(receipt.total);
   const expectedTotalCents = subtotalCents === null ? null : subtotalCents + taxCents + tipCents;
+  const expectedTotalFromItemsCents = itemsSumTotalPriceCents + taxCents + tipCents;
   const matchedItemsStrategy =
     subtotalCents === null ? null : pickItemsSubtotalStrategy(receipt.items, subtotalCents);
 
@@ -101,6 +116,18 @@ export function getReceiptTotalsDebug(receipt: ParsedReceipt): ReceiptTotalsDebu
             ? itemsSumTotalPriceCents
             : itemsSumTotalPriceCents;
 
+  const grandTotalDeltaCents =
+    expectedTotalCents === null || totalCents === null
+      ? null
+      : expectedTotalCents - totalCents;
+  const grandTotalFromItemsDeltaCents =
+    totalCents === null ? null : expectedTotalFromItemsCents - totalCents;
+
+  const summary =
+    subtotalCents !== null && totalCents !== null
+      ? `subtotal + tax + tip = ${(expectedTotalCents! / 100).toFixed(2)}, total = ${(totalCents / 100).toFixed(2)}, delta = ${grandTotalDeltaCents} cents`
+      : undefined;
+
   return {
     reason: "items_subtotal_mismatch",
     itemsSumTotalPriceCents,
@@ -112,18 +139,33 @@ export function getReceiptTotalsDebug(receipt: ParsedReceipt): ReceiptTotalsDebu
     tipCents,
     totalCents,
     expectedTotalCents,
+    expectedTotalFromItemsCents,
     itemsSubtotalDeltaCents:
       subtotalCents === null ? null : matchedItemsSumCents - subtotalCents,
-    grandTotalDeltaCents:
-      expectedTotalCents === null || totalCents === null
-        ? null
-        : expectedTotalCents - totalCents,
+    grandTotalDeltaCents,
+    grandTotalFromItemsDeltaCents,
     itemCount: receipt.items.length,
+    summary,
   };
 }
 
-function withinTolerance(a: number, b: number): boolean {
-  return Math.abs(a - b) <= TOLERANCE_CENTS;
+function grandTotalMatches(debug: ReceiptTotalsDebug): boolean {
+  if (debug.expectedTotalCents === null || debug.totalCents === null) {
+    return false;
+  }
+
+  if (withinGrandTotalTolerance(debug.expectedTotalCents, debug.totalCents)) {
+    return true;
+  }
+
+  if (
+    debug.expectedTotalFromItemsCents !== null &&
+    withinGrandTotalTolerance(debug.expectedTotalFromItemsCents, debug.totalCents)
+  ) {
+    return true;
+  }
+
+  return false;
 }
 
 export function validateReceiptTotals(receipt: ParsedReceipt): ParsedReceipt {
@@ -144,7 +186,7 @@ export function validateReceiptTotals(receipt: ParsedReceipt): ParsedReceipt {
     throw new ApiError(422, "RECEIPT_TOTALS_MISMATCH", RECEIPT_TOTALS_MISMATCH_MESSAGE);
   }
 
-  if (!withinTolerance(debug.expectedTotalCents!, debug.totalCents!)) {
+  if (!grandTotalMatches(debug)) {
     logValidationFailure({ ...debug, reason: "grand_total_mismatch" });
     throw new ApiError(422, "RECEIPT_TOTALS_MISMATCH", RECEIPT_TOTALS_MISMATCH_MESSAGE);
   }

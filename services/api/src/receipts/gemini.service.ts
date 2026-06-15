@@ -4,6 +4,7 @@ import { ApiError } from "../http/errors";
 import {
   logGeminiParsedReceipt,
   logGeminiRawResponse,
+  logJsonExtraction,
   logParseError,
   logZodFailure,
 } from "./receipt.logger";
@@ -39,7 +40,7 @@ function getGeminiModel() {
 export async function parseReceiptWithGemini(
   imageBuffer: Buffer,
   mimeType: string,
-): Promise<ParsedReceipt> {
+): Promise<{ receipt: ParsedReceipt; extractionStrategy: string }> {
   const modelName = process.env.GEMINI_MODEL ?? "gemini-2.5-flash-lite";
 
   try {
@@ -55,6 +56,8 @@ export async function parseReceiptWithGemini(
     ]);
 
     const text = result.response.text();
+    const extraction = parseGeminiReceiptJson(text);
+
     logGeminiRawResponse({
       mimeType,
       responseLength: text.length,
@@ -62,12 +65,13 @@ export async function parseReceiptWithGemini(
         text.length > RAW_RESPONSE_LOG_LIMIT
           ? `${text.slice(0, RAW_RESPONSE_LOG_LIMIT)}…`
           : text,
+      extractionStrategy: extraction.strategy,
     });
+    logJsonExtraction(extraction);
 
-    const parsed = parseGeminiReceiptJson(text);
-    const receipt = parsedReceiptSchema.parse(parsed);
+    const receipt = parsedReceiptSchema.parse(extraction.parsed);
     logGeminiParsedReceipt(receipt);
-    return receipt;
+    return { receipt, extractionStrategy: extraction.strategy };
   } catch (error) {
     if (error instanceof ApiError) {
       throw error;

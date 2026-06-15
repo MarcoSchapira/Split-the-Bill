@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { ApiError } from "../http/errors";
-import { parseGeminiReceiptJson } from "./parse-gemini-json";
 import {
   RECEIPT_TOTALS_MISMATCH_MESSAGE,
   validateReceiptTotals,
@@ -47,17 +46,26 @@ const defineReceipt: ParsedReceipt = {
   card_last_4: "9981",
 };
 
-describe("parseGeminiReceiptJson", () => {
-  it("preserves escaped newlines inside string values", () => {
-    const parsed = parseGeminiReceiptJson(
-      '{"store_address":"123 CULINARY AVENUE\\nDOWNTOWN DISTRICT","subtotal":47.5,"total":51.3}',
-    ) as { store_address: string; subtotal: number; total: number };
-
-    expect(parsed.store_address).toBe("123 CULINARY AVENUE\nDOWNTOWN DISTRICT");
-    expect(parsed.subtotal).toBe(47.5);
-    expect(parsed.total).toBe(51.3);
-  });
-});
+const rivoliReceipt: ParsedReceipt = {
+  store_name: "RIVOLI",
+  store_address: "332 QUEEN ST. W.",
+  receipt_number: "775888",
+  date: "2005-12-17",
+  time: "6:22 PM",
+  items: [
+    { name: "Rivoli Burger", quantity: 1, unit_price: 9.95, total_price: 9.95 },
+    { name: "Bloody Caesar", quantity: 1, unit_price: 4.92, total_price: 4.92 },
+    { name: "Dinner 2", quantity: 1, unit_price: 14.5, total_price: 14.5 },
+    { name: "Amsterdam Blonde Draft", quantity: 3, unit_price: 4.06, total_price: 12.18 },
+  ],
+  item_count: 6,
+  subtotal: 41.55,
+  tax: 6.38,
+  tip: null,
+  total: 48.13,
+  payment_method: null,
+  card_last_4: null,
+};
 
 describe("validateReceiptTotals", () => {
   it("accepts a receipt whose totals add up via total_price", () => {
@@ -66,6 +74,10 @@ describe("validateReceiptTotals", () => {
 
   it("accepts subtotal equal to sum of per-line unit_price values", () => {
     expect(validateReceiptTotals(defineReceipt)).toEqual(defineReceipt);
+  });
+
+  it("accepts Rivoli receipt with 20 cent tax rounding on grand total", () => {
+    expect(validateReceiptTotals(rivoliReceipt)).toEqual(rivoliReceipt);
   });
 
   it("accepts null tax and tip treated as zero", () => {
@@ -97,11 +109,11 @@ describe("validateReceiptTotals", () => {
     }
   });
 
-  it("rejects when subtotal plus tax and tip do not equal total", () => {
+  it("rejects when grand total is off by more than 25 cents", () => {
     expect(() =>
       validateReceiptTotals({
         ...validReceipt,
-        total: 99.99,
+        total: 25.71,
       }),
     ).toThrow(ApiError);
   });

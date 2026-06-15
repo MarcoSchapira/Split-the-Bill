@@ -57,7 +57,7 @@ Copy values from `services/api/.env.example` and set at minimum:
 
 Apply Prisma migrations and run `npm run db:generate` before using auth-backed routes.
 
-The web app reads `VITE_API_URL` from `apps/web/.env` when provided. In local dev it defaults to `/api` (Vite proxy).
+The web app defaults to `/api` in both local dev and production. Local dev uses the Vite proxy; production on Cloudflare Pages uses `apps/web/public/_redirects` to proxy `/api` to Cloud Run so HttpOnly cookies stay same-origin. Set `VITE_API_URL` only when intentionally calling the API cross-origin (then use `COOKIE_SAME_SITE=none` on the API).
 
 ### Database roles (Neon)
 

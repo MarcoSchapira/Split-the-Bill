@@ -8,9 +8,8 @@ function resolveBaseUrl(): string {
     return import.meta.env.VITE_API_URL
   }
 
-  return import.meta.env.DEV
-    ? '/api'
-    : 'https://split-the-bill-api-1099488675893.northamerica-northeast2.run.app'
+  // Local dev uses the Vite proxy; production uses the Cloudflare Pages /api rewrite.
+  return '/api'
 }
 
 export const apiClient = axios.create({

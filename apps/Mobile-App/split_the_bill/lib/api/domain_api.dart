@@ -206,6 +206,9 @@ class ReceiptsApi {
       final response = await _client.dio.post<Map<String, dynamic>>(
         '/receipts/parse',
         data: formData,
+        options: Options(
+          receiveTimeout: const Duration(seconds: 60),
+        ),
       );
       return ParsedReceipt.fromJson(
         response.data!['receipt'] as Map<String, dynamic>,

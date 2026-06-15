@@ -46,6 +46,16 @@ Each item in items[]:
 - Do not include currency symbols ($, €, etc.).
 - If tax or tip is not printed or is zero, use 0.00.
 
+## Arithmetic consistency (critical)
+
+Before returning JSON, verify these equations using the exact numbers you extracted:
+- subtotal MUST equal the printed subtotal on the receipt
+- subtotal + tax + tip MUST equal total
+- Each item's total_price MUST equal unit_price × quantity (when both are visible)
+- The sum of items[].total_price MUST equal subtotal when the receipt shows line totals; if the receipt subtotal is the sum of per-line unit prices instead, set total_price = unit_price × quantity and subtotal = sum(total_price)
+- If the receipt shows a discount, include it as a separate item with a negative total_price (do not omit it)
+- Do NOT put subtotal, tax, tip, total, or payment summary rows inside items[]
+
 ## Quality
 
 - Read the full receipt carefully: header (store, address, date/time), line items, totals, and payment footer.

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ApiError } from "../http/errors";
+import { parseGeminiReceiptJson } from "./parse-gemini-json";
 import {
   RECEIPT_TOTALS_MISMATCH_MESSAGE,
   validateReceiptTotals,
@@ -25,9 +26,46 @@ const validReceipt: ParsedReceipt = {
   card_last_4: "1234",
 };
 
+const defineReceipt: ParsedReceipt = {
+  store_name: "DINEFINE RESTAURANT",
+  store_address: "123 CULINARY AVENUE\nDOWNTOWN DISTRICT",
+  receipt_number: "#R-2547",
+  date: "2025-09-30",
+  time: "20:15",
+  items: [
+    { name: "CAESAR SALAD", quantity: 2, unit_price: 12, total_price: 24 },
+    { name: "GRILLED SALMON", quantity: 1, unit_price: 22, total_price: 22 },
+    { name: "CHEESECAKE", quantity: 1, unit_price: 7.5, total_price: 7.5 },
+    { name: "SPARKLING WATER", quantity: 2, unit_price: 3, total_price: 6 },
+  ],
+  item_count: 6,
+  subtotal: 47.5,
+  tax: 3.8,
+  tip: 0,
+  total: 51.3,
+  payment_method: "MASTERCARD",
+  card_last_4: "9981",
+};
+
+describe("parseGeminiReceiptJson", () => {
+  it("preserves escaped newlines inside string values", () => {
+    const parsed = parseGeminiReceiptJson(
+      '{"store_address":"123 CULINARY AVENUE\\nDOWNTOWN DISTRICT","subtotal":47.5,"total":51.3}',
+    ) as { store_address: string; subtotal: number; total: number };
+
+    expect(parsed.store_address).toBe("123 CULINARY AVENUE\nDOWNTOWN DISTRICT");
+    expect(parsed.subtotal).toBe(47.5);
+    expect(parsed.total).toBe(51.3);
+  });
+});
+
 describe("validateReceiptTotals", () => {
-  it("accepts a receipt whose totals add up", () => {
+  it("accepts a receipt whose totals add up via total_price", () => {
     expect(validateReceiptTotals(validReceipt)).toEqual(validReceipt);
+  });
+
+  it("accepts subtotal equal to sum of per-line unit_price values", () => {
+    expect(validateReceiptTotals(defineReceipt)).toEqual(defineReceipt);
   });
 
   it("accepts null tax and tip treated as zero", () => {
@@ -40,7 +78,7 @@ describe("validateReceiptTotals", () => {
     expect(validateReceiptTotals(receipt)).toEqual(receipt);
   });
 
-  it("rejects when line items do not sum to subtotal", () => {
+  it("rejects when no item sum strategy matches subtotal", () => {
     expect(() =>
       validateReceiptTotals({
         ...validReceipt,

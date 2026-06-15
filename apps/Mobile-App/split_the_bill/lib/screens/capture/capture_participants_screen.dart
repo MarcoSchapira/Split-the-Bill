@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../api/api_exception.dart';
 import '../../models/models.dart';
 import '../../models/receipt.dart';
 import '../../models/user.dart';
@@ -59,7 +60,7 @@ class _CaptureParticipantsScreenState extends ConsumerState<CaptureParticipantsS
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _flow = _flow.copyWith(parseError: e.toString());
+        _flow = _flow.copyWith(parseError: apiErrorMessage(e, 'Unable to parse receipt.'));
         _parsing = false;
       });
     }
@@ -298,9 +299,22 @@ class _CaptureParticipantsScreenState extends ConsumerState<CaptureParticipantsS
                               children: [
                                 ErrorBanner(message: _flow.parseError!),
                                 const SizedBox(height: 8),
-                                SecondaryButton(
-                                  label: 'Retry parse',
-                                  onPressed: _parseReceipt,
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: SecondaryButton(
+                                        label: 'Retake photo',
+                                        onPressed: () => context.pop(),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: SecondaryButton(
+                                        label: 'Retry parse',
+                                        onPressed: _parseReceipt,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             )

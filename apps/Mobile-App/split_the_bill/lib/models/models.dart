@@ -151,6 +151,8 @@ class BillShare {
   }
 }
 
+enum BillSource { manual, capture }
+
 class Bill {
   const Bill({
     required this.id,
@@ -158,12 +160,13 @@ class Bill {
     required this.incurredAt,
     required this.totalCents,
     required this.targetType,
+    required this.source,
     required this.friendshipId,
     required this.groupId,
     required this.payerId,
     required this.creatorId,
     required this.createdAt,
-    required this.updatedAt,
+    required this.lastEditedAt,
     required this.payer,
     required this.creator,
     required this.group,
@@ -180,12 +183,13 @@ class Bill {
   final String incurredAt;
   final int totalCents;
   final TargetType targetType;
+  final BillSource source;
   final String? friendshipId;
   final String? groupId;
   final String payerId;
   final String creatorId;
   final String createdAt;
-  final String updatedAt;
+  final String lastEditedAt;
   final User payer;
   final User creator;
   final GroupRef? group;
@@ -205,12 +209,13 @@ class Bill {
       targetType: json['targetType'] == 'group'
           ? TargetType.group
           : TargetType.friendship,
+      source: json['source'] == 'capture' ? BillSource.capture : BillSource.manual,
       friendshipId: json['friendshipId'] as String?,
       groupId: json['groupId'] as String?,
       payerId: json['payerId'] as String,
       creatorId: json['creatorId'] as String,
       createdAt: json['createdAt'] as String,
-      updatedAt: json['updatedAt'] as String,
+      lastEditedAt: json['lastEditedAt'] as String,
       payer: User.fromJson(json['payer'] as Map<String, dynamic>),
       creator: User.fromJson(json['creator'] as Map<String, dynamic>),
       group: json['group'] != null

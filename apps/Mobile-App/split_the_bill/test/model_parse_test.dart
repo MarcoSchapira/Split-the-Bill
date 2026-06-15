@@ -13,8 +13,9 @@ void main() {
       'groupId': 'g1',
       'payerId': 'u1',
       'creatorId': 'u1',
+      'source': 'manual',
       'createdAt': '2026-06-11T00:00:00.000Z',
-      'updatedAt': '2026-06-11T00:00:00.000Z',
+      'lastEditedAt': '2026-06-11T00:00:00.000Z',
       'payer': {
         'id': 'u1',
         'email': 'a@b.com',

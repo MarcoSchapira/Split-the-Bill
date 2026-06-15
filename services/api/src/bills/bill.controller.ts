@@ -2,17 +2,7 @@ import type { RequestHandler } from "express";
 import { currentUser } from "../auth/currentUser";
 import { withUserContext } from "../db/userContext";
 import { billIdSchema, billInputSchema, billListQuerySchema } from "./bill.types";
-import { captureBillInputSchema } from "./capture-bill.types";
-import { createCaptureBill } from "./capture-bill.service";
 import { createBill, deleteBill, listBills, updateBill } from "./bill.service";
-
-export const createCapture: RequestHandler = async (req, res) => {
-  const userId = currentUser(req).id;
-  const bill = await withUserContext(userId, (tx) =>
-    createCaptureBill(tx, userId, captureBillInputSchema.parse(req.body)),
-  );
-  res.status(201).json({ bill });
-};
 
 export const create: RequestHandler = async (req, res) => {
   const userId = currentUser(req).id;

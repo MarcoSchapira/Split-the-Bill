@@ -164,16 +164,29 @@ class BillsApi {
       _client.throwApiError(e, 'Unable to delete bill.');
     }
   }
+}
 
-  Future<Bill> createCaptureBill(CaptureBillPayload payload) async {
+class TargetsApi {
+  TargetsApi(this._client);
+  final ApiClient _client;
+
+  Future<ResolvedBillTarget> resolve({
+    required List<String> participantIds,
+    String? suggestedName,
+  }) async {
     try {
       final response = await _client.dio.post<Map<String, dynamic>>(
-        '/bills/capture',
-        data: payload.toJson(),
+        '/targets/resolve',
+        data: {
+          'participantIds': participantIds,
+          if (suggestedName != null) 'suggestedName': suggestedName,
+        },
       );
-      return Bill.fromJson(response.data!['bill'] as Map<String, dynamic>);
+      return ResolvedBillTarget.fromJson(
+        response.data!['target'] as Map<String, dynamic>,
+      );
     } on DioException catch (e) {
-      _client.throwApiError(e, 'Unable to save capture bill.');
+      _client.throwApiError(e, 'Unable to resolve bill target.');
     }
   }
 }

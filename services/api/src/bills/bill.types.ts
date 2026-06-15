@@ -20,6 +20,7 @@ export const billInputSchema = z
     targetType: z.enum(["friendship", "group"]),
     targetId: z.string().uuid(),
     payerId: z.string().uuid(),
+    source: z.enum(["manual", "capture"]).optional().default("manual"),
     shares: z.array(billShareInputSchema).min(1).optional(),
   })
   .strict();

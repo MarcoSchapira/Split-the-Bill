@@ -36,6 +36,36 @@ export async function createGroup(tx: PrismaTransaction, userId: string, input: 
   };
 }
 
+export async function createGroupWithMembers(
+  tx: PrismaTransaction,
+  actingUserId: string,
+  input: { name: string; memberIds: string[] },
+) {
+  const uniqueMembers = [...new Set(input.memberIds)];
+
+  const group = await tx.group.create({
+    data: {
+      name: input.name,
+      members: {
+        create: uniqueMembers.map((memberId) => ({
+          userId: memberId,
+          role: memberId === actingUserId ? "owner" : "member",
+        })),
+      },
+    },
+    select: {
+      id: true,
+      name: true,
+      createdAt: true,
+    },
+  });
+
+  return {
+    ...group,
+    role: "owner" as const,
+  };
+}
+
 export async function listGroups(tx: PrismaTransaction, userId: string) {
   const memberships = await tx.groupMember.findMany({
     where: { userId },

@@ -32,6 +32,17 @@ class _CaptureConfirmScreenState extends ConsumerState<CaptureConfirmScreen> {
     );
   }
 
+  String _incurredAtIso(ParsedReceipt receipt) {
+    if (receipt.date != null) {
+      final timePart = receipt.time != null ? ' ${receipt.time}' : '';
+      final parsed = DateTime.tryParse('${receipt.date}$timePart');
+      if (parsed != null) {
+        return parsed.toUtc().toIso8601String();
+      }
+    }
+    return DateTime.now().toUtc().toIso8601String();
+  }
+
   Future<void> _confirm() async {
     setState(() {
       _saving = true;
@@ -40,28 +51,31 @@ class _CaptureConfirmScreenState extends ConsumerState<CaptureConfirmScreen> {
 
     try {
       final receipt = _flow.receipt!;
-      final items = receipt.items
-          .asMap()
-          .entries
-          .map(
-            (entry) => CaptureBillItemPayload(
-              name: entry.value.name,
-              quantity: entry.value.quantity,
-              unitPriceCents: entry.value.unitPriceCents,
-              totalPriceCents: entry.value.totalPriceCents,
-              assignedUserIds: (_flow.assignments[entry.key] ?? {}).toList(),
-            ),
-          )
-          .toList();
+      final shareResult = _shareResult;
+      final participantIds = _flow.participants.map((user) => user.id).toList();
 
-      await ref.read(billsApiProvider).createCaptureBill(
-            CaptureBillPayload(
-              receipt: receipt,
-              payerId: _flow.payerId!,
-              participantIds: _flow.participants.map((user) => user.id).toList(),
-              items: items,
-            ),
+      final target = await ref.read(targetsApiProvider).resolve(
+            participantIds: participantIds,
+            suggestedName: receipt.storeName,
           );
+
+      await ref.read(billsApiProvider).createBill({
+        'description': receipt.storeName?.trim().isNotEmpty == true
+            ? receipt.storeName!.trim()
+            : 'Receipt',
+        'incurredAt': _incurredAtIso(receipt),
+        'totalCents': shareResult.totalCents,
+        'targetType': target.targetType,
+        'targetId': target.targetId,
+        'payerId': _flow.payerId!,
+        'source': 'capture',
+        'shares': shareResult.shares
+            .map((share) => {
+                  'userId': share.userId,
+                  'shareCents': share.shareCents,
+                })
+            .toList(),
+      });
 
       notifyDataChanged(ref);
       if (!mounted) return;

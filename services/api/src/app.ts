@@ -11,6 +11,7 @@ import billRoutes from "./bills/bill.routes";
 import dashboardRoutes from "./dashboard/dashboard.routes";
 import activityRoutes from "./activity/activity.routes";
 import receiptRoutes from "./receipts/receipt.routes";
+import targetRoutes from "./targets/target.routes";
 import { requireCsrf } from "./auth/csrf.middleware";
 import { getWebOrigin, shouldTrustProxy } from "./config";
 import { errorHandler, notFoundHandler } from "./http/errors";
@@ -95,6 +96,7 @@ app.use("/bills", billRoutes);
 app.use("/dashboard", dashboardRoutes);
 app.use("/activity", activityRoutes);
 app.use("/receipts", receiptRoutes);
+app.use("/targets", targetRoutes);
 app.use(notFoundHandler);
 app.use(errorHandler);
 

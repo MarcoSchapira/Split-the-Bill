@@ -67,12 +67,13 @@ export type Bill = {
   incurredAt: string;
   totalCents: number;
   targetType: 'friendship' | 'group';
+  source: 'manual' | 'capture';
   friendshipId: string | null;
   groupId: string | null;
   payerId: string;
   creatorId: string;
   createdAt: string;
-  updatedAt: string;
+  lastEditedAt: string;
   payer: User;
   creator: User;
   group: { id: string; name: string } | null;

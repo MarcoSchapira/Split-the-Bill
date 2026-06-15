@@ -101,49 +101,24 @@ class ParsedReceipt {
       };
 }
 
-class CaptureBillItemPayload {
-  const CaptureBillItemPayload({
-    required this.name,
-    required this.quantity,
-    required this.unitPriceCents,
-    required this.totalPriceCents,
-    required this.assignedUserIds,
+class ResolvedBillTarget {
+  const ResolvedBillTarget({
+    required this.targetType,
+    required this.targetId,
+    required this.created,
   });
 
-  final String name;
-  final int quantity;
-  final int unitPriceCents;
-  final int totalPriceCents;
-  final List<String> assignedUserIds;
+  final String targetType;
+  final String targetId;
+  final bool created;
 
-  Map<String, dynamic> toJson() => {
-        'name': name,
-        'quantity': quantity,
-        'unitPriceCents': unitPriceCents,
-        'totalPriceCents': totalPriceCents,
-        'assignedUserIds': assignedUserIds,
-      };
-}
-
-class CaptureBillPayload {
-  const CaptureBillPayload({
-    required this.receipt,
-    required this.payerId,
-    required this.participantIds,
-    required this.items,
-  });
-
-  final ParsedReceipt receipt;
-  final String payerId;
-  final List<String> participantIds;
-  final List<CaptureBillItemPayload> items;
-
-  Map<String, dynamic> toJson() => {
-        'receipt': receipt.toJson(),
-        'payerId': payerId,
-        'participantIds': participantIds,
-        'items': items.map((item) => item.toJson()).toList(),
-      };
+  factory ResolvedBillTarget.fromJson(Map<String, dynamic> json) {
+    return ResolvedBillTarget(
+      targetType: json['targetType'] as String,
+      targetId: json['targetId'] as String,
+      created: json['created'] as bool,
+    );
+  }
 }
 
 enum CaptureContactKind { friend, group }

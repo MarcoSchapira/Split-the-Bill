@@ -81,12 +81,25 @@ npm run verify:db-roles
 - Strong `JWT_SECRET` (32+ chars, not the example value)
 - `WEB_ORIGIN` matches the deployed frontend origin exactly
 - `COOKIE_SECURE=true` in production
+- If the frontend calls the API cross-origin (direct Cloud Run URL), set `COOKIE_SAME_SITE=none`
+- If the frontend uses the `/api` same-origin proxy (recommended), `COOKIE_SAME_SITE=lax` is fine
 - Database role used by `DATABASE_URL` does **not** have `BYPASSRLS` (RLS is enforced)
 - `DIRECT_URL` uses a migration/admin role for Prisma migrations and test teardown
 - `ALLOW_AUTH_TOKEN_RESPONSE` is unset/false in production
 - Run `npm run verify:db-roles` in CI/deploy pipelines
 
 Browser clients receive auth via HttpOnly cookies only (no `token` in login/register JSON). CSRF protection applies to cookie-authenticated mutating requests. Bearer tokens in auth JSON are available only when `ALLOW_AUTH_TOKEN_RESPONSE=true` (tests/CLI).
+
+### Cloudflare Pages
+
+Build settings:
+
+- **Root directory:** `apps/web`
+- **Build command:** `npm run build`
+- **Build output directory:** `dist`
+- **Environment variables:** do **not** set `VITE_API_URL` unless you intentionally bypass the `/api` proxy
+
+The `/api` route is proxied to Cloud Run via `public/_redirects` and `functions/api/[[path]].ts`. After pushing frontend changes, confirm Cloudflare deployed the latest commit (Deployments tab). A successful build should serve `/api/health` as JSON, not the SPA HTML.
 
 ### API tests
 

@@ -28,8 +28,18 @@ class ApiClient {
   final Dio _dio;
   final TokenStorage _tokenStorage;
   bool _refreshInFlight = false;
+  void Function()? _onSessionExpired;
 
   Dio get dio => _dio;
+
+  void setOnSessionExpired(void Function() callback) {
+    _onSessionExpired = callback;
+  }
+
+  Future<void> _clearSession() async {
+    await _tokenStorage.clear();
+    _onSessionExpired?.call();
+  }
 
   Future<void> _onRequest(
     RequestOptions options,
@@ -64,7 +74,7 @@ class ApiClient {
     try {
       final refreshToken = await _tokenStorage.getRefreshToken();
       if (refreshToken == null || refreshToken.isEmpty) {
-        await _tokenStorage.clear();
+        await _clearSession();
         handler.next(_wrapError(error));
         return;
       }
@@ -82,7 +92,7 @@ class ApiClient {
       final newAccess = data?['accessToken'] as String?;
       final newRefresh = data?['refreshToken'] as String?;
       if (newAccess == null || newRefresh == null) {
-        await _tokenStorage.clear();
+        await _clearSession();
         handler.next(_wrapError(error));
         return;
       }
@@ -97,7 +107,7 @@ class ApiClient {
       final retryResponse = await _dio.fetch(retryOptions);
       handler.resolve(retryResponse);
     } catch (_) {
-      await _tokenStorage.clear();
+      await _clearSession();
       handler.next(_wrapError(error));
     } finally {
       _refreshInFlight = false;

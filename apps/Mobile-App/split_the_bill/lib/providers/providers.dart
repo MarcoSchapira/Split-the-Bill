@@ -65,13 +65,18 @@ class AuthState {
 }
 
 class AuthNotifier extends StateNotifier<AuthState> {
-  AuthNotifier(this._authApi, this._storage)
+  AuthNotifier(this._authApi, this._storage, ApiClient apiClient)
       : super(const AuthState(user: null, isLoading: true)) {
+    apiClient.setOnSessionExpired(_handleSessionExpired);
     _restoreSession();
   }
 
   final AuthApi _authApi;
   final TokenStorage _storage;
+
+  void _handleSessionExpired() {
+    state = const AuthState(user: null, isLoading: false);
+  }
 
   Future<void> _restoreSession() async {
     try {
@@ -127,6 +132,7 @@ final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   return AuthNotifier(
     ref.watch(authApiProvider),
     ref.watch(tokenStorageProvider),
+    ref.watch(apiClientProvider),
   );
 });
 

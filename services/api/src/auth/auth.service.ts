@@ -90,5 +90,7 @@ export async function loginUser(input: LoginInput): Promise<AuthResponse> {
     throw new ApiError(401, "INVALID_CREDENTIALS", "Invalid email or password");
   }
 
+  await claimPendingInvitations(user.id, user.email);
+
   return buildAuthResponse(user.id);
 }

@@ -5,6 +5,10 @@ export function formatCad(cents: number): string {
   }).format(cents / 100)
 }
 
-export function displayName(user: { name: string | null; email: string }): string {
+export function displayName(user: { name: string | null; email: string } | null | undefined): string {
+  if (!user) {
+    return 'Unknown user'
+  }
+
   return user.name ?? user.email
 }

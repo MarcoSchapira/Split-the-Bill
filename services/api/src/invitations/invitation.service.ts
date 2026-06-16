@@ -1,5 +1,6 @@
 import { Prisma } from "../generated/prisma/client";
 import type { PrismaTransaction } from "../db/userContext";
+import { prismaAdmin } from "../db/prisma";
 import { safeUserSelect } from "../auth/auth.types";
 import { ApiError } from "../http/errors";
 import { requireGroupMember } from "../groups/group.authorization";
@@ -9,6 +10,30 @@ import type {
   InvitationEmailInput,
 } from "./invitation.types";
 
+async function findRegisteredInviteRecipient(email: string) {
+  return prismaAdmin.user.findUnique({
+    where: { email },
+    select: safeUserSelect,
+  });
+}
+
+function receivedInvitationFilter(userId: string, email: string) {
+  return {
+    OR: [{ recipientId: userId }, { recipientId: null, recipientEmail: email }],
+  };
+}
+
+function isInvitationRecipient(
+  invitation: { recipientId: string | null; recipientEmail: string | null },
+  userId: string,
+  email: string,
+) {
+  return (
+    invitation.recipientId === userId ||
+    (invitation.recipientId === null && invitation.recipientEmail === email)
+  );
+}
+
 const friendInvitationSelect = {
   id: true,
   status: true,
@@ -17,6 +42,12 @@ const friendInvitationSelect = {
   recipientEmail: true,
   sender: { select: safeUserSelect },
   recipient: { select: safeUserSelect },
+} as const;
+
+const friendInvitationListSelect = {
+  ...friendInvitationSelect,
+  senderId: true,
+  recipientId: true,
 } as const;
 
 const groupInvitationSelect = {
@@ -30,6 +61,98 @@ const groupInvitationSelect = {
   recipient: { select: safeUserSelect },
 } as const;
 
+const groupInvitationListSelect = {
+  ...groupInvitationSelect,
+  groupId: true,
+  senderId: true,
+  recipientId: true,
+} as const;
+
+type SafeUser = {
+  id: string;
+  email: string;
+  name: string | null;
+  createdAt: Date;
+};
+
+type GroupSummary = {
+  id: string;
+  name: string;
+};
+
+async function loadUsersById(userIds: string[]): Promise<Map<string, SafeUser>> {
+  if (userIds.length === 0) {
+    return new Map();
+  }
+
+  const users = await prismaAdmin.user.findMany({
+    where: { id: { in: userIds } },
+    select: safeUserSelect,
+  });
+
+  return new Map(users.map((user) => [user.id, user]));
+}
+
+async function loadGroupsById(groupIds: string[]): Promise<Map<string, GroupSummary>> {
+  if (groupIds.length === 0) {
+    return new Map();
+  }
+
+  const groups = await prismaAdmin.group.findMany({
+    where: { id: { in: groupIds } },
+    select: { id: true, name: true },
+  });
+
+  return new Map(groups.map((group) => [group.id, group]));
+}
+
+function collectInvitationUserIds(
+  invitations: Array<{ senderId: string; recipientId: string | null }>,
+  userIds: Set<string>,
+) {
+  for (const invitation of invitations) {
+    userIds.add(invitation.senderId);
+    if (invitation.recipientId) {
+      userIds.add(invitation.recipientId);
+    }
+  }
+}
+
+function hydrateFriendInvitations<
+  T extends {
+    senderId: string;
+    recipientId: string | null;
+    sender: SafeUser | null;
+    recipient: SafeUser | null;
+  },
+>(invitations: T[], usersById: Map<string, SafeUser>) {
+  return invitations.map(({ senderId, recipientId, sender, recipient, ...invitation }) => ({
+    ...invitation,
+    sender: sender ?? usersById.get(senderId)!,
+    recipient: recipientId ? (recipient ?? usersById.get(recipientId) ?? null) : recipient,
+  }));
+}
+
+function hydrateGroupInvitations<
+  T extends {
+    groupId: string;
+    senderId: string;
+    recipientId: string | null;
+    group: GroupSummary | null;
+    sender: SafeUser | null;
+    recipient: SafeUser | null;
+  },
+>(invitations: T[], usersById: Map<string, SafeUser>, groupsById: Map<string, GroupSummary>) {
+  return invitations.map(
+    ({ groupId, senderId, recipientId, group, sender, recipient, ...invitation }) => ({
+      ...invitation,
+      group: group ?? groupsById.get(groupId)!,
+      sender: sender ?? usersById.get(senderId)!,
+      recipient: recipientId ? (recipient ?? usersById.get(recipientId) ?? null) : recipient,
+    }),
+  );
+}
+
 function friendshipUsers(firstUserId: string, secondUserId: string) {
   return firstUserId < secondUserId
     ? { userAId: firstUserId, userBId: secondUserId }
@@ -42,10 +165,7 @@ export async function sendFriendInvitation(
   senderId: string,
   input: InvitationEmailInput,
 ) {
-  const recipient = await tx.user.findUnique({
-    where: { email: input.email },
-    select: safeUserSelect,
-  });
+  const recipient = await findRegisteredInviteRecipient(input.email);
 
   if (recipient?.id === senderId) {
     throw new ApiError(400, "SELF_INVITATION_NOT_ALLOWED", "You cannot invite yourself");
@@ -118,10 +238,7 @@ export async function sendGroupInvitation(
 ) {
   await requireGroupMember(tx, senderId, groupId);
 
-  const recipient = await tx.user.findUnique({
-    where: { email: input.email },
-    select: safeUserSelect,
-  });
+  const recipient = await findRegisteredInviteRecipient(input.email);
 
   if (recipient?.id === senderId) {
     throw new ApiError(400, "SELF_INVITATION_NOT_ALLOWED", "You cannot invite yourself");
@@ -186,30 +303,54 @@ export async function sendGroupInvitation(
 }
 
 export async function listInvitations(tx: PrismaTransaction, userId: string) {
-  const [receivedFriends, sentFriends, receivedGroups, sentGroups] = await Promise.all([
-    tx.friendInvitation.findMany({
-      where: { recipientId: userId },
-      orderBy: { createdAt: "desc" },
-      select: friendInvitationSelect,
-    }),
-    tx.friendInvitation.findMany({
-      where: { senderId: userId },
-      orderBy: { createdAt: "desc" },
-      select: friendInvitationSelect,
-    }),
-    tx.groupInvitation.findMany({
-      where: { recipientId: userId },
-      orderBy: { createdAt: "desc" },
-      select: groupInvitationSelect,
-    }),
-    tx.groupInvitation.findMany({
-      where: { senderId: userId },
-      orderBy: { createdAt: "desc" },
-      select: groupInvitationSelect,
-    }),
+  const currentUser = await tx.user.findUniqueOrThrow({
+    where: { id: userId },
+    select: { email: true },
+  });
+  const receivedFilter = receivedInvitationFilter(userId, currentUser.email);
+
+  const [receivedFriendsRaw, sentFriendsRaw, receivedGroupsRaw, sentGroupsRaw] =
+    await Promise.all([
+      tx.friendInvitation.findMany({
+        where: receivedFilter,
+        orderBy: { createdAt: "desc" },
+        select: friendInvitationListSelect,
+      }),
+      tx.friendInvitation.findMany({
+        where: { senderId: userId },
+        orderBy: { createdAt: "desc" },
+        select: friendInvitationListSelect,
+      }),
+      tx.groupInvitation.findMany({
+        where: receivedFilter,
+        orderBy: { createdAt: "desc" },
+        select: groupInvitationListSelect,
+      }),
+      tx.groupInvitation.findMany({
+        where: { senderId: userId },
+        orderBy: { createdAt: "desc" },
+        select: groupInvitationListSelect,
+      }),
+    ]);
+
+  const userIds = new Set<string>();
+  collectInvitationUserIds(receivedFriendsRaw, userIds);
+  collectInvitationUserIds(sentFriendsRaw, userIds);
+  collectInvitationUserIds(receivedGroupsRaw, userIds);
+  collectInvitationUserIds(sentGroupsRaw, userIds);
+
+  const groupIds = [...receivedGroupsRaw, ...sentGroupsRaw].map((invitation) => invitation.groupId);
+  const [usersById, groupsById] = await Promise.all([
+    loadUsersById([...userIds]),
+    loadGroupsById(groupIds),
   ]);
 
-  return { receivedFriends, sentFriends, receivedGroups, sentGroups };
+  return {
+    receivedFriends: hydrateFriendInvitations(receivedFriendsRaw, usersById),
+    sentFriends: hydrateFriendInvitations(sentFriendsRaw, usersById),
+    receivedGroups: hydrateGroupInvitations(receivedGroupsRaw, usersById, groupsById),
+    sentGroups: hydrateGroupInvitations(sentGroupsRaw, usersById, groupsById),
+  };
 }
 
 export async function respondToFriendInvitation(
@@ -218,12 +359,16 @@ export async function respondToFriendInvitation(
   invitationId: string,
   input: InvitationDecisionInput,
 ) {
+  const currentUser = await tx.user.findUniqueOrThrow({
+    where: { id: userId },
+    select: { email: true },
+  });
   const invitation = await tx.friendInvitation.findUnique({
     where: { id: invitationId },
     include: { sender: { select: safeUserSelect }, recipient: { select: safeUserSelect } },
   });
 
-  if (!invitation || invitation.recipientId !== userId) {
+  if (!invitation || !isInvitationRecipient(invitation, userId, currentUser.email)) {
     throw new ApiError(404, "INVITATION_NOT_FOUND", "Invitation not found");
   }
 
@@ -232,7 +377,7 @@ export async function respondToFriendInvitation(
   }
 
   const status = input.decision === "accept" ? "accepted" : "declined";
-  const pair = friendshipUsers(invitation.senderId, invitation.recipientId!);
+  const pair = friendshipUsers(invitation.senderId, userId);
 
   try {
     if (status === "accepted") {
@@ -241,7 +386,11 @@ export async function respondToFriendInvitation(
 
     const updated = await tx.friendInvitation.update({
       where: { id: invitationId },
-      data: { status, respondedAt: new Date() },
+      data: {
+        status,
+        respondedAt: new Date(),
+        recipientId: userId,
+      },
       select: friendInvitationSelect,
     });
     await createActivity(tx, {
@@ -266,12 +415,16 @@ export async function respondToGroupInvitation(
   invitationId: string,
   input: InvitationDecisionInput,
 ) {
+  const currentUser = await tx.user.findUniqueOrThrow({
+    where: { id: userId },
+    select: { email: true },
+  });
   const invitation = await tx.groupInvitation.findUnique({
     where: { id: invitationId },
     include: { group: { select: { name: true } } },
   });
 
-  if (!invitation || invitation.recipientId !== userId) {
+  if (!invitation || !isInvitationRecipient(invitation, userId, currentUser.email)) {
     throw new ApiError(404, "INVITATION_NOT_FOUND", "Invitation not found");
   }
 
@@ -290,7 +443,11 @@ export async function respondToGroupInvitation(
 
     const updated = await tx.groupInvitation.update({
       where: { id: invitationId },
-      data: { status, respondedAt: new Date() },
+      data: {
+        status,
+        respondedAt: new Date(),
+        recipientId: userId,
+      },
       select: groupInvitationSelect,
     });
     await createActivity(tx, {

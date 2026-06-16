@@ -50,9 +50,14 @@ export function InvitationsPage() {
     }
   }
 
+  const receivedFriends = invitations?.receivedFriends ?? []
+  const receivedGroups = invitations?.receivedGroups ?? []
+  const sentFriends = invitations?.sentFriends ?? []
+  const sentGroups = invitations?.sentGroups ?? []
+
   const receivedPending =
-    (invitations?.receivedFriends.filter((invite) => invite.status === 'pending').length ?? 0) +
-    (invitations?.receivedGroups.filter((invite) => invite.status === 'pending').length ?? 0)
+    receivedFriends.filter((invite) => invite.status === 'pending').length +
+    receivedGroups.filter((invite) => invite.status === 'pending').length
 
   return (
     <section className="page">
@@ -70,7 +75,7 @@ export function InvitationsPage() {
             <h2>Waiting for you</h2>
             <span className="count-pill">{receivedPending}</span>
           </div>
-          {invitations?.receivedFriends
+          {receivedFriends
             .filter((invite) => invite.status === 'pending')
             .map((invite) => (
               <InvitationRow
@@ -80,7 +85,7 @@ export function InvitationsPage() {
                 onAnswer={(decision) => void answer('friend', invite.id, decision)}
               />
             ))}
-          {invitations?.receivedGroups
+          {receivedGroups
             .filter((invite) => invite.status === 'pending')
             .map((invite) => (
               <InvitationRow
@@ -90,28 +95,28 @@ export function InvitationsPage() {
                 onAnswer={(decision) => void answer('group', invite.id, decision)}
               />
             ))}
-          {receivedPending === 0 ? <p className="empty-state">Nothing waiting for your response.</p> : null}
+          {invitations && receivedPending === 0 ? (
+            <p className="empty-state">Nothing waiting for your response.</p>
+          ) : null}
         </section>
         <section className="panel">
           <h2>Sent invitations</h2>
           <div className="sent-invitations">
-            {invitations?.sentFriends.map((invite) => (
+            {sentFriends.map((invite) => (
               <SentRow
                 description={`Friend request to ${inviteRecipientLabel(invite)}`}
                 invite={invite}
                 key={invite.id}
               />
             ))}
-            {invitations?.sentGroups.map((invite) => (
+            {sentGroups.map((invite) => (
               <SentRow
                 description={`${inviteRecipientLabel(invite)} to ${invite.group.name}`}
                 invite={invite}
                 key={invite.id}
               />
             ))}
-            {invitations &&
-            invitations.sentFriends.length === 0 &&
-            invitations.sentGroups.length === 0 ? (
+            {invitations && sentFriends.length === 0 && sentGroups.length === 0 ? (
               <p className="empty-state">No invitations sent yet.</p>
             ) : null}
           </div>

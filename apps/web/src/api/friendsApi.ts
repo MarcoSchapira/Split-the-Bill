@@ -20,3 +20,10 @@ export async function inviteFriend(email: string): Promise<FriendInvitation> {
   )
   return response.data.invitation
 }
+
+export async function settleFriend(friendshipId: string): Promise<{ settledCount: number }> {
+  const response = await apiClient.post<{ settledCount: number }>(
+    `/friends/${friendshipId}/settle`,
+  )
+  return response.data
+}

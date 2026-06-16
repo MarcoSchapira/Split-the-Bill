@@ -33,6 +33,7 @@ export async function getDashboard(tx: PrismaTransaction, userId: string) {
         shares: {
           select: {
             shareCents: true,
+            settledAt: true,
             user: { select: safeUserSelect },
           },
         },
@@ -73,7 +74,7 @@ export async function getDashboard(tx: PrismaTransaction, userId: string) {
   for (const bill of bills) {
     if (bill.payerId === userId) {
       for (const share of bill.shares) {
-        if (share.user.id !== userId) {
+        if (share.user.id !== userId && share.settledAt == null) {
           adjustBalance(share.user, share.shareCents);
         }
       }
@@ -82,7 +83,7 @@ export async function getDashboard(tx: PrismaTransaction, userId: string) {
 
     const ownShare = bill.shares.find((share) => share.user.id === userId);
 
-    if (ownShare) {
+    if (ownShare && ownShare.settledAt == null) {
       adjustBalance(bill.payer, -ownShare.shareCents);
     }
   }

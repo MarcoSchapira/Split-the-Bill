@@ -38,3 +38,10 @@ export async function updateBill(billId: string, input: BillInput): Promise<Bill
 export async function deleteBill(billId: string): Promise<void> {
   await apiClient.delete(`/bills/${billId}`)
 }
+
+export async function settleBill(billId: string, friendUserId?: string): Promise<Bill> {
+  const response = await apiClient.post<{ bill: Bill }>(`/bills/${billId}/settle`, null, {
+    params: friendUserId ? { friendUserId } : undefined,
+  })
+  return response.data.bill
+}

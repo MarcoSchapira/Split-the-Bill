@@ -964,6 +964,81 @@ a.balance-row:hover {
   min-width: 0;
 }
 
+.page-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.bill-title-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.bill-title {
+  font-size: 16px;
+}
+
+.bill-settle-button {
+  font-size: 13px;
+}
+
+.bill-balance {
+  align-items: flex-end;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 88px;
+}
+
+.bill-balance--empty {
+  min-width: 88px;
+}
+
+.bill-balance-label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
+}
+
+.bill-balance.positive .bill-balance-label,
+.bill-balance.positive .bill-amount {
+  color: var(--accent);
+}
+
+.bill-balance.negative .bill-balance-label,
+.bill-balance.negative .bill-amount {
+  color: var(--error);
+}
+
+.bill-row.is-settled .bill-title,
+.bill-row.is-settled .bill-amount {
+  color: var(--text);
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+
+.bill-share-total {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.bill-share-total strong {
+  color: var(--text-h);
+  font-size: 16px;
+}
+
+.bill-share-paid-by {
+  color: var(--text);
+  font-size: 14px;
+  margin: 0 0 12px;
+}
+
 .bill-row-header {
   align-items: center;
   display: grid;

@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { apiErrorMessage } from '../api/client'
-import { getFriendship, listFriends } from '../api/friendsApi'
+import { getFriendship, listFriends, settleFriend } from '../api/friendsApi'
 import { listGroups } from '../api/groupsApi'
 import type { FriendshipDetail, FriendshipSummary, GroupSummary } from '../api/types'
 import { BillForm } from '../components/BillForm'
 import { BillList } from '../components/BillList'
 import { Modal } from '../components/Modal'
-import { DATA_CHANGED_EVENT } from '../utils/events'
+import { DATA_CHANGED_EVENT, notifyDataChanged } from '../utils/events'
 import { displayName } from '../utils/format'
 
 export function FriendDetailPage() {
@@ -17,6 +17,7 @@ export function FriendDetailPage() {
   const [groups, setGroups] = useState<GroupSummary[]>([])
   const [showBillForm, setShowBillForm] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [settleMessage, setSettleMessage] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     if (!friendshipId) {
@@ -47,6 +48,27 @@ export function FriendDetailPage() {
     }
   }, [load])
 
+  async function settleAll() {
+    if (!friendshipId) {
+      return
+    }
+
+    setError(null)
+    setSettleMessage(null)
+    try {
+      const result = await settleFriend(friendshipId)
+      if (result.settledCount === 0) {
+        setSettleMessage('Already settled up.')
+      } else {
+        setSettleMessage('All bills settled up.')
+      }
+      notifyDataChanged()
+      await load()
+    } catch (requestError) {
+      setError(apiErrorMessage(requestError, 'Unable to settle up with this friend.'))
+    }
+  }
+
   if (!friendshipId) {
     return <p className="form-error">Friend not found.</p>
   }
@@ -61,6 +83,7 @@ export function FriendDetailPage() {
         Back to friends
       </Link>
       {error ? <p className="form-error">{error}</p> : null}
+      {settleMessage ? <p className="form-success">{settleMessage}</p> : null}
       {friendship ? (
         <>
           <header className="page-header">
@@ -69,9 +92,14 @@ export function FriendDetailPage() {
               <h1>{displayName(friendship.friend)}</h1>
               <p>{friendship.friend.email}</p>
             </div>
-            <button className="primary-button compact" onClick={() => setShowBillForm(true)} type="button">
-              + Add bill
-            </button>
+            <div className="page-header-actions">
+              <button className="secondary-button compact" onClick={() => void settleAll()} type="button">
+                Settle up
+              </button>
+              <button className="primary-button compact" onClick={() => setShowBillForm(true)} type="button">
+                + Add bill
+              </button>
+            </div>
           </header>
           <section className="panel">
             <div className="panel-title">

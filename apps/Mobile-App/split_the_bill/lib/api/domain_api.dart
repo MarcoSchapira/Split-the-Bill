@@ -46,6 +46,17 @@ class FriendsApi {
     }
   }
 
+  Future<int> settleFriend(String friendshipId) async {
+    try {
+      final response = await _client.dio.post<Map<String, dynamic>>(
+        '/friends/$friendshipId/settle',
+      );
+      return response.data!['settledCount'] as int;
+    } on DioException catch (e) {
+      _client.throwApiError(e, 'Unable to settle up with this friend.');
+    }
+  }
+
   Future<FriendInvitation> inviteFriend(String email) async {
     try {
       final response = await _client.dio.post<Map<String, dynamic>>(
@@ -162,6 +173,20 @@ class BillsApi {
       await _client.dio.delete('/bills/$billId');
     } on DioException catch (e) {
       _client.throwApiError(e, 'Unable to delete bill.');
+    }
+  }
+
+  Future<Bill> settleBill(String billId, {String? friendUserId}) async {
+    try {
+      final response = await _client.dio.post<Map<String, dynamic>>(
+        '/bills/$billId/settle',
+        queryParameters: {
+          if (friendUserId != null) 'friendUserId': friendUserId,
+        },
+      );
+      return Bill.fromJson(response.data!['bill'] as Map<String, dynamic>);
+    } on DioException catch (e) {
+      _client.throwApiError(e, 'Unable to settle this bill.');
     }
   }
 }

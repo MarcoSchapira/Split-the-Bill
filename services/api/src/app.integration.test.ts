@@ -836,3 +836,164 @@ describe("friend detail shared group bills", () => {
     ).toBe(false);
   });
 });
+
+describe("bill settle API", () => {
+  async function becomeFriends(first: RegisteredAccount, second: RegisteredAccount) {
+    const invitation = await request(app)
+      .post("/friend-invitations")
+      .set(bearer(first.token))
+      .send({ email: second.user.email });
+    await request(app)
+      .patch(`/friend-invitations/${invitation.body.invitation.id as string}`)
+      .set(bearer(second.token))
+      .send({ decision: "accept" });
+    const friends = await request(app).get("/friends").set(bearer(first.token));
+    return friends.body.friends[0].id as string;
+  }
+
+  it("settles a friendship bill and clears dashboard balances", async () => {
+    const payer = await register("settle-payer@example.com");
+    const friend = await register("settle-friend@example.com");
+    const friendshipId = await becomeFriends(payer, friend);
+
+    const created = await request(app).post("/bills").set(bearer(payer.token)).send({
+      description: "Dinner",
+      incurredAt: "2026-05-25",
+      totalCents: 1000,
+      targetType: "friendship",
+      targetId: friendshipId,
+      payerId: payer.user.id,
+    });
+
+    const beforeSettle = await request(app).get("/dashboard").set(bearer(payer.token));
+    const settled = await request(app)
+      .post(`/bills/${created.body.bill.id as string}/settle`)
+      .set(bearer(payer.token));
+    const afterSettle = await request(app).get("/dashboard").set(bearer(payer.token));
+
+    expect(beforeSettle.body.dashboard.totalOwedToYouCents).toBe(500);
+    expect(settled.status).toBe(200);
+    expect(settled.body.bill.userSummary).toMatchObject({
+      direction: "owed_to_you",
+      amountCents: 500,
+      settled: true,
+    });
+    expect(afterSettle.body.dashboard.totalOwedToYouCents).toBe(0);
+  });
+
+  it("settles all outstanding bills with a friend", async () => {
+    const you = await register("bulk-settle-you@example.com");
+    const friend = await register("bulk-settle-friend@example.com");
+    const friendshipId = await becomeFriends(you, friend);
+
+    await request(app).post("/bills").set(bearer(you.token)).send({
+      description: "Lunch",
+      incurredAt: "2026-05-25",
+      totalCents: 2000,
+      targetType: "friendship",
+      targetId: friendshipId,
+      payerId: you.user.id,
+    });
+    await request(app).post("/bills").set(bearer(friend.token)).send({
+      description: "Taxi",
+      incurredAt: "2026-05-25",
+      totalCents: 1000,
+      targetType: "friendship",
+      targetId: friendshipId,
+      payerId: friend.user.id,
+    });
+
+    const beforeSettle = await request(app).get("/dashboard").set(bearer(you.token));
+    const settled = await request(app)
+      .post(`/friends/${friendshipId}/settle`)
+      .set(bearer(you.token));
+    const afterSettle = await request(app).get("/dashboard").set(bearer(you.token));
+
+    expect(beforeSettle.body.dashboard.balances[0].balanceCents).not.toBe(0);
+    expect(settled.status).toBe(200);
+    expect(settled.body.settledCount).toBeGreaterThan(0);
+    expect(afterSettle.body.dashboard.balances[0].balanceCents).toBe(0);
+  });
+
+  it("settles all debtor shares when the payer settles a group bill", async () => {
+    const owner = await register("group-settle-owner@example.com");
+    const member = await register("group-settle-member@example.com");
+    const friendshipId = await becomeFriends(owner, member);
+    const group = await request(app)
+      .post("/groups")
+      .set(bearer(owner.token))
+      .send({ name: "Trip" });
+    const invitation = await request(app)
+      .post(`/groups/${group.body.group.id as string}/invitations`)
+      .set(bearer(owner.token))
+      .send({ email: member.user.email });
+    await request(app)
+      .patch(`/group-invitations/${invitation.body.invitation.id as string}`)
+      .set(bearer(member.token))
+      .send({ decision: "accept" });
+
+    const bill = await request(app).post("/bills").set(bearer(owner.token)).send({
+      description: "Hotel",
+      incurredAt: "2026-05-25",
+      totalCents: 3000,
+      targetType: "group",
+      targetId: group.body.group.id,
+      payerId: owner.user.id,
+    });
+
+    const settled = await request(app)
+      .post(`/bills/${bill.body.bill.id as string}/settle`)
+      .set(bearer(owner.token));
+    const dashboard = await request(app).get("/dashboard").set(bearer(owner.token));
+
+    expect(settled.status).toBe(200);
+    expect(settled.body.bill.userSummary.settled).toBe(true);
+    expect(
+      settled.body.bill.shares.every(
+        (share: { user: { id: string }; settledAt: string | null }) =>
+          share.user.id === owner.user.id || share.settledAt != null,
+      ),
+    ).toBe(true);
+    expect(dashboard.body.dashboard.balances).toHaveLength(0);
+    expect(friendshipId).toBeTruthy();
+  });
+
+  it("preserves settledAt when a bill is edited", async () => {
+    const payer = await register("preserve-settle-payer@example.com");
+    const friend = await register("preserve-settle-friend@example.com");
+    const friendshipId = await becomeFriends(payer, friend);
+
+    const created = await request(app).post("/bills").set(bearer(payer.token)).send({
+      description: "Snacks",
+      incurredAt: "2026-05-25",
+      totalCents: 1000,
+      targetType: "friendship",
+      targetId: friendshipId,
+      payerId: payer.user.id,
+    });
+
+    await request(app)
+      .post(`/bills/${created.body.bill.id as string}/settle`)
+      .set(bearer(payer.token));
+
+    const updated = await request(app)
+      .patch(`/bills/${created.body.bill.id as string}`)
+      .set(bearer(payer.token))
+      .send({
+        description: "Snacks updated",
+        incurredAt: "2026-05-25",
+        totalCents: 1200,
+        targetType: "friendship",
+        targetId: friendshipId,
+        payerId: payer.user.id,
+      });
+
+    const friendShare = updated.body.bill.shares.find(
+      (share: { user: { id: string } }) => share.user.id === friend.user.id,
+    );
+
+    expect(updated.body.bill.description).toBe("Snacks updated");
+    expect(friendShare.settledAt).not.toBeNull();
+    expect(updated.body.bill.userSummary.settled).toBe(true);
+  });
+});

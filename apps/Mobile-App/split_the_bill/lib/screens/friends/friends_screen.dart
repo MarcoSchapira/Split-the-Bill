@@ -127,6 +127,30 @@ class _FriendDetailScreenState extends ConsumerState<FriendDetailScreen> {
     }
   }
 
+  Future<void> _settleAll() async {
+    try {
+      final settledCount =
+          await ref.read(friendsApiProvider).settleFriend(widget.friendshipId);
+      notifyDataChanged(ref);
+      await _load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              settledCount == 0 ? 'Already settled up.' : 'All bills settled up.',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(apiErrorMessage(e, 'Unable to settle up with this friend.'))),
+        );
+      }
+    }
+  }
+
   Future<void> _addBill() async {
     await showModalBottomSheet<bool>(
       context: context,
@@ -155,6 +179,7 @@ class _FriendDetailScreenState extends ConsumerState<FriendDetailScreen> {
       appBar: AppBar(
         title: Text(friendship != null ? displayName(friendship.friend) : 'Friend'),
         actions: [
+          TextButton(onPressed: _settleAll, child: const Text('Settle up')),
           IconButton(onPressed: _addBill, icon: const Icon(Icons.add)),
         ],
       ),

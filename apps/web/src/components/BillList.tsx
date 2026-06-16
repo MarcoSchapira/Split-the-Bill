@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { deleteBill } from '../api/billsApi'
+import { deleteBill, settleBill } from '../api/billsApi'
 import { apiErrorMessage } from '../api/client'
 import type { Bill, FriendshipSummary, GroupSummary, PairwiseSummary, User } from '../api/types'
 import { BillForm } from './BillForm'
@@ -57,6 +57,17 @@ export function BillList({
     }
   }
 
+  async function settle(bill: BillListBill) {
+    setError(null)
+    try {
+      await settleBill(bill.id, friend?.id)
+      notifyDataChanged()
+      onChanged()
+    } catch (requestError) {
+      setError(apiErrorMessage(requestError, 'Unable to settle this bill.'))
+    }
+  }
+
   if (bills.length === 0) {
     return <p className="empty-state">{emptyMessage}</p>
   }
@@ -69,11 +80,10 @@ export function BillList({
           <BillListItem
             bill={bill}
             expanded={expandedBillIds.has(bill.id)}
-            friend={friend}
             key={bill.id}
-            pairwise={bill.pairwise}
             onDelete={() => void remove(bill)}
             onEdit={() => setEditing(bill)}
+            onSettle={() => void settle(bill)}
             onToggleExpanded={() => toggleExpanded(bill.id)}
           />
         ))}

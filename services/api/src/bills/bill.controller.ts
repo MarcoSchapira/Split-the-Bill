@@ -1,8 +1,9 @@
 import type { RequestHandler } from "express";
 import { currentUser } from "../auth/currentUser";
 import { withUserContext } from "../db/userContext";
-import { billIdSchema, billInputSchema, billListQuerySchema } from "./bill.types";
+import { billIdSchema, billInputSchema, billListQuerySchema, billSettleQuerySchema } from "./bill.types";
 import { createBill, deleteBill, listBills, updateBill } from "./bill.service";
+import { settleBill } from "./bill-settle.service";
 
 export const create: RequestHandler = async (req, res) => {
   const userId = currentUser(req).id;
@@ -34,4 +35,13 @@ export const remove: RequestHandler = async (req, res) => {
     deleteBill(tx, userId, billIdSchema.parse(req.params.billId)),
   );
   res.status(204).send();
+};
+
+export const settle: RequestHandler = async (req, res) => {
+  const userId = currentUser(req).id;
+  const query = billSettleQuerySchema.parse(req.query);
+  const bill = await withUserContext(userId, (tx) =>
+    settleBill(tx, userId, billIdSchema.parse(req.params.billId), query.friendUserId),
+  );
+  res.json({ bill });
 };

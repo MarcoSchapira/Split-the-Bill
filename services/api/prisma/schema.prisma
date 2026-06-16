@@ -184,10 +184,11 @@ model Bill {
 }
 
 model BillShare {
-  id         String @id @default(uuid())
-  billId     String @map("bill_id")
-  userId     String @map("user_id")
-  shareCents Int    @map("share_cents")
+  id         String    @id @default(uuid())
+  billId     String    @map("bill_id")
+  userId     String    @map("user_id")
+  shareCents Int       @map("share_cents")
+  settledAt  DateTime? @map("settled_at")
 
   bill Bill @relation(fields: [billId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id], onDelete: Restrict)

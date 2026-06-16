@@ -1,7 +1,7 @@
 import type { PrismaTransaction } from "../db/userContext";
 import { safeUserSelect } from "../auth/auth.types";
 import { pairwiseSummaryForBill, type PairwiseSummary } from "../bills/bill-pairwise";
-import { billInclude, listBills, withPermissions } from "../bills/bill.service";
+import { billInclude, listBills, presentBill } from "../bills/bill.service";
 import { ApiError } from "../http/errors";
 
 function friendForUser<T extends { userA: unknown; userB: unknown; userAId: string }>(
@@ -45,7 +45,9 @@ export async function getFriend(tx: PrismaTransaction, userId: string, friendshi
 
   const friendUserId =
     friendship.userAId === userId ? friendship.userBId : friendship.userAId;
-  const bills = await listBills(tx, userId, { targetType: "friendship", targetId: friendshipId });
+  const bills = (await listBills(tx, userId, { targetType: "friendship", targetId: friendshipId })).map(
+    (bill) => presentBill(bill, userId, friendUserId),
+  );
 
   const sharedMemberships = await tx.groupMember.findMany({
     where: {
@@ -106,10 +108,9 @@ export async function getFriend(tx: PrismaTransaction, userId: string, friendshi
       }
 
       const groupBillsForFriend = billsByGroupId.get(bill.groupId) ?? [];
-      groupBillsForFriend.push({
-        ...withPermissions(bill, userId),
-        pairwise,
-      });
+      groupBillsForFriend.push(
+        presentBill(bill, userId, friendUserId) as SharedGroupBill,
+      );
       billsByGroupId.set(bill.groupId, groupBillsForFriend);
     }
   }

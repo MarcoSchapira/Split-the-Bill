@@ -4,6 +4,8 @@ import { ApiError } from "../http/errors";
 import { requireGroupMember } from "../groups/group.authorization";
 import { createActivity } from "../activity/activity.service";
 import { buildSharesFromInput } from "./bill-split";
+import { toBillShareBalanceLike, userSummaryForBill } from "./bill-balance";
+import { pairwiseSummaryForBill } from "./bill-pairwise";
 import type { BillInput, BillListQuery } from "./bill.types";
 
 export const billInclude = {
@@ -22,6 +24,7 @@ export const billInclude = {
     select: {
       id: true,
       shareCents: true,
+      settledAt: true,
       user: { select: safeUserSelect },
     },
   },
@@ -40,6 +43,45 @@ export function withPermissions<T extends { creatorId: string }>(bill: T, userId
     canDelete: true,
     canRetarget: bill.creatorId === userId,
   };
+}
+
+type BillWithShares = {
+  payerId: string;
+  creatorId: string;
+  shares: Array<{
+    id: string;
+    shareCents: number;
+    settledAt: Date | null;
+    user: { id: string; email: string; name: string | null; createdAt: Date };
+  }>;
+};
+
+export function presentBill<T extends BillWithShares>(
+  bill: T,
+  userId: string,
+  friendUserId?: string,
+) {
+  const shareBalance = toBillShareBalanceLike(bill.shares);
+  const presented = {
+    ...withPermissions(bill, userId),
+    userSummary: userSummaryForBill(
+      { payerId: bill.payerId, shares: shareBalance },
+      userId,
+      friendUserId,
+    ),
+  };
+
+  if (!friendUserId) {
+    return presented;
+  }
+
+  const pairwise = pairwiseSummaryForBill(
+    { payerId: bill.payerId, shares: shareBalance },
+    userId,
+    friendUserId,
+  );
+
+  return pairwise ? { ...presented, pairwise } : presented;
 }
 
 async function resolveTargetParticipants(
@@ -83,7 +125,7 @@ function assertPayerIsParticipant(payerId: string, participantIds: string[]) {
   }
 }
 
-async function findVisibleBill(tx: PrismaTransaction, userId: string, billId: string) {
+export async function findVisibleBill(tx: PrismaTransaction, userId: string, billId: string) {
   const bill = await tx.bill.findFirst({
     where: {
       id: billId,
@@ -131,7 +173,7 @@ export async function createBill(tx: PrismaTransaction, actingUserId: string, in
     type: "BILL_CREATED",
     message: `added the bill "${input.description}".`,
   });
-  return withPermissions(bill, actingUserId);
+  return presentBill(bill, actingUserId);
 }
 
 export async function listBills(
@@ -162,7 +204,7 @@ export async function listBills(
     include: billInclude,
   });
 
-  return bills.map((bill) => withPermissions(bill, userId));
+  return bills.map((bill) => presentBill(bill, userId));
 }
 
 export async function updateBill(
@@ -197,6 +239,9 @@ export async function updateBill(
   ];
 
   await tx.billShare.deleteMany({ where: { billId } });
+  const settledByUserId = new Map(
+    bill.shares.map((share) => [share.user.id, share.settledAt] as const),
+  );
   const updated = await tx.bill.update({
     where: { id: billId },
     data: {
@@ -207,7 +252,15 @@ export async function updateBill(
       payerId: input.payerId,
       friendshipId: resolvedTarget.friendshipId ?? null,
       groupId: resolvedTarget.groupId ?? null,
-      shares: { create: shares },
+      shares: {
+        create: shares.map((share) => ({
+          userId: share.userId,
+          shareCents: share.shareCents,
+          ...(settledByUserId.get(share.userId)
+            ? { settledAt: settledByUserId.get(share.userId) }
+            : {}),
+        })),
+      },
     },
     include: billInclude,
   });
@@ -218,7 +271,7 @@ export async function updateBill(
     type: "BILL_UPDATED",
     message: `updated the bill "${input.description}".`,
   });
-  return withPermissions(updated, actingUserId);
+  return presentBill(updated, actingUserId);
 }
 
 export async function deleteBill(tx: PrismaTransaction, actingUserId: string, billId: string) {

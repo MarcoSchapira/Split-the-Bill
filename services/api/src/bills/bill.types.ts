@@ -35,5 +35,10 @@ export const billListQuerySchema = z
     "targetType and targetId must be supplied together",
   );
 
+export const billSettleQuerySchema = z.object({
+  friendUserId: z.string().uuid().optional(),
+});
+
 export type BillInput = z.infer<typeof billInputSchema>;
 export type BillListQuery = z.infer<typeof billListQuerySchema>;
+export type BillSettleQuery = z.infer<typeof billSettleQuerySchema>;

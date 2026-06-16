@@ -136,17 +136,40 @@ class BillShare {
     required this.id,
     required this.shareCents,
     required this.user,
+    this.settledAt,
   });
 
   final String id;
   final int shareCents;
   final User user;
+  final String? settledAt;
 
   factory BillShare.fromJson(Map<String, dynamic> json) {
     return BillShare(
       id: json['id'] as String,
       shareCents: json['shareCents'] as int,
       user: User.fromJson(json['user'] as Map<String, dynamic>),
+      settledAt: json['settledAt'] as String?,
+    );
+  }
+}
+
+class BillUserSummary {
+  const BillUserSummary({
+    required this.amountCents,
+    required this.direction,
+    required this.settled,
+  });
+
+  final int amountCents;
+  final String direction;
+  final bool settled;
+
+  factory BillUserSummary.fromJson(Map<String, dynamic> json) {
+    return BillUserSummary(
+      amountCents: json['amountCents'] as int,
+      direction: json['direction'] as String,
+      settled: json['settled'] as bool,
     );
   }
 }
@@ -175,6 +198,7 @@ class Bill {
     required this.canEdit,
     required this.canDelete,
     required this.canRetarget,
+    required this.userSummary,
     this.pairwise,
   });
 
@@ -198,6 +222,7 @@ class Bill {
   final bool canEdit;
   final bool canDelete;
   final bool canRetarget;
+  final BillUserSummary userSummary;
   final PairwiseSummary? pairwise;
 
   factory Bill.fromJson(Map<String, dynamic> json) {
@@ -228,6 +253,9 @@ class Bill {
       canEdit: json['canEdit'] as bool,
       canDelete: json['canDelete'] as bool,
       canRetarget: json['canRetarget'] as bool,
+      userSummary: BillUserSummary.fromJson(
+        json['userSummary'] as Map<String, dynamic>,
+      ),
       pairwise: json['pairwise'] != null
           ? PairwiseSummary.fromJson(json['pairwise'] as Map<String, dynamic>)
           : null,

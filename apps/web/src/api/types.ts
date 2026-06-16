@@ -58,7 +58,14 @@ export type FriendshipDetail = FriendshipSummary & {
 export type BillShare = {
   id: string;
   shareCents: number;
+  settledAt: string | null;
   user: User;
+};
+
+export type BillUserSummary = {
+  amountCents: number;
+  direction: 'owed_to_you' | 'you_owe' | 'none';
+  settled: boolean;
 };
 
 export type Bill = {
@@ -86,6 +93,7 @@ export type Bill = {
   canEdit: boolean;
   canDelete: boolean;
   canRetarget: boolean;
+  userSummary: BillUserSummary;
 };
 
 export type BalanceContact = {

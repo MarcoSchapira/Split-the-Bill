@@ -59,17 +59,6 @@ class _BillListItem extends ConsumerStatefulWidget {
 class _BillListItemState extends ConsumerState<_BillListItem> {
   bool _expanded = false;
 
-  String? _pairwiseLabel() {
-    final pairwise = widget.bill.pairwise;
-    final friend = widget.friend;
-    if (pairwise == null || friend == null) return null;
-
-    if (pairwise.direction == 'friend_owes_you') {
-      return '${displayName(friend)} owes you ${formatCad(pairwise.amountCents)}';
-    }
-    return 'You owe ${displayName(friend)} ${formatCad(pairwise.amountCents)}';
-  }
-
   Future<void> _delete() async {
     final confirmed = await showConfirmDialog(
       context,
@@ -110,12 +99,46 @@ class _BillListItemState extends ConsumerState<_BillListItem> {
     );
   }
 
+  Future<void> _settle() async {
+    try {
+      await ref.read(billsApiProvider).settleBill(
+            widget.bill.id,
+            friendUserId: widget.friend?.id,
+          );
+      notifyDataChanged(ref);
+      widget.onChanged();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(apiErrorMessage(e, 'Unable to settle this bill.'))),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final bill = widget.bill;
     final shares = [...bill.shares]
       ..sort((a, b) => displayName(a.user).compareTo(displayName(b.user)));
-    final pairwiseLabel = _pairwiseLabel();
+    final summary = bill.userSummary;
+    final showBalance = summary.direction != 'none' && summary.amountCents > 0;
+    final isSettled = summary.settled;
+    final balanceLabel = summary.direction == 'owed_to_you'
+        ? 'owes you'
+        : summary.direction == 'you_owe'
+            ? 'you owe'
+            : null;
+    final balanceColor = summary.direction == 'owed_to_you'
+        ? AppColors.accent
+        : summary.direction == 'you_owe'
+            ? AppColors.error
+            : AppColors.text;
+    final titleStyle = TextStyle(
+      fontWeight: FontWeight.w700,
+      decoration: isSettled ? TextDecoration.lineThrough : null,
+      color: isSettled ? AppColors.text.withValues(alpha: 0.55) : null,
+    );
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
@@ -123,21 +146,46 @@ class _BillListItemState extends ConsumerState<_BillListItem> {
         children: [
           ListTile(
             onTap: () => setState(() => _expanded = !_expanded),
-            title: Text(bill.description, style: const TextStyle(fontWeight: FontWeight.w700)),
-            subtitle: Text(
-              'Paid by ${displayName(bill.payer)} on ${formatDateUtc(bill.incurredAt)}',
-            ),
-            trailing: Text(
-              formatCad(bill.totalCents),
-              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
-            ),
+            title: Text(bill.description, style: titleStyle),
+            trailing: showBalance
+                ? Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      if (balanceLabel != null)
+                        Text(
+                          balanceLabel,
+                          style: TextStyle(
+                            color: isSettled
+                                ? AppColors.text.withValues(alpha: 0.55)
+                                : balanceColor,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      Text(
+                        formatCad(summary.amountCents),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
+                          color: isSettled
+                              ? AppColors.text.withValues(alpha: 0.55)
+                              : balanceColor,
+                          decoration: isSettled ? TextDecoration.lineThrough : null,
+                        ),
+                      ),
+                    ],
+                  )
+                : null,
           ),
-          if (bill.canEdit || bill.canDelete)
+          if (showBalance && !isSettled || bill.canEdit || bill.canDelete)
             Padding(
               padding: const EdgeInsets.only(left: 16, right: 16, bottom: 8),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
+                  if (showBalance && !isSettled)
+                    TextButton(onPressed: _settle, child: const Text('Settle up')),
+                  const Spacer(),
                   if (bill.canEdit)
                     TextButton(onPressed: _edit, child: const Text('Edit')),
                   if (bill.canDelete)
@@ -155,26 +203,42 @@ class _BillListItemState extends ConsumerState<_BillListItem> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    pairwiseLabel != null ? 'Between you' : 'Split breakdown',
-                    style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.text),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Total',
+                        style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.text),
+                      ),
+                      Text(
+                        formatCad(bill.totalCents),
+                        style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.text),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 8),
-                  if (pairwiseLabel != null)
-                    Text(pairwiseLabel)
-                  else
-                    ...shares.map(
-                      (share) => Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 2),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(displayName(share.user)),
-                            Text(formatCad(share.shareCents)),
-                          ],
-                        ),
+                  Text(
+                    'Paid by ${displayName(bill.payer)} on ${formatDateUtc(bill.incurredAt)}',
+                    style: const TextStyle(color: AppColors.text),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Split breakdown',
+                    style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.text),
+                  ),
+                  const SizedBox(height: 8),
+                  ...shares.map(
+                    (share) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(displayName(share.user)),
+                          Text(formatCad(share.shareCents)),
+                        ],
                       ),
                     ),
+                  ),
                 ],
               ),
             ),

@@ -22,6 +22,19 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  remove_alpha_ios: true
+  image_path: ../../web/public/color_green.png
+  web:
+    generate: true
+  macos:
+    generate: true
+  windows:
+    generate: true
 
 flutter:
   uses-material-design: true

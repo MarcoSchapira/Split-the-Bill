@@ -9,7 +9,10 @@ export function LandingPage() {
       <section className="landing-hero landing-hero-compact">
         <div className="landing-copy">
           <p className="eyebrow">Shared expenses made clear</p>
-          <h1>Split Bills. Keep it Simple</h1>
+          <h1>
+            Split Bills
+            <span className="landing-title-accent">Track Expenses</span>
+          </h1>
           <p className="landing-lede">
             EquiSplit keeps groups, bills, and balances in one calm place so
             everyone knows where things stand.
@@ -23,11 +26,13 @@ export function LandingPage() {
             </Link>
           </div>
         </div>
-        <img
-          className="hero-image"
-          src="/dashboard.png"
-          alt="EquiSplit dashboard showing balances and people"
-        />
+        <div className="hero-image-wrap">
+          <img
+            className="hero-image"
+            src="/dashboard.png"
+            alt="EquiSplit dashboard showing balances and people"
+          />
+        </div>
       </section>
     </main>
   )

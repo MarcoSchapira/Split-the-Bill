@@ -149,6 +149,23 @@ class Eyebrow extends StatelessWidget {
   }
 }
 
+class AppBrandTitle extends StatelessWidget {
+  const AppBrandTitle({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Text(
+      'EquiSplit',
+      style: TextStyle(
+        color: AppColors.accent,
+        fontSize: 24,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 0.04,
+      ),
+    );
+  }
+}
+
 class SummaryCard extends StatelessWidget {
   const SummaryCard({
     super.key,

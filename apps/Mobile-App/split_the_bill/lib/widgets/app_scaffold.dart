@@ -20,63 +20,72 @@ class AppScaffold extends ConsumerWidget {
     ('Invitations', Icons.mail_outline, Icons.mail),
   ];
 
+  static const tabRootPaths = {
+    '/dashboard',
+    '/activity',
+    '/friends',
+    '/groups',
+    '/invitations',
+  };
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final index = navigationShell.currentIndex;
+    final matchedLocation = GoRouterState.of(context).matchedLocation;
+    final isTabRoot = tabRootPaths.contains(matchedLocation);
+    final showDashboardFabs = index == 0 && matchedLocation == '/dashboard';
 
     return Scaffold(
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Eyebrow('EquiSplit'),
-            Text(
-              AppScaffold.tabs[index].$1,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-            ),
-          ],
-        ),
-        actions: [
-          PopupMenuButton<String>(
-            onSelected: (value) async {
-              switch (value) {
-                case 'friend':
-                  await showModalBottomSheet<void>(
-                    context: context,
-                    isScrollControlled: true,
-                    backgroundColor: AppColors.surface,
-                    shape: const RoundedRectangleBorder(
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                    ),
-                    builder: (_) => const AddFriendSheet(),
-                  );
-                case 'group':
-                  await showModalBottomSheet<void>(
-                    context: context,
-                    isScrollControlled: true,
-                    backgroundColor: AppColors.surface,
-                    shape: const RoundedRectangleBorder(
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                    ),
-                    builder: (_) => const CreateGroupSheet(),
-                  );
-                case 'logout':
-                  await ref.read(authProvider.notifier).logout();
-                  if (context.mounted) context.go('/login');
-              }
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(value: 'friend', child: Text('Add friend')),
-              const PopupMenuItem(value: 'group', child: Text('Create group')),
-              const PopupMenuItem(value: 'logout', child: Text('Log out')),
-            ],
-          ),
-        ],
-      ),
+      appBar: isTabRoot
+          ? AppBar(
+              title: const AppBrandTitle(),
+              actions: [
+                PopupMenuButton<String>(
+                  onSelected: (value) async {
+                    switch (value) {
+                      case 'friend':
+                        await showModalBottomSheet<void>(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: AppColors.surface,
+                          shape: const RoundedRectangleBorder(
+                            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                          ),
+                          builder: (_) => const AddFriendSheet(),
+                        );
+                      case 'group':
+                        await showModalBottomSheet<void>(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: AppColors.surface,
+                          shape: const RoundedRectangleBorder(
+                            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                          ),
+                          builder: (_) => const CreateGroupSheet(),
+                        );
+                      case 'logout':
+                        await ref.read(authProvider.notifier).logout();
+                        if (context.mounted) context.go('/login');
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(value: 'friend', child: Text('Add friend')),
+                    const PopupMenuItem(value: 'group', child: Text('Create group')),
+                    const PopupMenuItem(value: 'logout', child: Text('Log out')),
+                  ],
+                ),
+              ],
+            )
+          : null,
       body: navigationShell,
       bottomNavigationBar: NavigationBar(
         selectedIndex: index,
-        onDestinationSelected: navigationShell.goBranch,
+        onDestinationSelected: (selectedIndex) {
+          navigationShell.goBranch(
+            selectedIndex,
+            initialLocation: selectedIndex == index,
+          );
+        },
         destinations: [
           for (final tab in tabs)
             NavigationDestination(
@@ -86,7 +95,7 @@ class AppScaffold extends ConsumerWidget {
             ),
         ],
       ),
-      floatingActionButton: index == 0
+      floatingActionButton: showDashboardFabs
           ? Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
@@ -113,6 +122,7 @@ class AppScaffold extends ConsumerWidget {
             )
           : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      floatingActionButtonAnimator: FloatingActionButtonAnimator.noAnimation,
     );
   }
 }

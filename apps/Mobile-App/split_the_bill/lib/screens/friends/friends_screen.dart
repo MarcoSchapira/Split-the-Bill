@@ -72,8 +72,6 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          const Eyebrow('Connections'),
-          const SizedBox(height: 4),
           const Text('Friends', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
           const SizedBox(height: 16),
           if (_error != null) ...[ErrorBanner(message: _error!), const SizedBox(height: 12)],
@@ -222,7 +220,7 @@ class _FriendDetailScreenState extends ConsumerState<FriendDetailScreen> {
                         children: [
                           Expanded(
                             child: InkWell(
-                              onTap: () => context.push('/groups/${group.id}'),
+                              onTap: () => context.go('/groups/${group.id}'),
                               child: Text(
                                 group.name,
                                 style: const TextStyle(

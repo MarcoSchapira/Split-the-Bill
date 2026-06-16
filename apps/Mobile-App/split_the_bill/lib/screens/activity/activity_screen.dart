@@ -55,8 +55,6 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen> {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          const Eyebrow('Timeline'),
-          const SizedBox(height: 4),
           const Text('Recent Activity', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
           const SizedBox(height: 16),
           if (_error != null) ...[ErrorBanner(message: _error!), const SizedBox(height: 12)],

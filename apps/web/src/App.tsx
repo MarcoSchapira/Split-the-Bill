@@ -10,6 +10,7 @@ import { GroupDetailPage } from './pages/GroupDetailPage'
 import { GroupsPage } from './pages/GroupsPage'
 import { InvitationsPage } from './pages/InvitationsPage'
 import { LandingPage } from './pages/LandingPage'
+import { OldLandingPage } from './pages/OldLandingPage'
 import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
 import './App.css'
@@ -21,6 +22,7 @@ function App() {
         <Routes>
           <Route element={<PublicOnlyRoute />}>
             <Route path="/" element={<LandingPage />} />
+            <Route path="/old-home" element={<OldLandingPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
           </Route>

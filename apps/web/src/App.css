@@ -2,6 +2,31 @@
   min-height: 100svh;
 }
 
+.landing-page-compact {
+  display: flex;
+  flex-direction: column;
+  height: 100svh;
+  min-height: 100svh;
+  overflow: hidden;
+}
+
+.landing-hero-compact {
+  flex: 1;
+  min-height: 0;
+  padding-bottom: clamp(28px, 5vw, 48px);
+  padding-top: clamp(24px, 4vw, 48px);
+}
+
+.hero-image {
+  border-radius: 30px;
+  box-shadow: 0 30px 64px rgba(16, 47, 45, 0.14);
+  display: block;
+  height: auto;
+  max-height: min(520px, calc(100svh - 220px));
+  object-fit: cover;
+  width: 100%;
+}
+
 .landing-header {
   align-items: center;
   display: flex;
@@ -1641,12 +1666,23 @@ a.balance-row:hover {
     padding-top: 36px;
   }
 
+  .landing-hero-compact {
+    gap: 28px;
+    padding-bottom: 24px;
+    padding-top: 20px;
+  }
+
   .landing-copy h1 {
     font-size: clamp(45px, 15vw, 56px);
   }
 
   .hero-placeholder {
     min-height: 360px;
+    width: 100%;
+  }
+
+  .hero-image {
+    max-height: min(280px, calc(100svh - 420px));
     width: 100%;
   }
 
@@ -1712,12 +1748,20 @@ a.balance-row:hover {
     grid-template-columns: 1fr;
   }
 
+  .landing-hero-compact {
+    align-content: center;
+  }
+
   .feature-row-reverse .feature-copy {
     order: 0;
   }
 
   .hero-placeholder,
   .feature-placeholder {
+    width: 100%;
+  }
+
+  .hero-image {
     width: 100%;
   }
 

@@ -37,50 +37,45 @@ final routerProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
       GoRoute(path: '/register', builder: (_, __) => const RegisterScreen()),
-      GoRoute(
-        path: '/dashboard/add-bill',
-        builder: (_, __) => const DashboardAddBillScreen(),
-      ),
-      GoRoute(
-        path: '/dashboard/capture',
-        builder: (_, __) => const CaptureCameraScreen(),
-      ),
-      GoRoute(
-        path: '/dashboard/capture/participants',
-        builder: (_, state) => CaptureParticipantsScreen(
-          flow: state.extra! as CaptureFlowState,
-        ),
-      ),
-      GoRoute(
-        path: '/dashboard/capture/split',
-        builder: (_, state) => CaptureSplitScreen(
-          flow: state.extra! as CaptureFlowState,
-        ),
-      ),
-      GoRoute(
-        path: '/dashboard/capture/confirm',
-        builder: (_, state) => CaptureConfirmScreen(
-          flow: state.extra! as CaptureFlowState,
-        ),
-      ),
-      GoRoute(
-        path: '/friends/:friendshipId',
-        builder: (_, state) => FriendDetailScreen(
-          friendshipId: state.pathParameters['friendshipId']!,
-        ),
-      ),
-      GoRoute(
-        path: '/groups/:groupId',
-        builder: (_, state) => GroupDetailScreen(
-          groupId: state.pathParameters['groupId']!,
-        ),
-      ),
       StatefulShellRoute.indexedStack(
         builder: (_, __, navigationShell) => AppScaffold(navigationShell: navigationShell),
         branches: [
           StatefulShellBranch(
             routes: [
-              GoRoute(path: '/dashboard', builder: (_, __) => const DashboardScreen()),
+              GoRoute(
+                path: '/dashboard',
+                builder: (_, __) => const DashboardScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'add-bill',
+                    builder: (_, __) => const DashboardAddBillScreen(),
+                  ),
+                  GoRoute(
+                    path: 'capture',
+                    builder: (_, __) => const CaptureCameraScreen(),
+                    routes: [
+                      GoRoute(
+                        path: 'participants',
+                        builder: (_, state) => CaptureParticipantsScreen(
+                          flow: state.extra! as CaptureFlowState,
+                        ),
+                      ),
+                      GoRoute(
+                        path: 'split',
+                        builder: (_, state) => CaptureSplitScreen(
+                          flow: state.extra! as CaptureFlowState,
+                        ),
+                      ),
+                      GoRoute(
+                        path: 'confirm',
+                        builder: (_, state) => CaptureConfirmScreen(
+                          flow: state.extra! as CaptureFlowState,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ],
           ),
           StatefulShellBranch(
@@ -90,12 +85,34 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           StatefulShellBranch(
             routes: [
-              GoRoute(path: '/friends', builder: (_, __) => const FriendsScreen()),
+              GoRoute(
+                path: '/friends',
+                builder: (_, __) => const FriendsScreen(),
+                routes: [
+                  GoRoute(
+                    path: ':friendshipId',
+                    builder: (_, state) => FriendDetailScreen(
+                      friendshipId: state.pathParameters['friendshipId']!,
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
           StatefulShellBranch(
             routes: [
-              GoRoute(path: '/groups', builder: (_, __) => const GroupsScreen()),
+              GoRoute(
+                path: '/groups',
+                builder: (_, __) => const GroupsScreen(),
+                routes: [
+                  GoRoute(
+                    path: ':groupId',
+                    builder: (_, state) => GroupDetailScreen(
+                      groupId: state.pathParameters['groupId']!,
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
           StatefulShellBranch(

@@ -57,8 +57,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          const Eyebrow('Overview'),
-          const SizedBox(height: 4),
           const Text('Dashboard', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
           const SizedBox(height: 4),
           const Text('Keep track of every shared balance in one place.'),

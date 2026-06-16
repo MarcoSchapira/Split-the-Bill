@@ -58,8 +58,6 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          const Eyebrow('Shared spaces'),
-          const SizedBox(height: 4),
           const Text('Groups', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
           const SizedBox(height: 16),
           if (_error != null) ...[ErrorBanner(message: _error!), const SizedBox(height: 12)],

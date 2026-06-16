@@ -69,8 +69,6 @@ class _InvitationsScreenState extends ConsumerState<InvitationsScreen> {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          const Eyebrow('Requests'),
-          const SizedBox(height: 4),
           const Text('Invitations', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
           const SizedBox(height: 4),
           const Text('Friendships and memberships activate only when accepted.'),

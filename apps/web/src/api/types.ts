@@ -68,15 +68,41 @@ export type BillUserSummary = {
   settled: boolean;
 };
 
+export type BillLineItemAssignment = {
+  id: string;
+  user: User;
+};
+
+export type BillLineItem = {
+  id: string;
+  name: string;
+  quantity: number;
+  unitPriceCents: number;
+  totalPriceCents: number;
+  sortOrder: number;
+  assignments: BillLineItemAssignment[];
+};
+
 export type Bill = {
   id: string;
   description: string;
   incurredAt: string;
   totalCents: number;
-  targetType: 'friendship' | 'group';
+  targetType: 'friendship' | 'group' | null;
   source: 'manual' | 'capture';
   friendshipId: string | null;
   groupId: string | null;
+  storeName: string | null;
+  storeAddress: string | null;
+  receiptNumber: string | null;
+  receiptDate: string | null;
+  receiptTime: string | null;
+  paymentMethod: string | null;
+  cardLast4: string | null;
+  itemCount: number | null;
+  subtotalCents: number | null;
+  taxCents: number | null;
+  tipCents: number | null;
   payerId: string;
   creatorId: string;
   createdAt: string;
@@ -94,6 +120,7 @@ export type Bill = {
   canDelete: boolean;
   canRetarget: boolean;
   userSummary: BillUserSummary;
+  lineItems: BillLineItem[];
 };
 
 export type BalanceContact = {

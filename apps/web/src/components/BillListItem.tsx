@@ -1,4 +1,5 @@
 import type { Bill } from '../api/types'
+import { Link } from 'react-router-dom'
 import { displayName, formatCad } from '../utils/format'
 
 type BillListItemProps = {
@@ -48,7 +49,9 @@ export function BillListItem({
         <div className="bill-row-header">
           <div className="bill-details">
             <div className="bill-title-row">
-              <strong className="bill-title">{bill.description}</strong>
+              <strong className="bill-title">
+                <Link to={`/bills/${bill.id}`}>{bill.description}</Link>
+              </strong>
               {showBalance && !isSettled ? (
                 <button className="text-button bill-settle-button" onClick={onSettle} type="button">
                   Settle up

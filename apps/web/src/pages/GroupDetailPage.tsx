@@ -85,8 +85,8 @@ export function GroupDetailPage() {
 
   return (
     <section className="page">
-      <Link className="back-link" to="/groups">
-        Back to groups
+      <Link className="back-link" to="/friends">
+        Back to friends
       </Link>
       {isLoading ? <p className="screen-message">Loading group...</p> : null}
       {error ? <p className="form-error detail-error">{error}</p> : null}

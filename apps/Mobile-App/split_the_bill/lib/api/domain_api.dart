@@ -129,6 +129,7 @@ class BillsApi {
   Future<List<Bill>> listBills({
     TargetType? targetType,
     String? targetId,
+    String? participantId,
   }) async {
     try {
       final response = await _client.dio.get<Map<String, dynamic>>(
@@ -136,6 +137,7 @@ class BillsApi {
         queryParameters: {
           if (targetType != null) 'targetType': targetType.name,
           if (targetId != null) 'targetId': targetId,
+          if (participantId != null) 'participantId': participantId,
         },
       );
       return (response.data!['bills'] as List<dynamic>)
@@ -143,6 +145,15 @@ class BillsApi {
           .toList();
     } on DioException catch (e) {
       _client.throwApiError(e, 'Unable to load bills.');
+    }
+  }
+
+  Future<Bill> getBill(String billId) async {
+    try {
+      final response = await _client.dio.get<Map<String, dynamic>>('/bills/$billId');
+      return Bill.fromJson(response.data!['bill'] as Map<String, dynamic>);
+    } on DioException catch (e) {
+      _client.throwApiError(e, 'Unable to load bill details.');
     }
   }
 
@@ -187,31 +198,6 @@ class BillsApi {
       return Bill.fromJson(response.data!['bill'] as Map<String, dynamic>);
     } on DioException catch (e) {
       _client.throwApiError(e, 'Unable to settle this bill.');
-    }
-  }
-}
-
-class TargetsApi {
-  TargetsApi(this._client);
-  final ApiClient _client;
-
-  Future<ResolvedBillTarget> resolve({
-    required List<String> participantIds,
-    String? suggestedName,
-  }) async {
-    try {
-      final response = await _client.dio.post<Map<String, dynamic>>(
-        '/targets/resolve',
-        data: {
-          'participantIds': participantIds,
-          if (suggestedName != null) 'suggestedName': suggestedName,
-        },
-      );
-      return ResolvedBillTarget.fromJson(
-        response.data!['target'] as Map<String, dynamic>,
-      );
-    } on DioException catch (e) {
-      _client.throwApiError(e, 'Unable to resolve bill target.');
     }
   }
 }

@@ -54,21 +54,36 @@ class _CaptureConfirmScreenState extends ConsumerState<CaptureConfirmScreen> {
       final shareResult = _shareResult;
       final participantIds = _flow.participants.map((user) => user.id).toList();
 
-      final target = await ref.read(targetsApiProvider).resolve(
-            participantIds: participantIds,
-            suggestedName: receipt.storeName,
-          );
-
       await ref.read(billsApiProvider).createBill({
         'description': receipt.storeName?.trim().isNotEmpty == true
             ? receipt.storeName!.trim()
             : 'Receipt',
         'incurredAt': _incurredAtIso(receipt),
         'totalCents': shareResult.totalCents,
-        'targetType': target.targetType,
-        'targetId': target.targetId,
+        'participantIds': participantIds,
         'payerId': _flow.payerId!,
         'source': 'capture',
+        'storeName': receipt.storeName,
+        'storeAddress': receipt.storeAddress,
+        'receiptNumber': receipt.receiptNumber,
+        'receiptDate': receipt.date,
+        'receiptTime': receipt.time,
+        'paymentMethod': receipt.paymentMethod,
+        'cardLast4': receipt.cardLast4,
+        'itemCount': receipt.itemCount,
+        'subtotalCents': receipt.subtotal != null ? (receipt.subtotal! * 100).round() : null,
+        'taxCents': receipt.tax != null ? (receipt.tax! * 100).round() : null,
+        'tipCents': receipt.tip != null ? (receipt.tip! * 100).round() : null,
+        'lineItems': receipt.items.asMap().entries.map((entry) {
+          final assigned = _flow.assignments[entry.key] ?? const <String>{};
+          return {
+            'name': entry.value.name,
+            'quantity': entry.value.quantity,
+            'unitPriceCents': entry.value.unitPriceCents,
+            'totalPriceCents': entry.value.totalPriceCents,
+            'assignedUserIds': assigned.toList(),
+          };
+        }).toList(),
         'shares': shareResult.shares
             .map((share) => {
                   'userId': share.userId,

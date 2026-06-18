@@ -3,12 +3,12 @@ import { AuthProvider } from './auth/AuthProvider'
 import { ProtectedRoute, PublicOnlyRoute } from './auth/ProtectedRoute'
 import { AppLayout } from './layouts/AppLayout'
 import { ActivityPage } from './pages/ActivityPage'
+import { BillDetailPage } from './pages/BillDetailPage'
+import { BillsPage } from './pages/BillsPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { FriendDetailPage } from './pages/FriendDetailPage'
 import { FriendsPage } from './pages/FriendsPage'
 import { GroupDetailPage } from './pages/GroupDetailPage'
-import { GroupsPage } from './pages/GroupsPage'
-import { InvitationsPage } from './pages/InvitationsPage'
 import { LandingPage } from './pages/LandingPage'
 import { OldLandingPage } from './pages/OldLandingPage'
 import { LoginPage } from './pages/LoginPage'
@@ -30,11 +30,11 @@ function App() {
             <Route element={<AppLayout />}>
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/activity" element={<ActivityPage />} />
+              <Route path="/bills" element={<BillsPage />} />
+              <Route path="/bills/:billId" element={<BillDetailPage />} />
               <Route path="/friends" element={<FriendsPage />} />
               <Route path="/friends/:friendshipId" element={<FriendDetailPage />} />
-              <Route path="/groups" element={<GroupsPage />} />
               <Route path="/groups/:groupId" element={<GroupDetailPage />} />
-              <Route path="/invitations" element={<InvitationsPage />} />
             </Route>
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

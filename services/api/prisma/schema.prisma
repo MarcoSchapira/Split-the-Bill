@@ -28,6 +28,7 @@ model User {
   createdBills              Bill[]              @relation("BillCreator")
   paidBills                 Bill[]              @relation("BillPayer")
   billShares                BillShare[]
+  lineItemAssignments       BillLineItemAssignment[]
   activityEvents            ActivityEvent[]     @relation("ActivityActor")
   activityRecipients        ActivityRecipient[]
   sessions                  Session[]
@@ -153,25 +154,37 @@ model GroupInvitation {
 }
 
 model Bill {
-  id           String    @id @default(uuid())
-  description  String
-  incurredAt   DateTime  @map("incurred_at")
-  totalCents   Int       @map("total_cents")
-  targetType   String    @map("target_type")
-  source       String    @default("manual")
-  friendshipId String?   @map("friendship_id")
-  groupId      String?   @map("group_id")
-  payerId      String    @map("payer_id")
-  creatorId    String    @map("creator_id")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  lastEditedAt DateTime  @updatedAt @map("last_edited_at")
-  deletedAt    DateTime? @map("deleted_at")
+  id            String    @id @default(uuid())
+  description   String
+  source        String    @default("manual")
+  incurredAt    DateTime  @map("incurred_at")
+  totalCents    Int       @map("total_cents")
+  storeName     String?   @map("store_name")
+  storeAddress  String?   @map("store_address")
+  receiptNumber String?   @map("receipt_number")
+  receiptDate   String?   @map("receipt_date")
+  receiptTime   String?   @map("receipt_time")
+  paymentMethod String?   @map("payment_method")
+  cardLast4     String?   @map("card_last_4")
+  itemCount     Int?      @map("item_count")
+  subtotalCents Int?      @map("subtotal_cents")
+  taxCents      Int?      @map("tax_cents")
+  tipCents      Int?      @map("tip_cents")
+  targetType    String?   @map("target_type")
+  friendshipId  String?   @map("friendship_id")
+  groupId       String?   @map("group_id")
+  payerId       String    @map("payer_id")
+  creatorId     String    @map("creator_id")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  lastEditedAt  DateTime  @updatedAt @map("last_edited_at")
+  deletedAt     DateTime? @map("deleted_at")
 
-  friendship Friendship?     @relation(fields: [friendshipId], references: [id], onDelete: Cascade)
-  group      Group?          @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  friendship Friendship?     @relation(fields: [friendshipId], references: [id], onDelete: SetNull)
+  group      Group?          @relation(fields: [groupId], references: [id], onDelete: SetNull)
   payer      User            @relation("BillPayer", fields: [payerId], references: [id], onDelete: Restrict)
   creator    User            @relation("BillCreator", fields: [creatorId], references: [id], onDelete: Restrict)
   shares     BillShare[]
+  lineItems  BillLineItem[]
   activities ActivityEvent[]
 
   @@index([friendshipId])
@@ -196,6 +209,36 @@ model BillShare {
   @@unique([billId, userId])
   @@index([userId])
   @@map("bill_shares")
+}
+
+model BillLineItem {
+  id              String   @id @default(uuid())
+  billId          String   @map("bill_id")
+  name            String
+  quantity        Decimal  @default(1) @db.Decimal(10, 3)
+  unitPriceCents  Int      @map("unit_price_cents")
+  totalPriceCents Int      @map("total_price_cents")
+  sortOrder       Int      @map("sort_order")
+
+  bill        Bill                     @relation(fields: [billId], references: [id], onDelete: Cascade)
+  assignments BillLineItemAssignment[]
+
+  @@index([billId])
+  @@map("bill_line_items")
+}
+
+model BillLineItemAssignment {
+  id         String @id @default(uuid())
+  lineItemId String @map("line_item_id")
+  userId     String @map("user_id")
+
+  lineItem BillLineItem @relation(fields: [lineItemId], references: [id], onDelete: Cascade)
+  user     User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([lineItemId, userId])
+  @@index([lineItemId])
+  @@index([userId])
+  @@map("bill_line_item_assignments")
 }
 
 model ActivityEvent {

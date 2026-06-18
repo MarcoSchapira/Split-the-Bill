@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../api/api_exception.dart';
 import '../../models/models.dart';
 import '../../models/user.dart';
@@ -90,10 +91,13 @@ class _BillListItemState extends ConsumerState<_BillListItem> {
       ),
       builder: (_) => BillFormSheet(
         bill: widget.bill,
-        fixedTarget: BillTarget(
-          targetType: widget.bill.targetType,
-          targetId: widget.bill.friendshipId ?? widget.bill.groupId ?? '',
-        ),
+        fixedTarget: widget.bill.targetType != null &&
+                (widget.bill.friendshipId ?? widget.bill.groupId) != null
+            ? BillTarget(
+                targetType: widget.bill.targetType!,
+                targetId: widget.bill.friendshipId ?? widget.bill.groupId ?? '',
+              )
+            : null,
         onSaved: widget.onChanged,
       ),
     );
@@ -147,6 +151,11 @@ class _BillListItemState extends ConsumerState<_BillListItem> {
           ListTile(
             onTap: () => setState(() => _expanded = !_expanded),
             title: Text(bill.description, style: titleStyle),
+            subtitle: TextButton(
+              onPressed: () => context.push('/bills/${bill.id}'),
+              style: TextButton.styleFrom(padding: EdgeInsets.zero, alignment: Alignment.centerLeft),
+              child: const Text('View details'),
+            ),
             trailing: showBalance
                 ? Column(
                     mainAxisAlignment: MainAxisAlignment.center,

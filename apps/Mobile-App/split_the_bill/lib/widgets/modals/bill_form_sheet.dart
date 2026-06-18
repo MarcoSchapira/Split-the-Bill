@@ -61,7 +61,9 @@ class _BillFormSheetState extends ConsumerState<BillFormSheet> {
       _amountController.text = (bill.totalCents / 100).toStringAsFixed(2);
       _payerId = bill.payerId;
       _selectedTargetKey = widget.fixedTarget?.key ??
-          '${bill.targetType.name}:${bill.friendshipId ?? bill.groupId}';
+          (bill.targetType != null && (bill.friendshipId ?? bill.groupId) != null
+              ? '${bill.targetType!.name}:${bill.friendshipId ?? bill.groupId}'
+              : null);
     } else if (widget.fixedTarget != null) {
       _selectedTargetKey = widget.fixedTarget!.key;
     }
@@ -159,13 +161,12 @@ class _BillFormSheetState extends ConsumerState<BillFormSheet> {
     }
 
     final bill = widget.bill;
-    final target = _target;
     final totalCents = _totalCents;
     List<BillShareDraft>? existingShares;
-    if (bill != null &&
-        target != null &&
-        bill.targetType == target.targetType &&
-        (bill.friendshipId ?? bill.groupId) == target.targetId) {
+    final sameParticipants = bill != null &&
+        bill.shares.length == participants.length &&
+        participants.every((participant) => bill.shares.any((share) => share.user.id == participant.id));
+    if (sameParticipants) {
       existingShares = bill.shares
           .map((s) => BillShareDraft(userId: s.user.id, shareCents: s.shareCents))
           .toList();
@@ -202,7 +203,7 @@ class _BillFormSheetState extends ConsumerState<BillFormSheet> {
     final totalCentsInt = _totalCents;
 
     if (target == null || totalCentsInt <= 0) {
-      setState(() => _error = 'Enter a bill target and a positive amount.');
+      setState(() => _error = 'Enter participants and a positive amount.');
       return;
     }
 
@@ -219,6 +220,15 @@ class _BillFormSheetState extends ConsumerState<BillFormSheet> {
     }
 
     final participants = _participants;
+    final participantIds = _members
+        .where((member) => member.included)
+        .map((member) => member.user.id)
+        .toList();
+    if (participantIds.isEmpty) {
+      setState(() => _error = 'Include at least one participant.');
+      return;
+    }
+
     final payerId = participants.any((p) => p.id == _payerId)
         ? _payerId
         : (participants.firstOrNull?.id ?? '');
@@ -227,8 +237,8 @@ class _BillFormSheetState extends ConsumerState<BillFormSheet> {
       'description': _descriptionController.text.trim(),
       'incurredAt': DateTime.utc(_date.year, _date.month, _date.day).toIso8601String(),
       'totalCents': totalCentsInt,
-      'targetType': target.targetType.name,
-      'targetId': target.targetId,
+      'source': widget.bill?.source.name ?? BillSource.manual.name,
+      'participantIds': participantIds,
       'payerId': payerId,
       if (shareResult.shares != null)
         'shares': shareResult.shares!

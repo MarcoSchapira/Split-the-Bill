@@ -10,19 +10,42 @@ export type BillInput = {
   description: string;
   incurredAt: string;
   totalCents: number;
-  targetType: 'friendship' | 'group';
-  targetId: string;
   payerId: string;
+  source?: 'manual' | 'capture';
+  participantIds: string[];
+  storeName?: string | null;
+  storeAddress?: string | null;
+  receiptNumber?: string | null;
+  receiptDate?: string | null;
+  receiptTime?: string | null;
+  paymentMethod?: string | null;
+  cardLast4?: string | null;
+  itemCount?: number | null;
+  subtotalCents?: number | null;
+  taxCents?: number | null;
+  tipCents?: number | null;
+  lineItems?: Array<{
+    name: string;
+    quantity: number;
+    unitPriceCents: number;
+    totalPriceCents: number;
+    assignedUserIds: string[];
+  }>;
   shares?: BillShareInput[];
 }
 
 export async function listBills(
-  target?: { targetType: 'friendship' | 'group'; targetId: string },
+  query?: { targetType: 'friendship' | 'group'; targetId: string; participantId?: string } | { participantId: string },
 ): Promise<Bill[]> {
   const response = await apiClient.get<{ bills: Bill[] }>('/bills', {
-    params: target,
+    params: query,
   })
   return response.data.bills
+}
+
+export async function getBill(billId: string): Promise<Bill> {
+  const response = await apiClient.get<{ bill: Bill }>(`/bills/${billId}`)
+  return response.data.bill
 }
 
 export async function createBill(input: BillInput): Promise<Bill> {

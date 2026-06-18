@@ -176,6 +176,72 @@ class BillUserSummary {
 
 enum BillSource { manual, capture }
 
+class BillLineItemAssignment {
+  const BillLineItemAssignment({
+    required this.id,
+    required this.user,
+  });
+
+  final String id;
+  final User user;
+
+  factory BillLineItemAssignment.fromJson(Map<String, dynamic> json) {
+    return BillLineItemAssignment(
+      id: json['id'] as String,
+      user: User.fromJson(json['user'] as Map<String, dynamic>),
+    );
+  }
+}
+
+class BillLineItem {
+  const BillLineItem({
+    required this.id,
+    required this.name,
+    required this.quantity,
+    required this.unitPriceCents,
+    required this.totalPriceCents,
+    required this.sortOrder,
+    required this.assignments,
+  });
+
+  final String id;
+  final String name;
+  final double quantity;
+  final int unitPriceCents;
+  final int totalPriceCents;
+  final int sortOrder;
+  final List<BillLineItemAssignment> assignments;
+
+  static double _parseQuantity(dynamic raw) {
+    if (raw is num) {
+      return raw.toDouble();
+    }
+
+    if (raw is String) {
+      final parsed = double.tryParse(raw);
+      if (parsed != null) {
+        return parsed;
+      }
+    }
+
+    throw FormatException('Invalid bill line item quantity: $raw');
+  }
+
+  factory BillLineItem.fromJson(Map<String, dynamic> json) {
+    return BillLineItem(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      quantity: _parseQuantity(json['quantity']),
+      unitPriceCents: json['unitPriceCents'] as int,
+      totalPriceCents: json['totalPriceCents'] as int,
+      sortOrder: json['sortOrder'] as int,
+      assignments: (json['assignments'] as List<dynamic>)
+          .map((e) => BillLineItemAssignment.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+}
+
 class Bill {
   const Bill({
     required this.id,
@@ -186,6 +252,17 @@ class Bill {
     required this.source,
     required this.friendshipId,
     required this.groupId,
+    required this.storeName,
+    required this.storeAddress,
+    required this.receiptNumber,
+    required this.receiptDate,
+    required this.receiptTime,
+    required this.paymentMethod,
+    required this.cardLast4,
+    required this.itemCount,
+    required this.subtotalCents,
+    required this.taxCents,
+    required this.tipCents,
     required this.payerId,
     required this.creatorId,
     required this.createdAt,
@@ -199,6 +276,7 @@ class Bill {
     required this.canDelete,
     required this.canRetarget,
     required this.userSummary,
+    required this.lineItems,
     this.pairwise,
   });
 
@@ -206,10 +284,21 @@ class Bill {
   final String description;
   final String incurredAt;
   final int totalCents;
-  final TargetType targetType;
+  final TargetType? targetType;
   final BillSource source;
   final String? friendshipId;
   final String? groupId;
+  final String? storeName;
+  final String? storeAddress;
+  final String? receiptNumber;
+  final String? receiptDate;
+  final String? receiptTime;
+  final String? paymentMethod;
+  final String? cardLast4;
+  final int? itemCount;
+  final int? subtotalCents;
+  final int? taxCents;
+  final int? tipCents;
   final String payerId;
   final String creatorId;
   final String createdAt;
@@ -223,6 +312,7 @@ class Bill {
   final bool canDelete;
   final bool canRetarget;
   final BillUserSummary userSummary;
+  final List<BillLineItem> lineItems;
   final PairwiseSummary? pairwise;
 
   factory Bill.fromJson(Map<String, dynamic> json) {
@@ -231,12 +321,25 @@ class Bill {
       description: json['description'] as String,
       incurredAt: json['incurredAt'] as String,
       totalCents: json['totalCents'] as int,
-      targetType: json['targetType'] == 'group'
-          ? TargetType.group
-          : TargetType.friendship,
+      targetType: switch (json['targetType']) {
+        'group' => TargetType.group,
+        'friendship' => TargetType.friendship,
+        _ => null,
+      },
       source: json['source'] == 'capture' ? BillSource.capture : BillSource.manual,
       friendshipId: json['friendshipId'] as String?,
       groupId: json['groupId'] as String?,
+      storeName: json['storeName'] as String?,
+      storeAddress: json['storeAddress'] as String?,
+      receiptNumber: json['receiptNumber'] as String?,
+      receiptDate: json['receiptDate'] as String?,
+      receiptTime: json['receiptTime'] as String?,
+      paymentMethod: json['paymentMethod'] as String?,
+      cardLast4: json['cardLast4'] as String?,
+      itemCount: json['itemCount'] as int?,
+      subtotalCents: json['subtotalCents'] as int?,
+      taxCents: json['taxCents'] as int?,
+      tipCents: json['tipCents'] as int?,
       payerId: json['payerId'] as String,
       creatorId: json['creatorId'] as String,
       createdAt: json['createdAt'] as String,
@@ -256,6 +359,9 @@ class Bill {
       userSummary: BillUserSummary.fromJson(
         json['userSummary'] as Map<String, dynamic>,
       ),
+      lineItems: (json['lineItems'] as List<dynamic>? ?? const [])
+          .map((e) => BillLineItem.fromJson(e as Map<String, dynamic>))
+          .toList(),
       pairwise: json['pairwise'] != null
           ? PairwiseSummary.fromJson(json['pairwise'] as Map<String, dynamic>)
           : null,

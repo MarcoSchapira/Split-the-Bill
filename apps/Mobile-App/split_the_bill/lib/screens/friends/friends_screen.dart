@@ -19,6 +19,8 @@ class FriendsScreen extends ConsumerStatefulWidget {
 
 class _FriendsScreenState extends ConsumerState<FriendsScreen> {
   List<FriendshipSummary> _friends = [];
+  List<GroupSummary> _groups = [];
+  Invitations? _invitations;
   Dashboard? _dashboard;
   String? _error;
   bool _isLoading = true;
@@ -39,11 +41,15 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
       final results = await Future.wait([
         ref.read(friendsApiProvider).listFriends(),
         ref.read(dashboardApiProvider).getDashboard(),
+        ref.read(groupsApiProvider).listGroups(),
+        ref.read(invitationsApiProvider).getInvitations(),
       ]);
       if (mounted) {
         setState(() {
           _friends = results[0] as List<FriendshipSummary>;
           _dashboard = results[1] as Dashboard;
+          _groups = results[2] as List<GroupSummary>;
+          _invitations = results[3] as Invitations;
         });
       }
     } catch (e) {
@@ -58,6 +64,25 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
     return balance?.balanceCents;
   }
 
+  String _recipientLabel(FriendInvitation invite) {
+    return invite.recipient?.name ?? invite.recipient?.email ?? invite.recipientEmail ?? 'Unknown';
+  }
+
+  Future<void> _answerInvitation(String kind, String invitationId, String decision) async {
+    setState(() => _error = null);
+    try {
+      if (kind == 'friend') {
+        await ref.read(invitationsApiProvider).answerFriendInvitation(invitationId, decision);
+      } else {
+        await ref.read(invitationsApiProvider).answerGroupInvitation(invitationId, decision);
+      }
+      notifyDataChanged(ref);
+      await _load();
+    } catch (e) {
+      if (mounted) setState(() => _error = apiErrorMessage(e, 'Unable to update invitation.'));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.listen<int>(dataRefreshProvider, (_, __) => _load());
@@ -65,6 +90,13 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
     if (_isLoading && _friends.isEmpty) {
       return const LoadingView(message: 'Loading friends...');
     }
+
+    final invitations = _invitations;
+    final receivedPending = (invitations?.receivedFriends
+                .where((i) => i.status == InvitationStatus.pending)
+                .length ??
+            0) +
+        (invitations?.receivedGroups.where((i) => i.status == InvitationStatus.pending).length ?? 0);
 
     return RefreshIndicator(
       onRefresh: _load,
@@ -87,6 +119,137 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                   subtitle: Text(friendship.friend.email),
                   trailing: cents != null ? BalanceChip(cents: cents) : null,
                   onTap: () => context.push('/friends/${friendship.id}'),
+                ),
+              );
+            }),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              const Text('Invitations', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+              const Spacer(),
+              CountBadge(count: receivedPending),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (invitations == null)
+            const LoadingView()
+          else ...[
+            ...invitations.receivedFriends
+                .where((i) => i.status == InvitationStatus.pending)
+                .map((invite) => Card(
+                      color: AppColors.pendingBg,
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${displayName(invite.sender)} wants to be friends.',
+                              style: const TextStyle(color: AppColors.pendingText),
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton(
+                                    onPressed: () => _answerInvitation('friend', invite.id, 'decline'),
+                                    child: const Text('Decline'),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: FilledButton(
+                                    onPressed: () => _answerInvitation('friend', invite.id, 'accept'),
+                                    style: FilledButton.styleFrom(backgroundColor: AppColors.accent),
+                                    child: const Text('Accept'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    )),
+            ...invitations.receivedGroups
+                .where((i) => i.status == InvitationStatus.pending)
+                .map((invite) => Card(
+                      color: AppColors.pendingBg,
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${displayName(invite.sender)} invited you to ${invite.groupRef.name}.',
+                              style: const TextStyle(color: AppColors.pendingText),
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton(
+                                    onPressed: () => _answerInvitation('group', invite.id, 'decline'),
+                                    child: const Text('Decline'),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: FilledButton(
+                                    onPressed: () => _answerInvitation('group', invite.id, 'accept'),
+                                    style: FilledButton.styleFrom(backgroundColor: AppColors.accent),
+                                    child: const Text('Accept'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    )),
+            if (receivedPending == 0)
+              const EmptyState(message: 'No invitations waiting for your response.'),
+            const SizedBox(height: 8),
+            const Text('Sent invitations', style: TextStyle(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            ...invitations.sentFriends.map((invite) => Card(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    title: Text('Friend request to ${_recipientLabel(invite)}'),
+                    trailing: Text(invite.status.name),
+                  ),
+                )),
+            ...invitations.sentGroups.map((invite) => Card(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    title: Text(
+                      'Group invite to ${invite.groupRef.name} (${_recipientLabel(invite)})',
+                    ),
+                    trailing: Text(invite.status.name),
+                  ),
+                )),
+          ],
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              const Text('Groups', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+              const Spacer(),
+              CountBadge(count: _groups.length),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (_groups.isEmpty)
+            const EmptyState(message: 'No groups yet. Create one from the menu.')
+          else
+            ..._groups.map((group) {
+              return Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                child: ListTile(
+                  title: Text(group.name),
+                  subtitle: Text(group.role),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push('/groups/${group.id}'),
                 ),
               );
             }),

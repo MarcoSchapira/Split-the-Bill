@@ -5,6 +5,7 @@ import '../providers/providers.dart';
 import '../screens/activity/activity_screen.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/auth/register_screen.dart';
+import '../screens/bills/bills_screen.dart';
 import '../models/receipt.dart';
 import '../screens/capture/capture_camera_screen.dart';
 import '../screens/capture/capture_confirm_screen.dart';
@@ -13,7 +14,6 @@ import '../screens/capture/capture_split_screen.dart';
 import '../screens/dashboard/dashboard_screen.dart';
 import '../screens/friends/friends_screen.dart';
 import '../screens/groups/groups_screen.dart';
-import '../screens/invitations/invitations_screen.dart';
 import '../widgets/app_scaffold.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -37,6 +37,12 @@ final routerProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
       GoRoute(path: '/register', builder: (_, __) => const RegisterScreen()),
+      GoRoute(
+        path: '/groups/:groupId',
+        builder: (_, state) => GroupDetailScreen(
+          groupId: state.pathParameters['groupId']!,
+        ),
+      ),
       StatefulShellRoute.indexedStack(
         builder: (_, __, navigationShell) => AppScaffold(navigationShell: navigationShell),
         branches: [
@@ -86,6 +92,22 @@ final routerProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(
             routes: [
               GoRoute(
+                path: '/bills',
+                builder: (_, __) => const BillsScreen(),
+                routes: [
+                  GoRoute(
+                    path: ':billId',
+                    builder: (_, state) => BillDetailScreen(
+                      billId: state.pathParameters['billId']!,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
                 path: '/friends',
                 builder: (_, __) => const FriendsScreen(),
                 routes: [
@@ -97,27 +119,6 @@ final routerProvider = Provider<GoRouter>((ref) {
                   ),
                 ],
               ),
-            ],
-          ),
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: '/groups',
-                builder: (_, __) => const GroupsScreen(),
-                routes: [
-                  GoRoute(
-                    path: ':groupId',
-                    builder: (_, state) => GroupDetailScreen(
-                      groupId: state.pathParameters['groupId']!,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          StatefulShellBranch(
-            routes: [
-              GoRoute(path: '/invitations', builder: (_, __) => const InvitationsScreen()),
             ],
           ),
         ],

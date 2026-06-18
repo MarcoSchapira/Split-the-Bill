@@ -30,11 +30,11 @@ class _CreateGroupSheetState extends ConsumerState<CreateGroupSheet> {
     });
 
     try {
-      final group = await ref.read(groupsApiProvider).createGroup(_nameController.text.trim());
+      await ref.read(groupsApiProvider).createGroup(_nameController.text.trim());
       notifyDataChanged(ref);
       if (mounted) {
         Navigator.pop(context);
-        context.go('/groups/${group.id}');
+        context.go('/friends');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Group created.')),
         );

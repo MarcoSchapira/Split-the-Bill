@@ -1,7 +1,6 @@
 import type { PrismaTransaction } from "../db/userContext";
 import { ApiError } from "../http/errors";
 import { createActivity } from "../activity/activity.service";
-import { pairwiseSummaryForBill } from "./bill-pairwise";
 import { sharesToSettle } from "./bill-balance";
 import {
   billInclude,
@@ -73,18 +72,16 @@ export async function settleFriend(
   const settledAt = new Date();
   let settledCount = 0;
 
-  const directBills = await tx.bill.findMany({
+  const billsWithFriend = await tx.bill.findMany({
     where: {
       deletedAt: null,
-      friendshipId,
-      OR: [
-        { friendship: { OR: [{ userAId: actingUserId }, { userBId: actingUserId }] } },
-      ],
+      shares: { some: { userId: actingUserId } },
+      AND: [{ shares: { some: { userId: friendUserId } } }],
     },
     include: billInclude,
   });
 
-  for (const bill of directBills) {
+  for (const bill of billsWithFriend) {
     const shareIds = sharesToSettle(
       {
         payerId: bill.payerId,
@@ -108,67 +105,6 @@ export async function settleFriend(
       data: { settledAt },
     });
     settledCount += shareIds.length;
-  }
-
-  const sharedMemberships = await tx.groupMember.findMany({
-    where: {
-      userId: actingUserId,
-      group: { members: { some: { userId: friendUserId } } },
-    },
-    select: { groupId: true },
-  });
-  const sharedGroupIds = sharedMemberships.map((membership) => membership.groupId);
-
-  if (sharedGroupIds.length > 0) {
-    const groupBills = await tx.bill.findMany({
-      where: {
-        deletedAt: null,
-        groupId: { in: sharedGroupIds },
-      },
-      include: billInclude,
-    });
-
-    for (const bill of groupBills) {
-      const pairwise = pairwiseSummaryForBill(
-        {
-          payerId: bill.payerId,
-          shares: bill.shares.map((share) => ({
-            userId: share.user.id,
-            shareCents: share.shareCents,
-          })),
-        },
-        actingUserId,
-        friendUserId,
-      );
-
-      if (!pairwise) {
-        continue;
-      }
-
-      const shareIds = sharesToSettle(
-        {
-          payerId: bill.payerId,
-          shares: bill.shares.map((share) => ({
-            id: share.id,
-            userId: share.user.id,
-            shareCents: share.shareCents,
-            settledAt: share.settledAt,
-          })),
-        },
-        actingUserId,
-        friendUserId,
-      );
-
-      if (shareIds.length === 0) {
-        continue;
-      }
-
-      await tx.billShare.updateMany({
-        where: { id: { in: shareIds } },
-        data: { settledAt },
-      });
-      settledCount += shareIds.length;
-    }
   }
 
   if (settledCount > 0) {

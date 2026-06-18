@@ -34,7 +34,7 @@ class _AddFriendSheetState extends ConsumerState<AddFriendSheet> {
       notifyDataChanged(ref);
       if (mounted) {
         Navigator.pop(context);
-        context.go('/invitations');
+        context.go('/friends');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Friend invitation sent.')),
         );

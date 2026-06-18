@@ -538,6 +538,56 @@ describe("bill ledger and dashboard API", () => {
     expect(dashboardAfterDelete.body.dashboard.balances[0].balanceCents).toBe(0);
   });
 
+  it("stores receipt metadata and line items with participant-based payloads", async () => {
+    const first = await register("participant-first@example.com");
+    const second = await register("participant-second@example.com");
+    await becomeFriends(first, second);
+
+    const created = await request(app).post("/bills").set(bearer(first.token)).send({
+      description: "Receipt bill",
+      incurredAt: "2026-05-25",
+      totalCents: 1800,
+      source: "capture",
+      participantIds: [first.user.id, second.user.id],
+      payerId: first.user.id,
+      storeName: "Corner Store",
+      subtotalCents: 1500,
+      taxCents: 150,
+      tipCents: 150,
+      lineItems: [
+        {
+          name: "Sandwich",
+          quantity: 1,
+          unitPriceCents: 1200,
+          totalPriceCents: 1200,
+          assignedUserIds: [first.user.id],
+        },
+        {
+          name: "Juice",
+          quantity: 1,
+          unitPriceCents: 600,
+          totalPriceCents: 600,
+          assignedUserIds: [second.user.id],
+        },
+      ],
+      shares: [
+        { userId: first.user.id, shareCents: 1200 },
+        { userId: second.user.id, shareCents: 600 },
+      ],
+    });
+
+    const detail = await request(app)
+      .get(`/bills/${created.body.bill.id as string}`)
+      .set(bearer(first.token));
+
+    expect(created.status).toBe(201);
+    expect(created.body.bill.source).toBe("capture");
+    expect(created.body.bill.lineItems).toHaveLength(2);
+    expect(detail.status).toBe(200);
+    expect(detail.body.bill.storeName).toBe("Corner Store");
+    expect(detail.body.bill.lineItems[0].assignments).toHaveLength(1);
+  });
+
   it("shows group-only contacts, snapshots shares, and protects retargeting", async () => {
     const owner = await register("owner@example.com");
     const member = await register("member@example.com");
@@ -681,15 +731,10 @@ describe("bill ledger and dashboard API", () => {
       payerId: first.user.id,
       shares: [{ userId: second.user.id, shareCents: 1000 }],
     });
-    const payerExcludedDashboard = await request(app)
-      .get("/dashboard")
-      .set(bearer(second.token));
-
     expect(mismatch.status).toBe(400);
     expect(mismatch.body.error.code).toBe("INVALID_SHARE_TOTAL");
-    expect(payerExcluded.status).toBe(201);
-    expect(payerExcluded.body.bill.shares).toHaveLength(1);
-    expect(payerExcludedDashboard.body.dashboard.totalYouOweCents).toBe(1000);
+    expect(payerExcluded.status).toBe(400);
+    expect(payerExcluded.body.error.code).toBe("INVALID_SHARES");
   });
 
   it("rejects a payer who is not a participant in the target", async () => {

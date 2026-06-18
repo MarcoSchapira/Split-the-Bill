@@ -10,9 +10,8 @@ import { notifyDataChanged } from '../utils/events'
 const navigation = [
   { to: '/dashboard', label: 'Dashboard' },
   { to: '/activity', label: 'Recent Activity' },
+  { to: '/bills', label: 'Bills' },
   { to: '/friends', label: 'Friends' },
-  { to: '/groups', label: 'Groups' },
-  { to: '/invitations', label: 'Invitations' },
 ]
 
 export function AppLayout() {
@@ -47,7 +46,7 @@ export function AppLayout() {
       setNotice('Friend invitation sent.')
       notifyDataChanged()
       closeDialog()
-      navigate('/invitations')
+      navigate('/friends')
     } catch (requestError) {
       setError(apiErrorMessage(requestError, 'Unable to send invitation.'))
     } finally {
@@ -61,11 +60,11 @@ export function AppLayout() {
     setIsSaving(true)
 
     try {
-      const group = await createGroup(groupName)
+      await createGroup(groupName)
       setNotice('Group created.')
       notifyDataChanged()
       closeDialog()
-      navigate(`/groups/${group.id}`)
+      navigate('/friends')
     } catch (requestError) {
       setError(apiErrorMessage(requestError, 'Unable to create group.'))
     } finally {

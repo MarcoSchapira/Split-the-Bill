@@ -71,9 +71,9 @@ export function BillForm({
   )
   const initialTarget =
     fixedTarget ??
-    (bill
+    (bill && bill.targetType
       ? {
-          targetType: bill.targetType,
+          targetType: bill.targetType as 'friendship' | 'group',
           targetId: (bill.friendshipId ?? bill.groupId) as string,
         }
       : choices[0]
@@ -173,9 +173,11 @@ export function BillForm({
       : undefined
     const isSameBillContext =
       bill &&
-      target &&
-      bill.targetType === target.targetType &&
-      (bill.friendshipId ?? bill.groupId) === target.targetId
+      participants.length > 0 &&
+      bill.shares.length === participants.length &&
+      participants.every((participant) =>
+        bill.shares.some((share) => share.user.id === participant.id),
+      )
 
     const initialized = initializeMemberState(participants, {
       existingShares: isSameBillContext ? existingShares : undefined,
@@ -227,7 +229,6 @@ export function BillForm({
       return
     }
 
-    const target = parseTarget(activeTarget)
     const shareResult = buildSharesFromMemberState({
       totalCents,
       splitKind,
@@ -240,12 +241,20 @@ export function BillForm({
       return
     }
 
+    const includedParticipantIds = members
+      .filter((member) => member.included)
+      .map((member) => member.user.id)
+    if (includedParticipantIds.length === 0) {
+      setError('Include at least one participant.')
+      return
+    }
+
     const input = {
       description,
       incurredAt: date,
       totalCents,
-      targetType: target.targetType,
-      targetId: target.targetId,
+      source: bill?.source ?? 'manual',
+      participantIds: includedParticipantIds,
       payerId: selectedPayerId,
       ...(shareResult.shares ? { shares: shareResult.shares } : {}),
     }

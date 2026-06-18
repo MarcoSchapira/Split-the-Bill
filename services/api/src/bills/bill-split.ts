@@ -26,8 +26,10 @@ export function buildSharesFromInput(
   memberIds: string[],
   shares: BillShareInput[] | undefined,
 ): BillShareInput[] {
+  const requiredMemberIds = [...new Set(memberIds)].sort();
+
   if (!shares) {
-    return equalShares(totalCents, memberIds);
+    return equalShares(totalCents, requiredMemberIds);
   }
 
   if (shares.length === 0) {
@@ -44,7 +46,7 @@ export function buildSharesFromInput(
     }
     seen.add(share.userId);
 
-    if (!memberIds.includes(share.userId)) {
+    if (!requiredMemberIds.includes(share.userId)) {
       throw new ApiError(400, "INVALID_SHARES", "Share user must belong to the bill target");
     }
 
@@ -68,6 +70,16 @@ export function buildSharesFromInput(
       "INVALID_SHARE_TOTAL",
       "Share amounts must add up to the bill total",
     );
+  }
+
+  for (const memberId of requiredMemberIds) {
+    if (!seen.has(memberId)) {
+      throw new ApiError(
+        400,
+        "INVALID_SHARES",
+        "Every participant must have an explicit share entry",
+      );
+    }
   }
 
   return shares.map((share) => ({ userId: share.userId, shareCents: share.shareCents }));

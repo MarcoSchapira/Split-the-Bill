@@ -2,7 +2,7 @@ import type { RequestHandler } from "express";
 import { currentUser } from "../auth/currentUser";
 import { withUserContext } from "../db/userContext";
 import { billIdSchema, billInputSchema, billListQuerySchema, billSettleQuerySchema } from "./bill.types";
-import { createBill, deleteBill, listBills, updateBill } from "./bill.service";
+import { createBill, deleteBill, getBill, listBills, updateBill } from "./bill.service";
 import { settleBill } from "./bill-settle.service";
 
 export const create: RequestHandler = async (req, res) => {
@@ -19,6 +19,14 @@ export const list: RequestHandler = async (req, res) => {
     listBills(tx, userId, billListQuerySchema.parse(req.query)),
   );
   res.json({ bills });
+};
+
+export const get: RequestHandler = async (req, res) => {
+  const userId = currentUser(req).id;
+  const bill = await withUserContext(userId, (tx) =>
+    getBill(tx, userId, billIdSchema.parse(req.params.billId)),
+  );
+  res.json({ bill });
 };
 
 export const update: RequestHandler = async (req, res) => {

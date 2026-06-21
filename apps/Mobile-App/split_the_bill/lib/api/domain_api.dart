@@ -200,6 +200,20 @@ class BillsApi {
       _client.throwApiError(e, 'Unable to settle this bill.');
     }
   }
+
+  Future<Bill> unsettleBill(String billId, {String? friendUserId}) async {
+    try {
+      final response = await _client.dio.post<Map<String, dynamic>>(
+        '/bills/$billId/unsettle',
+        queryParameters: {
+          if (friendUserId != null) 'friendUserId': friendUserId,
+        },
+      );
+      return Bill.fromJson(response.data!['bill'] as Map<String, dynamic>);
+    } on DioException catch (e) {
+      _client.throwApiError(e, 'Unable to undo settlement.');
+    }
+  }
 }
 
 class ReceiptsApi {

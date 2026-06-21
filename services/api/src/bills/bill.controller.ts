@@ -3,7 +3,7 @@ import { currentUser } from "../auth/currentUser";
 import { withUserContext } from "../db/userContext";
 import { billIdSchema, billInputSchema, billListQuerySchema, billSettleQuerySchema } from "./bill.types";
 import { createBill, deleteBill, getBill, listBills, updateBill } from "./bill.service";
-import { settleBill } from "./bill-settle.service";
+import { settleBill, unsettleBill } from "./bill-settle.service";
 
 export const create: RequestHandler = async (req, res) => {
   const userId = currentUser(req).id;
@@ -50,6 +50,15 @@ export const settle: RequestHandler = async (req, res) => {
   const query = billSettleQuerySchema.parse(req.query);
   const bill = await withUserContext(userId, (tx) =>
     settleBill(tx, userId, billIdSchema.parse(req.params.billId), query.friendUserId),
+  );
+  res.json({ bill });
+};
+
+export const unsettle: RequestHandler = async (req, res) => {
+  const userId = currentUser(req).id;
+  const query = billSettleQuerySchema.parse(req.query);
+  const bill = await withUserContext(userId, (tx) =>
+    unsettleBill(tx, userId, billIdSchema.parse(req.params.billId), query.friendUserId),
   );
   res.json({ bill });
 };

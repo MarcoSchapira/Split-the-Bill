@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { requireAuth } from "../auth/auth.middleware";
-import { create, get, list, remove, settle, update } from "./bill.controller";
+import { create, get, list, remove, settle, unsettle, update } from "./bill.controller";
 
 const router = Router();
 
@@ -10,6 +10,7 @@ router.get("/:billId", get);
 router.post("/", create);
 router.patch("/:billId", update);
 router.post("/:billId/settle", settle);
+router.post("/:billId/unsettle", unsettle);
 router.delete("/:billId", remove);
 
 export default router;

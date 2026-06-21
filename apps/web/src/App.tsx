@@ -14,6 +14,7 @@ import { LandingPage } from './pages/LandingPage'
 import { OldLandingPage } from './pages/OldLandingPage'
 import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
+import { SettingsPage } from './pages/SettingsPage'
 import './App.css'
 
 function App() {
@@ -37,6 +38,7 @@ function App() {
               <Route path="/friends/:friendshipId" element={<FriendDetailPage />} />
               <Route path="/invitations" element={<InvitationsPage />} />
               <Route path="/groups/:groupId" element={<GroupDetailPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
             </Route>
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

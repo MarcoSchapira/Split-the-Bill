@@ -1,7 +1,7 @@
 import type { PrismaTransaction } from "../db/userContext";
 import { ApiError } from "../http/errors";
 import { createActivity } from "../activity/activity.service";
-import { sharesToSettle } from "./bill-balance";
+import { sharesToSettle, sharesToUnsettle } from "./bill-balance";
 import {
   billInclude,
   findVisibleBill,
@@ -46,6 +46,48 @@ export async function settleBill(
     billId,
     type: "BILL_SETTLED",
     message: `settled up on the bill "${updated.description}".`,
+  });
+
+  return presentBill(updated, actingUserId, friendUserId);
+}
+
+export async function unsettleBill(
+  tx: PrismaTransaction,
+  actingUserId: string,
+  billId: string,
+  friendUserId?: string,
+) {
+  const bill = await findVisibleBill(tx, actingUserId, billId);
+  const shareIds = sharesToUnsettle(
+    {
+      payerId: bill.payerId,
+      shares: bill.shares.map((share) => ({
+        id: share.id,
+        userId: share.user.id,
+        shareCents: share.shareCents,
+        settledAt: share.settledAt,
+      })),
+    },
+    actingUserId,
+    friendUserId,
+  );
+
+  if (shareIds.length === 0) {
+    throw new ApiError(400, "NOTHING_TO_UNSETTLE", "Nothing to undo on this bill");
+  }
+
+  await tx.billShare.updateMany({
+    where: { id: { in: shareIds } },
+    data: { settledAt: null },
+  });
+
+  const updated = await findVisibleBill(tx, actingUserId, billId);
+  await createActivity(tx, {
+    actorId: actingUserId,
+    recipientIds: updated.shares.map((share) => share.user.id),
+    billId,
+    type: "BILL_UNSETTLED",
+    message: `undid settlement on the bill "${updated.description}".`,
   });
 
   return presentBill(updated, actingUserId, friendUserId);

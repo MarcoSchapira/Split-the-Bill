@@ -177,6 +177,25 @@ class _BillDetailScreenState extends ConsumerState<BillDetailScreen> {
     }
   }
 
+  Future<void> _unsettleBill(Bill bill) async {
+    try {
+      await ref.read(billsApiProvider).unsettleBill(bill.id);
+      notifyDataChanged(ref);
+      await _load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Settlement undone.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(apiErrorMessage(e, 'Unable to undo settlement.'))),
+        );
+      }
+    }
+  }
+
   Future<void> _deleteBill(Bill bill) async {
     final confirmed = await showConfirmDialog(
       context,
@@ -210,7 +229,7 @@ class _BillDetailScreenState extends ConsumerState<BillDetailScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(bill?.description ?? 'Bill'),
+        title: const Text('Bill'),
         actions: [
           if (bill != null && canSettle)
             TextButton(onPressed: () => _settleBill(bill), child: const Text('Settle up')),
@@ -239,6 +258,15 @@ class _BillDetailScreenState extends ConsumerState<BillDetailScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
+                  Text(
+                    bill.description,
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textH,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   Card(
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
@@ -277,21 +305,57 @@ class _BillDetailScreenState extends ConsumerState<BillDetailScreen> {
                                         : AppColors.errorBg,
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              child: Text(
-                                summary.settled
-                                    ? 'Settled up'
-                                    : summary.direction == 'owed_to_you'
-                                        ? 'Owes you ${formatCad(summary.amountCents)}'
-                                        : 'You owe ${formatCad(summary.amountCents)}',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  color: summary.settled
-                                      ? AppColors.text
-                                      : summary.direction == 'owed_to_you'
-                                          ? AppColors.accent
-                                          : AppColors.error,
-                                ),
-                              ),
+                              child: summary.settled
+                                  ? Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            'Settled up',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                              color: AppColors.text,
+                                            ),
+                                          ),
+                                        ),
+                                        Material(
+                                          color: AppColors.surface,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(999),
+                                            side: const BorderSide(color: AppColors.border),
+                                          ),
+                                          clipBehavior: Clip.antiAlias,
+                                          child: InkWell(
+                                            onTap: () => _unsettleBill(bill),
+                                            borderRadius: BorderRadius.circular(999),
+                                            child: const Padding(
+                                              padding: EdgeInsets.symmetric(
+                                                horizontal: 14,
+                                                vertical: 6,
+                                              ),
+                                              child: Text(
+                                                'Undo',
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.w600,
+                                                  fontSize: 13,
+                                                  color: AppColors.textH,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  : Text(
+                                      summary.direction == 'owed_to_you'
+                                          ? 'Owes you ${formatCad(summary.amountCents)}'
+                                          : 'You owe ${formatCad(summary.amountCents)}',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        color: summary.direction == 'owed_to_you'
+                                            ? AppColors.accent
+                                            : AppColors.error,
+                                      ),
+                                    ),
                             ),
                           ],
                         ],

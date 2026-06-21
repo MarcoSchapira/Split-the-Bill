@@ -68,10 +68,6 @@ class _BillListItem extends ConsumerStatefulWidget {
 class _BillListItemState extends ConsumerState<_BillListItem> {
   bool _expanded = false;
 
-  Future<void> _edit() async {
-    await context.push('/bills/${widget.bill.id}/edit');
-  }
-
   Future<void> _settle() async {
     try {
       await ref.read(billsApiProvider).settleBill(
@@ -227,7 +223,7 @@ class _BillListItemState extends ConsumerState<_BillListItem> {
               ),
             ),
           ),
-            if (showBalance && !isSettled || bill.canEdit || shares.length > 1)
+            if (showBalance && !isSettled || shares.length > 1)
               Container(
                 decoration: const BoxDecoration(
                   border: Border(top: BorderSide(color: AppColors.border)),
@@ -267,16 +263,6 @@ class _BillListItemState extends ConsumerState<_BillListItem> {
                         label: const Text('Settle up'),
                         style: TextButton.styleFrom(
                           foregroundColor: AppColors.accent,
-                          textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                        ),
-                      ),
-                    if (bill.canEdit)
-                      TextButton.icon(
-                        onPressed: _edit,
-                        icon: const Icon(Icons.edit_outlined, size: 18),
-                        label: const Text('Edit'),
-                        style: TextButton.styleFrom(
-                          foregroundColor: AppColors.textH,
                           textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                         ),
                       ),

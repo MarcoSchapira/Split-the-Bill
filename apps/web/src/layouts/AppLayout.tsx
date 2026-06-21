@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { apiErrorMessage } from '../api/client'
 import { inviteFriend, listFriends } from '../api/friendsApi'
 import { listGroups } from '../api/groupsApi'
@@ -118,8 +118,22 @@ export function AppLayout() {
           ))}
         </nav>
         <div className="sidebar-account">
-          <strong>{auth.user?.name ?? 'Your account'}</strong>
-          <span>{auth.user?.email}</span>
+          <div className="sidebar-account-info">
+            <div className="sidebar-account-ident">
+              <strong>{auth.user?.name ?? 'Your account'}</strong>
+              <span>{auth.user?.email}</span>
+            </div>
+            <Link
+              aria-label="Settings"
+              className="icon-button sidebar-settings-button"
+              to="/settings"
+            >
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+              </svg>
+            </Link>
+          </div>
           <button className="quiet-button" onClick={logout} type="button">
             Log out
           </button>

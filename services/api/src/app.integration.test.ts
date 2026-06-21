@@ -962,6 +962,38 @@ describe("bill settle API", () => {
     expect(afterSettle.body.dashboard.totalOwedToYouCents).toBe(0);
   });
 
+  it("unsets settlement on a friendship bill", async () => {
+    const payer = await register("unsettle-payer@example.com");
+    const friend = await register("unsettle-friend@example.com");
+    const friendshipId = await becomeFriends(payer, friend);
+
+    const created = await request(app).post("/bills").set(bearer(payer.token)).send({
+      description: "Brunch",
+      incurredAt: "2026-05-25",
+      totalCents: 1000,
+      targetType: "friendship",
+      targetId: friendshipId,
+      payerId: payer.user.id,
+    });
+
+    const settled = await request(app)
+      .post(`/bills/${created.body.bill.id as string}/settle`)
+      .set(bearer(payer.token));
+    const unsettled = await request(app)
+      .post(`/bills/${created.body.bill.id as string}/unsettle`)
+      .set(bearer(payer.token));
+    const afterUnsettle = await request(app).get("/dashboard").set(bearer(payer.token));
+
+    expect(settled.status).toBe(200);
+    expect(unsettled.status).toBe(200);
+    expect(unsettled.body.bill.userSummary).toMatchObject({
+      direction: "owed_to_you",
+      amountCents: 500,
+      settled: false,
+    });
+    expect(afterUnsettle.body.dashboard.totalOwedToYouCents).toBe(500);
+  });
+
   it("settles all outstanding bills with a friend", async () => {
     const you = await register("bulk-settle-you@example.com");
     const friend = await register("bulk-settle-friend@example.com");

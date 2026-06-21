@@ -128,6 +128,43 @@ export function sharesToSettle(
   return ownShare ? [ownShare.id] : [];
 }
 
+export function sharesToUnsettle(
+  bill: { payerId: string; shares: Array<BillShareBalanceLike & { id: string }> },
+  currentUserId: string,
+  friendUserId?: string,
+): string[] {
+  if (friendUserId) {
+    const pairwise = pairwiseSummaryForBill(bill, currentUserId, friendUserId);
+
+    if (!pairwise) {
+      return [];
+    }
+
+    if (pairwise.direction === "friend_owes_you") {
+      const friendShare = bill.shares.find(
+        (share) => share.userId === friendUserId && share.settledAt != null,
+      );
+      return friendShare ? [friendShare.id] : [];
+    }
+
+    const yourShare = bill.shares.find(
+      (share) => share.userId === currentUserId && share.settledAt != null,
+    );
+    return yourShare ? [yourShare.id] : [];
+  }
+
+  if (bill.payerId === currentUserId) {
+    return bill.shares
+      .filter((share) => share.userId !== currentUserId && share.settledAt != null)
+      .map((share) => share.id);
+  }
+
+  const ownShare = bill.shares.find(
+    (share) => share.userId === currentUserId && share.settledAt != null,
+  );
+  return ownShare ? [ownShare.id] : [];
+}
+
 export function toBillShareBalanceLike(
   shares: Array<{ user: { id: string }; shareCents: number; settledAt: Date | null }>,
 ): BillShareBalanceLike[] {

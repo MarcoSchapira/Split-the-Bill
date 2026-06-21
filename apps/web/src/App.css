@@ -805,8 +805,22 @@
   border-top: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 12px;
   padding-top: 18px;
+}
+
+.sidebar-account-info {
+  align-items: flex-start;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.sidebar-account-ident {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
 }
 
 .sidebar-account strong {
@@ -816,9 +830,21 @@
 .sidebar-account span {
   color: var(--text);
   font-size: 13px;
-  margin-bottom: 10px;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.sidebar-settings-button {
+  align-items: center;
+  display: inline-flex;
+  flex-shrink: 0;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.sidebar-settings-button svg {
+  height: 18px;
+  width: 18px;
 }
 
 .workspace-main {
@@ -2456,11 +2482,13 @@ a.balance-row:hover {
     align-items: center;
     border-top: 0;
     flex-direction: row;
+    gap: 16px;
     padding-top: 0;
   }
 
-  .sidebar-account span {
-    margin: 0 auto 0 0;
+  .sidebar-account-info {
+    flex: 1;
+    min-width: 0;
   }
 }
 

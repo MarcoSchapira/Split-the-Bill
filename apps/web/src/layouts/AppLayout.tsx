@@ -1,39 +1,79 @@
-import { useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { apiErrorMessage } from '../api/client'
-import { inviteFriend } from '../api/friendsApi'
-import { createGroup } from '../api/groupsApi'
+import { inviteFriend, listFriends } from '../api/friendsApi'
+import { listGroups } from '../api/groupsApi'
+import type { FriendshipSummary, GroupSummary } from '../api/types'
 import { useAuth } from '../auth/useAuth'
+import { BillForm } from '../components/BillForm'
 import { Modal } from '../components/Modal'
-import { notifyDataChanged } from '../utils/events'
+import { DATA_CHANGED_EVENT, notifyDataChanged } from '../utils/events'
 
 const navigation = [
   { to: '/dashboard', label: 'Dashboard' },
   { to: '/activity', label: 'Recent Activity' },
   { to: '/bills', label: 'Bills' },
   { to: '/friends', label: 'Friends' },
+  { to: '/invitations', label: 'Invitations' },
 ]
 
 export function AppLayout() {
-  const [dialog, setDialog] = useState<'friend' | 'group' | null>(null)
+  const [dialog, setDialog] = useState<'friend' | null>(null)
+  const [showBillForm, setShowBillForm] = useState(false)
+  const [billFormTargetType, setBillFormTargetType] = useState<'friendship' | 'group' | null>(null)
+  const [friends, setFriends] = useState<FriendshipSummary[]>([])
+  const [groups, setGroups] = useState<GroupSummary[]>([])
   const [email, setEmail] = useState('')
-  const [groupName, setGroupName] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const auth = useAuth()
   const navigate = useNavigate()
 
-  function openDialog(nextDialog: 'friend' | 'group') {
+  const loadBillFormData = useCallback(async () => {
+    const [nextFriends, nextGroups] = await Promise.all([listFriends(), listGroups()])
+    setFriends(nextFriends)
+    setGroups(nextGroups)
+  }, [])
+
+  useEffect(() => {
+    const reload = () => {
+      if (showBillForm) {
+        void loadBillFormData()
+      }
+    }
+    window.addEventListener(DATA_CHANGED_EVENT, reload)
+    return () => window.removeEventListener(DATA_CHANGED_EVENT, reload)
+  }, [loadBillFormData, showBillForm])
+
+  useEffect(() => {
+    if (!notice) {
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => setNotice(null), 4000)
+    return () => window.clearTimeout(timeoutId)
+  }, [notice])
+
+  function openFriendDialog() {
     setError(null)
-    setDialog(nextDialog)
+    setDialog('friend')
   }
 
   function closeDialog() {
     setDialog(null)
     setError(null)
     setEmail('')
-    setGroupName('')
+  }
+
+  async function openBillForm() {
+    setError(null)
+    try {
+      await loadBillFormData()
+      setShowBillForm(true)
+    } catch (requestError) {
+      setNotice(apiErrorMessage(requestError, 'Unable to open bill form.'))
+    }
   }
 
   async function submitFriend(event: FormEvent<HTMLFormElement>) {
@@ -46,27 +86,9 @@ export function AppLayout() {
       setNotice('Friend invitation sent.')
       notifyDataChanged()
       closeDialog()
-      navigate('/friends')
+      navigate('/invitations')
     } catch (requestError) {
       setError(apiErrorMessage(requestError, 'Unable to send invitation.'))
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  async function submitGroup(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setError(null)
-    setIsSaving(true)
-
-    try {
-      await createGroup(groupName)
-      setNotice('Group created.')
-      notifyDataChanged()
-      closeDialog()
-      navigate('/friends')
-    } catch (requestError) {
-      setError(apiErrorMessage(requestError, 'Unable to create group.'))
     } finally {
       setIsSaving(false)
     }
@@ -104,14 +126,16 @@ export function AppLayout() {
         </div>
       </aside>
       <main className="workspace-main">
-        <div className="quick-actions">
-          {notice ? <span className="action-notice">{notice}</span> : null}
-          <button className="secondary-button" onClick={() => openDialog('friend')} type="button">
-            + Add friend
-          </button>
-          <button className="primary-button compact" onClick={() => openDialog('group')} type="button">
-            + Create new group
-          </button>
+        <div className="floating-actions">
+          {notice ? <span className="floating-notice">{notice}</span> : null}
+          <div className="floating-actions-buttons">
+            <button className="secondary-button floating-button" onClick={openFriendDialog} type="button">
+              + Add friend
+            </button>
+            <button className="primary-button compact floating-button" onClick={() => void openBillForm()} type="button">
+              + New bill
+            </button>
+          </div>
         </div>
         <Outlet />
       </main>
@@ -136,24 +160,23 @@ export function AppLayout() {
           </form>
         </Modal>
       ) : null}
-      {dialog === 'group' ? (
-        <Modal onClose={closeDialog} title="Create new group">
-          <form className="stack-form" onSubmit={submitGroup}>
-            <label>
-              Group name
-              <input
-                autoFocus
-                maxLength={100}
-                required
-                value={groupName}
-                onChange={(event) => setGroupName(event.target.value)}
-              />
-            </label>
-            {error ? <p className="form-error">{error}</p> : null}
-            <button className="primary-button" disabled={isSaving} type="submit">
-              {isSaving ? 'Creating...' : 'Create group'}
-            </button>
-          </form>
+      {showBillForm ? (
+        <Modal
+          onClose={() => setShowBillForm(false)}
+          size={billFormTargetType === 'group' ? 'wide' : 'default'}
+          title="Add a bill"
+        >
+          <BillForm
+            friends={friends}
+            groups={groups}
+            onTargetChange={(nextTarget) => setBillFormTargetType(nextTarget?.targetType ?? null)}
+            onCancel={() => setShowBillForm(false)}
+            onSaved={() => {
+              setShowBillForm(false)
+              setNotice('Bill saved.')
+              notifyDataChanged()
+            }}
+          />
         </Modal>
       ) : null}
     </div>

@@ -573,6 +573,10 @@ class ActivityEvent {
     required this.message,
     required this.createdAt,
     required this.actor,
+    this.billId,
+    this.friendInvitationId,
+    this.groupInvitationId,
+    this.friendshipId,
   });
 
   final String id;
@@ -580,6 +584,10 @@ class ActivityEvent {
   final String message;
   final String createdAt;
   final User actor;
+  final String? billId;
+  final String? friendInvitationId;
+  final String? groupInvitationId;
+  final String? friendshipId;
 
   factory ActivityEvent.fromJson(Map<String, dynamic> json) {
     return ActivityEvent(
@@ -588,6 +596,10 @@ class ActivityEvent {
       message: json['message'] as String,
       createdAt: json['createdAt'] as String,
       actor: User.fromJson(json['actor'] as Map<String, dynamic>),
+      billId: json['billId'] as String?,
+      friendInvitationId: json['friendInvitationId'] as String?,
+      groupInvitationId: json['groupInvitationId'] as String?,
+      friendshipId: json['friendshipId'] as String?,
     );
   }
 }

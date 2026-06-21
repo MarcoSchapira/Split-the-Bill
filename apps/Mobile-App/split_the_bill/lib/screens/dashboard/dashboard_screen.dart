@@ -7,7 +7,6 @@ import '../../providers/providers.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/format.dart';
 import '../../widgets/common_widgets.dart';
-import '../../widgets/modals/bill_form_sheet.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -35,7 +34,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
     try {
       final dashboard = await ref.read(dashboardApiProvider).getDashboard();
-      if (mounted) setState(() => _dashboard = dashboard);
+      if (mounted) {
+        setState(() => _dashboard = dashboard);
+      }
     } catch (e) {
       if (mounted) setState(() => _error = apiErrorMessage(e, 'Unable to load dashboard.'));
     } finally {
@@ -51,12 +52,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       return const LoadingView(message: 'Loading balances...');
     }
 
-    return RefreshIndicator(
-      onRefresh: _load,
-      color: AppColors.accent,
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
+    return Scaffold(
+      body: RefreshIndicator(
+        onRefresh: _load,
+        color: AppColors.accent,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+          children: [
           const Text('Dashboard', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
           const SizedBox(height: 4),
           const Text('Keep track of every shared balance in one place.'),
@@ -97,7 +99,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ),
             const SizedBox(height: 12),
             if (_dashboard!.balances.isEmpty)
-              const EmptyState(message: 'No balances yet. Add a bill or invite a friend.')
+              const EmptyState(message: 'No balances yet. Capture a receipt or invite a friend.')
             else
               ..._dashboard!.balances.map((balance) {
                 return Card(
@@ -114,21 +116,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               }),
           ],
         ],
+        ),
       ),
-    );
-  }
-}
-
-class DashboardAddBillScreen extends StatelessWidget {
-  const DashboardAddBillScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Add bill')),
-      body: BillFormSheet(
-        onSaved: () => context.pop(),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => context.push('/dashboard/capture'),
+        backgroundColor: AppColors.accent,
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.camera_alt),
+        label: const Text('Capture'),
       ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
     );
   }
 }

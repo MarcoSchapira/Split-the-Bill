@@ -62,7 +62,7 @@ class _CaptureCameraScreenState extends ConsumerState<CaptureCameraScreen> {
     final bytes = _imageBytes;
     if (user == null || bytes == null) return;
 
-    final flow = CaptureFlowState(
+    final flow = BillFlowState(
       imageBytes: bytes,
       currentUser: user,
       payerId: user.id,

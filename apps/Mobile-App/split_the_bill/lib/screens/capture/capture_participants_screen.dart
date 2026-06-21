@@ -4,18 +4,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../api/api_exception.dart';
-import '../../models/models.dart';
 import '../../models/receipt.dart';
 import '../../models/user.dart';
 import '../../providers/providers.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/format.dart';
+import '../../widgets/bill_flow/bill_flow_step_header.dart';
+import '../../widgets/bill_flow/bill_flow_summary_card.dart';
 import '../../widgets/common_widgets.dart';
 
 class CaptureParticipantsScreen extends ConsumerStatefulWidget {
   const CaptureParticipantsScreen({super.key, required this.flow});
 
-  final CaptureFlowState flow;
+  final BillFlowState flow;
 
   @override
   ConsumerState<CaptureParticipantsScreen> createState() =>
@@ -23,21 +24,22 @@ class CaptureParticipantsScreen extends ConsumerStatefulWidget {
 }
 
 class _CaptureParticipantsScreenState extends ConsumerState<CaptureParticipantsScreen> {
-  late CaptureFlowState _flow;
+  late BillFlowState _flow;
   List<CaptureSelectableContact> _contacts = [];
   final Set<String> _selectedIds = {};
   String? _payerId;
   bool _loadingContacts = true;
   bool _parsing = true;
   String? _contactsError;
-  final Map<String, GroupDetail> _groupDetails = {};
 
   @override
   void initState() {
     super.initState();
     _flow = widget.flow;
     _payerId = widget.flow.payerId ?? widget.flow.currentUser.id;
+    _parsing = !_flow.isEditing;
     _loadContacts();
+    if (_flow.isEditing) return;
     _parseReceipt();
   }
 
@@ -49,7 +51,7 @@ class _CaptureParticipantsScreenState extends ConsumerState<CaptureParticipantsS
 
     try {
       final receipt = await ref.read(receiptsApiProvider).parseReceipt(
-            Uint8List.fromList(_flow.imageBytes),
+            Uint8List.fromList(_flow.imageBytes!),
             'receipt.jpg',
           );
       if (!mounted) return;
@@ -73,12 +75,7 @@ class _CaptureParticipantsScreenState extends ConsumerState<CaptureParticipantsS
     });
 
     try {
-      final results = await Future.wait([
-        ref.read(friendsApiProvider).listFriends(),
-        ref.read(groupsApiProvider).listGroups(),
-      ]);
-      final friends = results[0] as List<FriendshipSummary>;
-      final groups = results[1] as List<GroupSummary>;
+      final friends = await ref.read(friendsApiProvider).listFriends();
 
       final contacts = <CaptureSelectableContact>[
         CaptureSelectableContact.friend(
@@ -93,18 +90,21 @@ class _CaptureParticipantsScreenState extends ConsumerState<CaptureParticipantsS
             user: friendship.friend,
           ),
         ),
-        ...groups.map(
-          (group) => CaptureSelectableContact.group(
-            id: group.id,
-            label: group.name,
-            groupId: group.id,
-          ),
-        ),
       ];
 
       if (!mounted) return;
       setState(() {
         _contacts = contacts;
+        if (_flow.isEditing && _flow.participants.isNotEmpty) {
+          final participantIds = _flow.participants.map((user) => user.id).toSet();
+          _selectedIds
+            ..clear()
+            ..addAll(
+              contacts
+                  .where((contact) => contact.user != null && participantIds.contains(contact.user!.id))
+                  .map((contact) => contact.id),
+            );
+        }
         _loadingContacts = false;
       });
     } catch (e) {
@@ -116,66 +116,23 @@ class _CaptureParticipantsScreenState extends ConsumerState<CaptureParticipantsS
     }
   }
 
-  Future<void> _pickGroupPayer(CaptureSelectableContact contact) async {
-    final groupId = contact.groupId;
-    if (groupId == null) return;
-
-    GroupDetail? detail = _groupDetails[groupId];
-    detail ??= await ref.read(groupsApiProvider).getGroup(groupId);
-    _groupDetails[groupId] = detail;
-
-    if (!mounted) return;
-
-    final selected = await showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Who paid?',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-                const SizedBox(height: 12),
-                ...detail!.members.map(
-                  (member) => ListTile(
-                    title: Text(displayName(member.user)),
-                    onTap: () => Navigator.pop(context, member.user.id),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-
-    if (selected != null) {
-      setState(() => _payerId = selected);
-    }
+  void _toggleSelected(CaptureSelectableContact contact) {
+    setState(() {
+      if (_selectedIds.contains(contact.id)) {
+        _selectedIds.remove(contact.id);
+        if (contact.user?.id == _payerId) {
+          _payerId = _flow.currentUser.id;
+        }
+      } else {
+        _selectedIds.add(contact.id);
+      }
+    });
   }
 
   void _togglePaid(CaptureSelectableContact contact) {
     if (!_selectedIds.contains(contact.id)) return;
-
-    if (contact.kind == CaptureContactKind.friend && contact.user != null) {
+    if (contact.user != null) {
       setState(() => _payerId = contact.user!.id);
-      return;
-    }
-
-    if (contact.kind == CaptureContactKind.group) {
-      _pickGroupPayer(contact);
     }
   }
 
@@ -191,20 +148,8 @@ class _CaptureParticipantsScreenState extends ConsumerState<CaptureParticipantsS
       for (final contact in _contacts) {
         if (!_selectedIds.contains(contact.id)) continue;
 
-        if (contact.kind == CaptureContactKind.friend && contact.user != null) {
-          if (contact.id != 'self') {
-            participants.add(contact.user!);
-          }
-          continue;
-        }
-
-        if (contact.kind == CaptureContactKind.group && contact.groupId != null) {
-          final detail = _groupDetails[contact.groupId!] ??
-              await ref.read(groupsApiProvider).getGroup(contact.groupId!);
-          _groupDetails[contact.groupId!] = detail;
-          for (final member in detail.members) {
-            participants.add(member.user);
-          }
+        if (contact.user != null && contact.id != 'self') {
+          participants.add(contact.user!);
         }
       }
 
@@ -215,7 +160,10 @@ class _CaptureParticipantsScreenState extends ConsumerState<CaptureParticipantsS
       );
 
       if (!mounted) return;
-      context.push('/dashboard/capture/split', extra: nextFlow);
+      final splitPath = nextFlow.isEditing
+          ? '/bills/${nextFlow.billId}/edit/split'
+          : '/dashboard/capture/split';
+      context.push(splitPath, extra: nextFlow);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -226,38 +174,25 @@ class _CaptureParticipantsScreenState extends ConsumerState<CaptureParticipantsS
   }
 
   Widget _paidChip(CaptureSelectableContact contact) {
-    final isSelected = contact.kind == CaptureContactKind.friend &&
-        contact.user?.id == _payerId;
-    final isGroupSelected = contact.kind == CaptureContactKind.group &&
-        _selectedIds.contains(contact.id) &&
-        contact.groupId != null &&
-        (_groupDetails[contact.groupId!]?.members
-                .any((member) => member.user.id == _payerId) ??
-            false);
+    final active = contact.user?.id == _payerId;
 
-    final active = isSelected || isGroupSelected;
-    final enabled = _selectedIds.contains(contact.id);
-
-    return GestureDetector(
-      onTap: enabled ? () => _togglePaid(contact) : null,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: active ? AppColors.accent : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: active ? AppColors.accent : AppColors.border,
-            width: 2.5,
-          ),
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: active ? AppColors.accent : Colors.transparent,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: active ? AppColors.accent : AppColors.border,
+          width: 2.5,
         ),
-        child: Text(
-          'Paid',
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            fontSize: 12,
-            color: active ? Colors.white : AppColors.text,
-          ),
+      ),
+      child: Text(
+        'Paid',
+        style: TextStyle(
+          fontWeight: FontWeight.w700,
+          fontSize: 12,
+          color: active ? Colors.white : AppColors.text,
         ),
       ),
     );
@@ -269,20 +204,31 @@ class _CaptureParticipantsScreenState extends ConsumerState<CaptureParticipantsS
       _selectedIds.isNotEmpty &&
       _payerId != null;
 
+  String _payerName() {
+    final payer = _contacts
+        .where((contact) => contact.user?.id == _payerId)
+        .map((contact) => contact.user)
+        .firstOrNull;
+    return payer == null ? 'You' : displayName(payer);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Select participants')),
       body: _loadingContacts && _contacts.isEmpty
-          ? const LoadingView(message: 'Loading friends and groups...')
+          ? const LoadingView(message: 'Loading friends...')
           : Column(
               children: [
-                if (_parsing)
-                  const LinearProgressIndicator(minHeight: 3, color: AppColors.accent),
                 Padding(
                   padding: const EdgeInsets.all(16),
-                  child: _parsing
-                      ? const Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const BillFlowStepHeader(stepNumber: 1, totalSteps: 3, title: 'Participants'),
+                      const SizedBox(height: 12),
+                      if (_parsing)
+                        const Row(
                           children: [
                             SizedBox(
                               width: 18,
@@ -293,35 +239,40 @@ class _CaptureParticipantsScreenState extends ConsumerState<CaptureParticipantsS
                             Text('Reading receipt...'),
                           ],
                         )
-                      : _flow.parseError != null
-                          ? Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                      else if (_flow.parseError != null)
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            ErrorBanner(message: _flow.parseError!),
+                            const SizedBox(height: 8),
+                            Row(
                               children: [
-                                ErrorBanner(message: _flow.parseError!),
-                                const SizedBox(height: 8),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: SecondaryButton(
-                                        label: 'Retake photo',
-                                        onPressed: () => context.pop(),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: SecondaryButton(
-                                        label: 'Retry parse',
-                                        onPressed: _parseReceipt,
-                                      ),
-                                    ),
-                                  ],
+                                Expanded(
+                                  child: SecondaryButton(
+                                    label: 'Retake photo',
+                                    onPressed: () => context.pop(),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: SecondaryButton(
+                                    label: 'Retry parse',
+                                    onPressed: _parseReceipt,
+                                  ),
                                 ),
                               ],
-                            )
-                          : Text(
-                              _flow.receipt?.storeName ?? 'Receipt ready',
-                              style: const TextStyle(fontWeight: FontWeight.w600),
                             ),
+                          ],
+                        )
+                      else if (_flow.receipt != null)
+                        BillFlowSummaryCard(
+                          receipt: _flow.receipt!,
+                          payerName: _payerName(),
+                          incurredAt: _flow.incurredAt,
+                          eyebrowText: _flow.isEditing ? 'Editing receipt' : 'Captured receipt',
+                        ),
+                    ],
+                  ),
                 ),
                 if (_contactsError != null)
                   Padding(
@@ -338,35 +289,31 @@ class _CaptureParticipantsScreenState extends ConsumerState<CaptureParticipantsS
 
                       return Card(
                         margin: const EdgeInsets.only(bottom: 10),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          child: Row(
-                            children: [
-                              Checkbox(
-                                value: checked,
-                                activeColor: AppColors.accent,
-                                onChanged: (value) {
-                                  setState(() {
-                                    if (value == true) {
-                                      _selectedIds.add(contact.id);
-                                    } else {
-                                      _selectedIds.remove(contact.id);
-                                      if (contact.kind == CaptureContactKind.friend &&
-                                          contact.user?.id == _payerId) {
-                                        _payerId = _flow.currentUser.id;
-                                      }
-                                    }
-                                  });
-                                },
-                              ),
-                              Expanded(
-                                child: Text(
-                                  contact.label,
-                                  style: const TextStyle(fontWeight: FontWeight.w600),
+                        clipBehavior: Clip.antiAlias,
+                        child: InkWell(
+                          onTap: () => _toggleSelected(contact),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            child: Row(
+                              children: [
+                                Checkbox(
+                                  value: checked,
+                                  activeColor: AppColors.accent,
+                                  onChanged: (_) => _toggleSelected(contact),
                                 ),
-                              ),
-                              _paidChip(contact),
-                            ],
+                                Expanded(
+                                  child: Text(
+                                    contact.label,
+                                    style: const TextStyle(fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                                GestureDetector(
+                                  onTap: checked ? () => _togglePaid(contact) : null,
+                                  behavior: HitTestBehavior.opaque,
+                                  child: _paidChip(contact),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       );
@@ -376,7 +323,7 @@ class _CaptureParticipantsScreenState extends ConsumerState<CaptureParticipantsS
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: PrimaryButton(
-                    label: 'Continue',
+                    label: _flow.isEditing ? 'Continue to assignment' : 'Continue',
                     onPressed: _canContinue ? _continue : null,
                     isLoading: _loadingContacts && _contacts.isNotEmpty,
                   ),

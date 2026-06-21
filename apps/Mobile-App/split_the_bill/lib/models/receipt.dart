@@ -145,41 +145,59 @@ class CaptureSelectableContact {
   final String? groupId;
 }
 
-class CaptureFlowState {
-  CaptureFlowState({
-    required this.imageBytes,
+class BillFlowState {
+  BillFlowState({
+    this.billId,
+    this.imageBytes,
     required this.currentUser,
     this.receipt,
     this.parseError,
     this.participants = const [],
     this.payerId,
     this.assignments = const {},
+    this.description,
+    this.incurredAt,
   });
 
-  final List<int> imageBytes;
+  final String? billId;
+  final List<int>? imageBytes;
   final User currentUser;
   final ParsedReceipt? receipt;
   final String? parseError;
   final List<User> participants;
   final String? payerId;
   final Map<int, Set<String>> assignments;
+  final String? description;
+  final DateTime? incurredAt;
 
-  CaptureFlowState copyWith({
+  bool get isEditing => billId != null;
+
+  BillFlowState copyWith({
+    String? billId,
+    bool clearBillId = false,
+    List<int>? imageBytes,
     ParsedReceipt? receipt,
     String? parseError,
     bool clearParseError = false,
     List<User>? participants,
     String? payerId,
     Map<int, Set<String>>? assignments,
+    String? description,
+    bool clearDescription = false,
+    DateTime? incurredAt,
+    bool clearIncurredAt = false,
   }) {
-    return CaptureFlowState(
-      imageBytes: imageBytes,
+    return BillFlowState(
+      billId: clearBillId ? null : (billId ?? this.billId),
+      imageBytes: imageBytes ?? this.imageBytes,
       currentUser: currentUser,
       receipt: receipt ?? this.receipt,
       parseError: clearParseError ? null : (parseError ?? this.parseError),
       participants: participants ?? this.participants,
       payerId: payerId ?? this.payerId,
       assignments: assignments ?? this.assignments,
+      description: clearDescription ? null : (description ?? this.description),
+      incurredAt: clearIncurredAt ? null : (incurredAt ?? this.incurredAt),
     );
   }
 }

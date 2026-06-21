@@ -58,6 +58,16 @@ export function BillListItem({
                 </button>
               ) : null}
             </div>
+            <div className="bill-meta-row">
+              <span className={`bill-source-tag ${bill.source === 'capture' ? 'capture' : 'manual'}`}>
+                {bill.source === 'capture' ? 'Captured' : 'Manual'}
+              </span>
+              <span>
+                {new Date(bill.incurredAt).toLocaleDateString(undefined, {
+                  timeZone: 'UTC',
+                })}
+              </span>
+            </div>
           </div>
           {showBalance ? (
             <div className={`bill-balance ${balanceClass}`}>

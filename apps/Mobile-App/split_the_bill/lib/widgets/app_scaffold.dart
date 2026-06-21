@@ -2,10 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/providers.dart';
-import '../theme/app_colors.dart';
 import 'common_widgets.dart';
-import 'modals/add_friend_sheet.dart';
-import 'modals/create_group_sheet.dart';
 
 class AppScaffold extends ConsumerWidget {
   const AppScaffold({super.key, required this.navigationShell});
@@ -36,7 +33,6 @@ class AppScaffold extends ConsumerWidget {
         final index = navigationShell.currentIndex;
         final location = router.state.uri.path;
         final isTabRoot = tabRootPaths.contains(location);
-        final showDashboardFabs = index == 0 && location == '/dashboard';
 
         return Scaffold(
           appBar: isTabRoot
@@ -46,34 +42,15 @@ class AppScaffold extends ConsumerWidget {
                     PopupMenuButton<String>(
                       onSelected: (value) async {
                         switch (value) {
-                          case 'friend':
-                            await showModalBottomSheet<void>(
-                              context: context,
-                              isScrollControlled: true,
-                              backgroundColor: AppColors.surface,
-                              shape: const RoundedRectangleBorder(
-                                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                              ),
-                              builder: (_) => const AddFriendSheet(),
-                            );
-                          case 'group':
-                            await showModalBottomSheet<void>(
-                              context: context,
-                              isScrollControlled: true,
-                              backgroundColor: AppColors.surface,
-                              shape: const RoundedRectangleBorder(
-                                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                              ),
-                              builder: (_) => const CreateGroupSheet(),
-                            );
+                          case 'settings':
+                            context.push('/settings');
                           case 'logout':
                             await ref.read(authProvider.notifier).logout();
                             if (context.mounted) context.go('/login');
                         }
                       },
                       itemBuilder: (context) => [
-                        const PopupMenuItem(value: 'friend', child: Text('Add friend')),
-                        const PopupMenuItem(value: 'group', child: Text('Create group')),
+                        const PopupMenuItem(value: 'settings', child: Text('Settings')),
                         const PopupMenuItem(value: 'logout', child: Text('Log out')),
                       ],
                     ),
@@ -98,34 +75,6 @@ class AppScaffold extends ConsumerWidget {
                 ),
             ],
           ),
-          floatingActionButton: showDashboardFabs
-              ? Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      FloatingActionButton.extended(
-                        heroTag: 'capture-fab',
-                        onPressed: () => context.push('/dashboard/capture'),
-                        backgroundColor: AppColors.accent,
-                        foregroundColor: Colors.white,
-                        icon: const Icon(Icons.camera_alt),
-                        label: const Text('Capture'),
-                      ),
-                      FloatingActionButton.extended(
-                        heroTag: 'add-bill-fab',
-                        onPressed: () => context.push('/dashboard/add-bill'),
-                        backgroundColor: AppColors.accent,
-                        foregroundColor: Colors.white,
-                        icon: const Icon(Icons.add),
-                        label: const Text('Add bill'),
-                      ),
-                    ],
-                  ),
-                )
-              : null,
-          floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-          floatingActionButtonAnimator: FloatingActionButtonAnimator.noAnimation,
         );
       },
     );

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../api/api_exception.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../theme/app_colors.dart';
+import '../../utils/activity_navigation.dart';
 import '../../utils/format.dart';
 import '../../widgets/common_widgets.dart';
 
@@ -16,6 +18,7 @@ class ActivityScreen extends ConsumerStatefulWidget {
 
 class _ActivityScreenState extends ConsumerState<ActivityScreen> {
   List<ActivityEvent> _events = [];
+  final Set<String> _deletingIds = {};
   String? _error;
   bool _isLoading = true;
 
@@ -41,6 +44,33 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen> {
     }
   }
 
+  Future<void> _deleteActivity(String eventId) async {
+    setState(() => _error = null);
+    setState(() => _deletingIds.add(eventId));
+
+    try {
+      await ref.read(activityApiProvider).deleteActivity(eventId);
+      if (mounted) {
+        setState(() => _events = _events.where((event) => event.id != eventId).toList());
+      }
+    } catch (e) {
+      if (mounted) setState(() => _error = apiErrorMessage(e, 'Unable to remove activity.'));
+    } finally {
+      if (mounted) setState(() => _deletingIds.remove(eventId));
+    }
+  }
+
+  void _openActivity(ActivityEvent event) {
+    final route = activityRoute(event);
+    if (route == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No destination for this activity item.')),
+      );
+      return;
+    }
+    context.push(route);
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.listen<int>(dataRefreshProvider, (_, __) => _load());
@@ -62,12 +92,25 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen> {
             const EmptyState(message: 'No activity yet.')
           else
             ..._events.map((event) {
+              final deleting = _deletingIds.contains(event.id);
               return Card(
                 margin: const EdgeInsets.only(bottom: 8),
                 child: ListTile(
                   title: Text(event.message),
                   subtitle: Text(
                     '${displayName(event.actor)} · ${formatRelativeTime(event.createdAt)}',
+                  ),
+                  onTap: () => _openActivity(event),
+                  trailing: IconButton(
+                    tooltip: 'Remove activity',
+                    icon: deleting
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.delete_outline),
+                    onPressed: deleting ? null : () => _deleteActivity(event.id),
                   ),
                 ),
               );

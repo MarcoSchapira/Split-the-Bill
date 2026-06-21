@@ -6,12 +6,21 @@ import { listGroups } from '../api/groupsApi'
 import type { Bill, FriendshipSummary, GroupSummary } from '../api/types'
 import { BillList } from '../components/BillList'
 import { DATA_CHANGED_EVENT } from '../utils/events'
+import { formatCad } from '../utils/format'
 
 export function BillsPage() {
   const [bills, setBills] = useState<Bill[]>([])
   const [friends, setFriends] = useState<FriendshipSummary[]>([])
   const [groups, setGroups] = useState<GroupSummary[]>([])
   const [error, setError] = useState<string | null>(null)
+
+  const capturedBills = bills.filter((bill) => bill.source === 'capture').length
+  const unsettledBills = bills.filter((bill) => !bill.userSummary.settled).length
+  const netExposureCents = bills.reduce((sum, bill) => {
+    if (bill.userSummary.direction === 'owed_to_you') return sum + bill.userSummary.amountCents
+    if (bill.userSummary.direction === 'you_owe') return sum - bill.userSummary.amountCents
+    return sum
+  }, 0)
 
   const load = useCallback(async () => {
     try {
@@ -47,8 +56,28 @@ export function BillsPage() {
           <p>All recorded bills across manual entries and captured receipts.</p>
         </div>
       </header>
+      <section className="bills-kpi-grid">
+        <article className="bills-kpi-card">
+          <span>Total bills</span>
+          <strong>{bills.length}</strong>
+        </article>
+        <article className="bills-kpi-card">
+          <span>Captured receipts</span>
+          <strong>{capturedBills}</strong>
+        </article>
+        <article className="bills-kpi-card">
+          <span>Need action</span>
+          <strong>{unsettledBills}</strong>
+        </article>
+        <article className="bills-kpi-card">
+          <span>Net exposure</span>
+          <strong className={netExposureCents >= 0 ? 'positive' : 'negative'}>
+            {formatCad(Math.abs(netExposureCents))}
+          </strong>
+        </article>
+      </section>
       {error ? <p className="form-error">{error}</p> : null}
-      <section className="panel">
+      <section className="panel bills-panel-surface">
         <div className="panel-title">
           <h2>All bills</h2>
           <span className="count-pill">{bills.length}</span>

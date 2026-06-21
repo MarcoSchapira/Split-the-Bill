@@ -8,7 +8,6 @@ import '../../theme/app_colors.dart';
 import '../../utils/format.dart';
 import '../../widgets/bill_list/bill_list.dart';
 import '../../widgets/common_widgets.dart';
-import '../../widgets/modals/bill_form_sheet.dart';
 
 class GroupsScreen extends ConsumerStatefulWidget {
   const GroupsScreen({super.key});
@@ -159,21 +158,6 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
     }
   }
 
-  Future<void> _addBill() async {
-    await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => BillFormSheet(
-        fixedTarget: BillTarget(targetType: TargetType.group, targetId: widget.groupId),
-        onSaved: _load,
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     ref.listen<int>(dataRefreshProvider, (_, __) => _load());
@@ -183,9 +167,6 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(group?.name ?? 'Group'),
-        actions: [
-          IconButton(onPressed: _addBill, icon: const Icon(Icons.add)),
-        ],
       ),
       body: _isLoading && group == null
           ? const LoadingView(message: 'Loading group...')

@@ -626,6 +626,9 @@ describe("bill ledger and dashboard API", () => {
         payerId: member.user.id,
       });
     const activity = await request(app).get("/activity").set(bearer(owner.token));
+    const billCreatedEvent = activity.body.activity.find(
+      (event: { type: string }) => event.type === "BILL_CREATED",
+    );
 
     expect(bill.status).toBe(201);
     expect(bill.body.bill.shares).toHaveLength(2);
@@ -634,8 +637,12 @@ describe("bill ledger and dashboard API", () => {
       balanceCents: -1000,
     });
     expect(retargetedByMember.status).toBe(403);
-    expect(activity.body.activity.some((event: { type: string }) => event.type === "BILL_CREATED"))
-      .toBe(true);
+    expect(billCreatedEvent).toMatchObject({
+      billId: bill.body.bill.id,
+      friendInvitationId: null,
+      groupInvitationId: null,
+      friendshipId: null,
+    });
   });
 
   it("accepts custom friendship shares and updates dashboard balances", async () => {
@@ -664,6 +671,35 @@ describe("bill ledger and dashboard API", () => {
         .sort(),
     ).toEqual([3000, 7000]);
     expect(friendDashboard.body.dashboard.totalYouOweCents).toBe(3000);
+  });
+
+  it("lets a user dismiss activity from their feed", async () => {
+    const payer = await register("payer-activity@example.com");
+    const friend = await register("friend-activity@example.com");
+    const friendshipId = await becomeFriends(payer, friend);
+
+    await request(app).post("/bills").set(bearer(payer.token)).send({
+      description: "Lunch",
+      incurredAt: "2026-05-25",
+      totalCents: 4000,
+      targetType: "friendship",
+      targetId: friendshipId,
+      payerId: payer.user.id,
+    });
+
+    const before = await request(app).get("/activity").set(bearer(friend.token));
+    const eventId = before.body.activity[0]?.id as string | undefined;
+
+    expect(before.body.activity.length).toBeGreaterThan(0);
+    expect(eventId).toBeTruthy();
+
+    const deleted = await request(app)
+      .delete(`/activity/${eventId}`)
+      .set(bearer(friend.token));
+    const after = await request(app).get("/activity").set(bearer(friend.token));
+
+    expect(deleted.status).toBe(204);
+    expect(after.body.activity.some((event: { id: string }) => event.id === eventId)).toBe(false);
   });
 
   it("supports partial group membership in custom shares", async () => {
@@ -953,11 +989,21 @@ describe("bill settle API", () => {
       .post(`/friends/${friendshipId}/settle`)
       .set(bearer(you.token));
     const afterSettle = await request(app).get("/dashboard").set(bearer(you.token));
+    const activity = await request(app).get("/activity").set(bearer(you.token));
+    const friendSettledEvent = activity.body.activity.find(
+      (event: { type: string }) => event.type === "FRIEND_SETTLED",
+    );
 
     expect(beforeSettle.body.dashboard.balances[0].balanceCents).not.toBe(0);
     expect(settled.status).toBe(200);
     expect(settled.body.settledCount).toBeGreaterThan(0);
     expect(afterSettle.body.dashboard.balances[0].balanceCents).toBe(0);
+    expect(friendSettledEvent).toMatchObject({
+      friendshipId,
+      billId: null,
+      friendInvitationId: null,
+      groupInvitationId: null,
+    });
   });
 
   it("settles all debtor shares when the payer settles a group bill", async () => {

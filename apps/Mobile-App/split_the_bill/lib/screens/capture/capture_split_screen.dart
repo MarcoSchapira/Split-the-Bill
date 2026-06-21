@@ -5,77 +5,58 @@ import '../../models/user.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/capture_bill_split.dart';
 import '../../utils/format.dart';
-import '../../widgets/capture/capture_assign_sheet.dart';
+import '../../widgets/bill_flow/bill_flow_step_header.dart';
+import '../../widgets/bill_flow/bill_flow_summary_card.dart';
 import '../../widgets/common_widgets.dart';
 
 class CaptureSplitScreen extends StatefulWidget {
   const CaptureSplitScreen({super.key, required this.flow});
 
-  final CaptureFlowState flow;
+  final BillFlowState flow;
 
   @override
   State<CaptureSplitScreen> createState() => _CaptureSplitScreenState();
 }
 
-class _CaptureSplitScreenState extends State<CaptureSplitScreen>
-    with SingleTickerProviderStateMixin {
-  late CaptureFlowState _flow;
+class _CaptureSplitScreenState extends State<CaptureSplitScreen> {
+  late BillFlowState _flow;
   late Map<int, Set<String>> _assignments;
-  late TabController _tabController;
+  bool _unassignedExpanded = false;
+
+  static const _expandedListMaxHeight = 220.0;
 
   @override
   void initState() {
     super.initState();
     _flow = widget.flow;
     _assignments = Map<int, Set<String>>.from(_flow.assignments);
-    _tabController = TabController(length: 2, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
   }
 
   ParsedReceipt get _receipt => _flow.receipt!;
   List<User> get _participants => _flow.participants;
 
-  Future<void> _assignItem(int index) async {
-    final selected = await showModalBottomSheet<Set<String>>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => CaptureAssignSheet(
-        title: 'Assign "${_receipt.items[index].name}"',
-        participants: _participants,
-        initialSelected: _assignments[index] ?? {},
-      ),
-    );
-
-    if (selected != null) {
-      setState(() => _assignments[index] = selected);
+  List<int> _selectableIndexesFor(User participant) {
+    final indexes = <int>[];
+    for (var i = 0; i < _receipt.items.length; i++) {
+      final assignees = _assignments[i] ?? {};
+      if (assignees.isEmpty || assignees.contains(participant.id)) {
+        indexes.add(i);
+      }
     }
+    return indexes;
   }
 
   Future<void> _addItemsForUser(User participant) async {
-    final unassigned = <int>[];
-    for (var i = 0; i < _receipt.items.length; i++) {
-      if (!(_assignments[i]?.contains(participant.id) ?? false)) {
-        unassigned.add(i);
-      }
-    }
+    final selectable = _selectableIndexesFor(participant);
 
-    if (unassigned.isEmpty) {
+    if (selectable.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('All items are already assigned to this person.')),
+        const SnackBar(content: Text('No items available to assign.')),
       );
       return;
     }
 
-    final selected = await showModalBottomSheet<Set<String>>(
+    final selected = await showModalBottomSheet<Set<int>>(
       context: context,
       isScrollControlled: true,
       backgroundColor: AppColors.surface,
@@ -83,7 +64,9 @@ class _CaptureSplitScreenState extends State<CaptureSplitScreen>
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
-        final selectedIndexes = <int>{};
+        final selectedIndexes = selectable
+            .where((index) => _assignments[index]?.contains(participant.id) ?? false)
+            .toSet();
         return StatefulBuilder(
           builder: (context, setModalState) {
             return Padding(
@@ -93,13 +76,13 @@ class _CaptureSplitScreenState extends State<CaptureSplitScreen>
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    'Add items for ${displayName(participant)}',
+                    'Items for ${displayName(participant)}',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w700,
                         ),
                   ),
                   const SizedBox(height: 12),
-                  ...unassigned.map(
+                  ...selectable.map(
                     (index) {
                       final item = _receipt.items[index];
                       return CheckboxListTile(
@@ -121,13 +104,8 @@ class _CaptureSplitScreenState extends State<CaptureSplitScreen>
                   ),
                   const SizedBox(height: 12),
                   PrimaryButton(
-                    label: 'Add selected',
-                    onPressed: selectedIndexes.isEmpty
-                        ? null
-                        : () => Navigator.pop(
-                              context,
-                              selectedIndexes.map((i) => i.toString()).toSet(),
-                            ),
+                    label: 'Save',
+                    onPressed: () => Navigator.pop(context, Set<int>.from(selectedIndexes)),
                   ),
                 ],
               ),
@@ -140,10 +118,14 @@ class _CaptureSplitScreenState extends State<CaptureSplitScreen>
     if (selected == null) return;
 
     setState(() {
-      for (final key in selected) {
-        final index = int.parse(key);
-        final current = _assignments[index] ?? {};
-        _assignments[index] = {...current, participant.id};
+      for (final index in selectable) {
+        final current = Set<String>.from(_assignments[index] ?? {});
+        if (selected.contains(index)) {
+          current.add(participant.id);
+        } else {
+          current.remove(participant.id);
+        }
+        _assignments[index] = current;
       }
     });
   }
@@ -155,105 +137,141 @@ class _CaptureSplitScreenState extends State<CaptureSplitScreen>
     return _receipt.items.isNotEmpty;
   }
 
+  List<int> get _unassignedIndexes {
+    final indexes = <int>[];
+    for (var i = 0; i < _receipt.items.length; i++) {
+      if ((_assignments[i] ?? {}).isEmpty) {
+        indexes.add(i);
+      }
+    }
+    return indexes;
+  }
+
+  void _toggleUnassignedPanel() {
+    setState(() => _unassignedExpanded = !_unassignedExpanded);
+  }
+
+  Widget _buildBottomBar() {
+    final unassigned = _unassignedIndexes;
+    final count = unassigned.length;
+    final countLabel = count == 1 ? '1 item left' : '$count items left';
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        child: Material(
+          elevation: 6,
+          shadowColor: AppColors.textH.withValues(alpha: 0.12),
+          color: AppColors.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: AppColors.border),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              InkWell(
+                onTap: _toggleUnassignedPanel,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          count == 0 ? 'All items assigned' : countLabel,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textH,
+                          ),
+                        ),
+                      ),
+                      AnimatedRotation(
+                        turns: _unassignedExpanded ? 0.5 : 0,
+                        duration: const Duration(milliseconds: 200),
+                        child: const Icon(
+                          Icons.keyboard_arrow_up,
+                          color: AppColors.text,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              AnimatedSize(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeInOut,
+                alignment: Alignment.topCenter,
+                clipBehavior: Clip.hardEdge,
+                child: _unassignedExpanded
+                    ? Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Divider(height: 1, color: AppColors.border),
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxHeight: _expandedListMaxHeight),
+                            child: unassigned.isEmpty
+                                ? const Padding(
+                                    padding: EdgeInsets.all(16),
+                                    child: Text(
+                                      'Every item has been assigned.',
+                                      style: TextStyle(color: AppColors.text),
+                                    ),
+                                  )
+                                : ListView.separated(
+                                    shrinkWrap: true,
+                                    padding: const EdgeInsets.symmetric(vertical: 8),
+                                    itemCount: unassigned.length,
+                                    separatorBuilder: (_, __) => const Divider(
+                                      height: 1,
+                                      indent: 16,
+                                      endIndent: 16,
+                                      color: AppColors.border,
+                                    ),
+                                    itemBuilder: (context, listIndex) {
+                                      final item = _receipt.items[unassigned[listIndex]];
+                                      return ListTile(
+                                        dense: true,
+                                        title: Text(
+                                          item.name,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            color: AppColors.textH,
+                                          ),
+                                        ),
+                                        trailing: Text(
+                                          formatCad(item.totalPriceCents),
+                                          style: const TextStyle(fontWeight: FontWeight.w600),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                          ),
+                        ],
+                      )
+                    : const SizedBox(width: double.infinity),
+              ),
+              const Divider(height: 1, color: AppColors.border),
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: PrimaryButton(
+                  label: _flow.isEditing ? 'Review changes' : 'Review totals',
+                  onPressed: _allAssigned ? _continue : null,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   void _continue() {
     final nextFlow = _flow.copyWith(assignments: _assignments);
-    context.push('/dashboard/capture/confirm', extra: nextFlow);
-  }
-
-  Widget _receiptTab() {
-    return ListView.separated(
-      padding: const EdgeInsets.all(16),
-      itemCount: _receipt.items.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
-      itemBuilder: (context, index) {
-        final item = _receipt.items[index];
-        final assigned = _assignments[index] ?? {};
-        final isUnassigned = assigned.isEmpty;
-
-        return Card(
-          color: isUnassigned ? AppColors.surface : null,
-          child: ListTile(
-            title: Text(
-              item.name,
-              style: TextStyle(
-                color: isUnassigned ? AppColors.text : AppColors.textH,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            subtitle: Text('Qty ${item.quantity} · ${formatCad(item.totalPriceCents)}'),
-            trailing: IconButton(
-              icon: const Icon(Icons.add_circle_outline),
-              color: AppColors.accent,
-              onPressed: () => _assignItem(index),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _friendsTab() {
-    return ListView.separated(
-      padding: const EdgeInsets.all(16),
-      itemCount: _participants.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
-      itemBuilder: (context, index) {
-        final participant = _participants[index];
-        final entries = itemsForUser(
-          items: _receipt.items,
-          assignments: _assignments,
-          targetUserId: participant.id,
-        );
-        final subtotal = entries.fold<int>(0, (sum, entry) => sum + entry.shareCents);
-
-        return Card(
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        displayName(participant),
-                        style: const TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                    Text(
-                      formatCad(subtotal),
-                      style: const TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.add_circle_outline),
-                      color: AppColors.accent,
-                      onPressed: () => _addItemsForUser(participant),
-                    ),
-                  ],
-                ),
-                if (entries.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 4),
-                    child: Text('No items assigned yet', style: TextStyle(color: AppColors.text)),
-                  )
-                else
-                  ...entries.map(
-                    (entry) => Padding(
-                      padding: const EdgeInsets.only(top: 6, left: 4),
-                      child: Row(
-                        children: [
-                          Expanded(child: Text(entry.item.name)),
-                          Text(formatCad(entry.shareCents)),
-                        ],
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
+    final confirmPath = nextFlow.isEditing
+        ? '/bills/${nextFlow.billId}/edit/confirm'
+        : '/dashboard/capture/confirm';
+    context.push(confirmPath, extra: nextFlow);
   }
 
   @override
@@ -261,29 +279,100 @@ class _CaptureSplitScreenState extends State<CaptureSplitScreen>
     return Scaffold(
       appBar: AppBar(
         title: Text(_receipt.storeName ?? 'Split bill'),
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: AppColors.accent,
-          tabs: const [
-            Tab(text: 'Receipt'),
-            Tab(text: 'Friends'),
-          ],
-        ),
       ),
-      body: TabBarView(
-        controller: _tabController,
+      body: Column(
         children: [
-          _receiptTab(),
-          _friendsTab(),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const BillFlowStepHeader(stepNumber: 2, totalSteps: 3, title: 'Assign items'),
+                const SizedBox(height: 12),
+                BillFlowSummaryCard(
+                  receipt: _receipt,
+                  payerName: displayName(
+                    _participants.firstWhere(
+                      (participant) => participant.id == _flow.payerId,
+                      orElse: () => _flow.currentUser,
+                    ),
+                  ),
+                  incurredAt: _flow.incurredAt,
+                  eyebrowText: _flow.isEditing ? 'Editing receipt' : 'Captured receipt',
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: ListView.separated(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              itemCount: _participants.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              itemBuilder: (context, index) {
+                final participant = _participants[index];
+                final entries = itemsForUser(
+                  items: _receipt.items,
+                  assignments: _assignments,
+                  targetUserId: participant.id,
+                );
+                final subtotal = entries.fold<int>(0, (sum, entry) => sum + entry.shareCents);
+
+                return Card(
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: () => _addItemsForUser(participant),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  displayName(participant),
+                                  style: const TextStyle(fontWeight: FontWeight.w700),
+                                ),
+                              ),
+                              Text(
+                                formatCad(subtotal),
+                                style: const TextStyle(fontWeight: FontWeight.w700),
+                              ),
+                              const SizedBox(width: 4),
+                              const Icon(Icons.add_circle_outline, color: AppColors.accent),
+                            ],
+                          ),
+                          if (entries.isEmpty)
+                            const Padding(
+                              padding: EdgeInsets.only(top: 4),
+                              child: Text(
+                                'No items assigned yet',
+                                style: TextStyle(color: AppColors.text),
+                              ),
+                            )
+                          else
+                            ...entries.map(
+                              (entry) => Padding(
+                                padding: const EdgeInsets.only(top: 6, left: 4),
+                                child: Row(
+                                  children: [
+                                    Expanded(child: Text(entry.item.name)),
+                                    Text(formatCad(entry.shareCents)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
         ],
       ),
-      bottomNavigationBar: Padding(
-        padding: const EdgeInsets.all(16),
-        child: PrimaryButton(
-          label: 'Review totals',
-          onPressed: _allAssigned ? _continue : null,
-        ),
-      ),
+      bottomNavigationBar: _buildBottomBar(),
     );
   }
 }

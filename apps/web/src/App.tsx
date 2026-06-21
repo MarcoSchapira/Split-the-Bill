@@ -8,6 +8,7 @@ import { BillsPage } from './pages/BillsPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { FriendDetailPage } from './pages/FriendDetailPage'
 import { FriendsPage } from './pages/FriendsPage'
+import { InvitationsPage } from './pages/InvitationsPage'
 import { GroupDetailPage } from './pages/GroupDetailPage'
 import { LandingPage } from './pages/LandingPage'
 import { OldLandingPage } from './pages/OldLandingPage'
@@ -34,6 +35,7 @@ function App() {
               <Route path="/bills/:billId" element={<BillDetailPage />} />
               <Route path="/friends" element={<FriendsPage />} />
               <Route path="/friends/:friendshipId" element={<FriendDetailPage />} />
+              <Route path="/invitations" element={<InvitationsPage />} />
               <Route path="/groups/:groupId" element={<GroupDetailPage />} />
             </Route>
           </Route>

@@ -6,6 +6,7 @@ import '../../providers/providers.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/format.dart';
 import '../../widgets/common_widgets.dart';
+import '../../widgets/friend_invitations.dart';
 
 class InvitationsScreen extends ConsumerStatefulWidget {
   const InvitationsScreen({super.key});
@@ -33,14 +34,10 @@ class _InvitationsScreenState extends ConsumerState<InvitationsScreen> {
     }
   }
 
-  Future<void> _answer(String kind, String invitationId, String decision) async {
+  Future<void> _answer(String invitationId, String decision) async {
     setState(() => _error = null);
     try {
-      if (kind == 'friend') {
-        await ref.read(invitationsApiProvider).answerFriendInvitation(invitationId, decision);
-      } else {
-        await ref.read(invitationsApiProvider).answerGroupInvitation(invitationId, decision);
-      }
+      await ref.read(invitationsApiProvider).answerFriendInvitation(invitationId, decision);
       notifyDataChanged(ref);
       await _load();
     } catch (e) {
@@ -48,8 +45,58 @@ class _InvitationsScreenState extends ConsumerState<InvitationsScreen> {
     }
   }
 
-  String _recipientLabel(FriendInvitation invite) {
-    return invite.recipient?.name ?? invite.recipient?.email ?? invite.recipientEmail ?? 'Unknown';
+  List<Widget> _buildInvitationList(Invitations invitations) {
+    final pendingReceived = invitations.receivedFriends
+        .where((invite) => invite.status == InvitationStatus.pending)
+        .toList();
+    final pastReceived = invitations.receivedFriends
+        .where((invite) => invite.status != InvitationStatus.pending)
+        .toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final sent = [...invitations.sentFriends]
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+    final items = <Widget>[
+      ...pendingReceived.map(
+        (invite) => PendingFriendInvitationCard(
+          invite: invite,
+          onAccept: () => _answer(invite.id, 'accept'),
+          onDecline: () => _answer(invite.id, 'decline'),
+        ),
+      ),
+      ...sent.map(
+        (invite) => PastFriendInvitationTile(
+          title: 'Sent to ${friendInvitationRecipientLabel(invite)}',
+          subtitle: 'Friend request',
+          status: invite.status,
+        ),
+      ),
+      ...pastReceived.map(
+        (invite) => PastFriendInvitationTile(
+          title: displayName(invite.sender),
+          subtitle: 'Incoming friend request',
+          status: invite.status,
+          incoming: true,
+        ),
+      ),
+    ];
+
+    if (items.isEmpty) {
+      return [
+        Card(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: const BorderSide(color: AppColors.border),
+          ),
+          child: const Padding(
+            padding: EdgeInsets.all(24),
+            child: EmptyState(message: 'No invitations yet.'),
+          ),
+        ),
+      ];
+    }
+
+    return items;
   }
 
   @override
@@ -57,145 +104,31 @@ class _InvitationsScreenState extends ConsumerState<InvitationsScreen> {
     ref.listen<int>(dataRefreshProvider, (_, __) => _load());
 
     final invitations = _invitations;
-    final receivedPending = (invitations?.receivedFriends
-                .where((i) => i.status == InvitationStatus.pending)
-                .length ??
-            0) +
-        (invitations?.receivedGroups.where((i) => i.status == InvitationStatus.pending).length ?? 0);
 
-    return RefreshIndicator(
-      onRefresh: _load,
-      color: AppColors.accent,
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          const Text('Invitations', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 4),
-          const Text('Friendships and memberships activate only when accepted.'),
-          const SizedBox(height: 16),
-          if (_error != null) ...[ErrorBanner(message: _error!), const SizedBox(height: 12)],
-          Row(
-            children: [
-              const Text('Waiting for you', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-              const Spacer(),
-              CountBadge(count: receivedPending),
-            ],
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Invitations'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: AddFriendIconButton(onPressed: () => showAddFriendSheet(context)),
           ),
-          const SizedBox(height: 12),
-          if (invitations == null)
-            const LoadingView()
-          else ...[
-            ...invitations.receivedFriends
-                .where((i) => i.status == InvitationStatus.pending)
-                .map((invite) => _InvitationCard(
-                      description: '${displayName(invite.sender)} wants to be friends.',
-                      onAccept: () => _answer('friend', invite.id, 'accept'),
-                      onDecline: () => _answer('friend', invite.id, 'decline'),
-                    )),
-            ...invitations.receivedGroups
-                .where((i) => i.status == InvitationStatus.pending)
-                .map((invite) => _InvitationCard(
-                      description:
-                          '${displayName(invite.sender)} invited you to ${invite.groupRef.name}.',
-                      onAccept: () => _answer('group', invite.id, 'accept'),
-                      onDecline: () => _answer('group', invite.id, 'decline'),
-                    )),
-            if (receivedPending == 0)
-              const EmptyState(message: 'Nothing waiting for your response.'),
-            const SizedBox(height: 24),
-            const Text('Sent invitations', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 12),
-            ...invitations.sentFriends.map((invite) => _SentCard(
-                  description: 'Friend request to ${_recipientLabel(invite)}',
-                  status: invite.status,
-                )),
-            ...invitations.sentGroups.map((invite) => _SentCard(
-                  description:
-                      'Group invite to ${invite.groupRef.name} (${_recipientLabel(invite)})',
-                  status: invite.status,
-                )),
-            if (invitations.sentFriends.isEmpty && invitations.sentGroups.isEmpty)
-              const EmptyState(message: 'No sent invitations yet.'),
-          ],
         ],
       ),
-    );
-  }
-}
-
-class _InvitationCard extends StatelessWidget {
-  const _InvitationCard({
-    required this.description,
-    required this.onAccept,
-    required this.onDecline,
-  });
-
-  final String description;
-  final VoidCallback onAccept;
-  final VoidCallback onDecline;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      color: AppColors.pendingBg,
-      margin: const EdgeInsets.only(bottom: 8),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      body: RefreshIndicator(
+        onRefresh: _load,
+        color: AppColors.accent,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
           children: [
-            Text(description, style: const TextStyle(color: AppColors.pendingText)),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(onPressed: onDecline, child: const Text('Decline')),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: onAccept,
-                    style: FilledButton.styleFrom(backgroundColor: AppColors.accent),
-                    child: const Text('Accept'),
-                  ),
-                ),
-              ],
+            const Text(
+              'Open and past friend invitations.',
+              style: TextStyle(color: AppColors.text, height: 1.4),
             ),
+            const SizedBox(height: 16),
+            if (_error != null) ...[ErrorBanner(message: _error!), const SizedBox(height: 12)],
+            if (invitations == null) const LoadingView() else ..._buildInvitationList(invitations),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SentCard extends StatelessWidget {
-  const _SentCard({required this.description, required this.status});
-
-  final String description;
-  final InvitationStatus status;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        title: Text(description),
-        trailing: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: status == InvitationStatus.pending
-                ? AppColors.pendingBg
-                : AppColors.accentSoft,
-            borderRadius: BorderRadius.circular(999),
-          ),
-          child: Text(
-            status.name,
-            style: TextStyle(
-              color: status == InvitationStatus.pending ? AppColors.pendingText : AppColors.accent,
-              fontWeight: FontWeight.w600,
-              fontSize: 12,
-            ),
-          ),
         ),
       ),
     );

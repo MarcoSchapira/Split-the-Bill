@@ -292,4 +292,12 @@ class ActivityApi {
       _client.throwApiError(e, 'Unable to load activity.');
     }
   }
+
+  Future<void> deleteActivity(String eventId) async {
+    try {
+      await _client.dio.delete<void>('/activity/$eventId');
+    } on DioException catch (e) {
+      _client.throwApiError(e, 'Unable to remove activity.');
+    }
+  }
 }

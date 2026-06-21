@@ -1,27 +1,48 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../api/api_exception.dart';
 import '../../models/receipt.dart';
 import '../../providers/providers.dart';
-import '../../theme/app_colors.dart';
 import '../../utils/capture_bill_split.dart';
 import '../../utils/format.dart';
+import '../../widgets/bill_flow/bill_flow_step_header.dart';
+import '../../widgets/bill_flow/bill_flow_summary_card.dart';
 import '../../widgets/common_widgets.dart';
 
 class CaptureConfirmScreen extends ConsumerStatefulWidget {
   const CaptureConfirmScreen({super.key, required this.flow});
 
-  final CaptureFlowState flow;
+  final BillFlowState flow;
 
   @override
   ConsumerState<CaptureConfirmScreen> createState() => _CaptureConfirmScreenState();
 }
 
 class _CaptureConfirmScreenState extends ConsumerState<CaptureConfirmScreen> {
+  final _descriptionController = TextEditingController();
   bool _saving = false;
   String? _error;
+  late DateTime _incurredAt;
 
-  CaptureFlowState get _flow => widget.flow;
+  BillFlowState get _flow => widget.flow;
+
+  @override
+  void initState() {
+    super.initState();
+    final receipt = _flow.receipt;
+    _descriptionController.text =
+        (_flow.description ?? receipt?.storeName ?? 'Receipt').trim().isNotEmpty
+            ? (_flow.description ?? receipt?.storeName ?? 'Receipt').trim()
+            : 'Receipt';
+    _incurredAt = _flow.incurredAt ?? _parseReceiptDate(receipt) ?? DateTime.now();
+  }
+
+  @override
+  void dispose() {
+    _descriptionController.dispose();
+    super.dispose();
+  }
 
   CaptureShareResult get _shareResult {
     return computeCaptureShares(
@@ -32,15 +53,62 @@ class _CaptureConfirmScreenState extends ConsumerState<CaptureConfirmScreen> {
     );
   }
 
-  String _incurredAtIso(ParsedReceipt receipt) {
-    if (receipt.date != null) {
-      final timePart = receipt.time != null ? ' ${receipt.time}' : '';
-      final parsed = DateTime.tryParse('${receipt.date}$timePart');
-      if (parsed != null) {
-        return parsed.toUtc().toIso8601String();
-      }
-    }
-    return DateTime.now().toUtc().toIso8601String();
+  DateTime? _parseReceiptDate(ParsedReceipt? receipt) {
+    if (receipt == null || receipt.date == null) return null;
+    final timePart = receipt.time != null ? ' ${receipt.time}' : '';
+    return DateTime.tryParse('${receipt.date}$timePart');
+  }
+
+  String _incurredAtIso() {
+    return DateTime.utc(
+      _incurredAt.year,
+      _incurredAt.month,
+      _incurredAt.day,
+    ).toIso8601String();
+  }
+
+  Map<String, dynamic> _buildBillInput({
+    required ParsedReceipt receipt,
+    required CaptureShareResult shareResult,
+  }) {
+    final participantIds = _flow.participants.map((user) => user.id).toList();
+    return {
+      'description': _descriptionController.text.trim().isEmpty
+          ? 'Receipt'
+          : _descriptionController.text.trim(),
+      'incurredAt': _incurredAtIso(),
+      'totalCents': shareResult.totalCents,
+      'participantIds': participantIds,
+      'payerId': _flow.payerId!,
+      'source': 'capture',
+      'storeName': receipt.storeName,
+      'storeAddress': receipt.storeAddress,
+      'receiptNumber': receipt.receiptNumber,
+      'receiptDate': receipt.date,
+      'receiptTime': receipt.time,
+      'paymentMethod': receipt.paymentMethod,
+      'cardLast4': receipt.cardLast4,
+      'itemCount': receipt.itemCount,
+      'subtotalCents': receipt.subtotal != null ? (receipt.subtotal! * 100).round() : null,
+      'taxCents': receipt.tax != null ? (receipt.tax! * 100).round() : null,
+      'tipCents': receipt.tip != null ? (receipt.tip! * 100).round() : null,
+      'lineItems': receipt.items.asMap().entries.map((entry) {
+        final assigned = _flow.assignments[entry.key] ?? const <String>{};
+        return {
+          'name': entry.value.name,
+          'quantity': entry.value.quantity,
+          'unitPriceCents': entry.value.unitPriceCents,
+          'totalPriceCents': entry.value.totalPriceCents,
+          'assignedUserIds': assigned.toList(),
+        };
+      }).toList(),
+      'shares': shareResult.shares
+          .map((share) => {
+                'userId': share.userId,
+                'shareCents': share.shareCents,
+              })
+          .toList(),
+    };
   }
 
   Future<void> _confirm() async {
@@ -52,57 +120,32 @@ class _CaptureConfirmScreenState extends ConsumerState<CaptureConfirmScreen> {
     try {
       final receipt = _flow.receipt!;
       final shareResult = _shareResult;
-      final participantIds = _flow.participants.map((user) => user.id).toList();
-
-      await ref.read(billsApiProvider).createBill({
-        'description': receipt.storeName?.trim().isNotEmpty == true
-            ? receipt.storeName!.trim()
-            : 'Receipt',
-        'incurredAt': _incurredAtIso(receipt),
-        'totalCents': shareResult.totalCents,
-        'participantIds': participantIds,
-        'payerId': _flow.payerId!,
-        'source': 'capture',
-        'storeName': receipt.storeName,
-        'storeAddress': receipt.storeAddress,
-        'receiptNumber': receipt.receiptNumber,
-        'receiptDate': receipt.date,
-        'receiptTime': receipt.time,
-        'paymentMethod': receipt.paymentMethod,
-        'cardLast4': receipt.cardLast4,
-        'itemCount': receipt.itemCount,
-        'subtotalCents': receipt.subtotal != null ? (receipt.subtotal! * 100).round() : null,
-        'taxCents': receipt.tax != null ? (receipt.tax! * 100).round() : null,
-        'tipCents': receipt.tip != null ? (receipt.tip! * 100).round() : null,
-        'lineItems': receipt.items.asMap().entries.map((entry) {
-          final assigned = _flow.assignments[entry.key] ?? const <String>{};
-          return {
-            'name': entry.value.name,
-            'quantity': entry.value.quantity,
-            'unitPriceCents': entry.value.unitPriceCents,
-            'totalPriceCents': entry.value.totalPriceCents,
-            'assignedUserIds': assigned.toList(),
-          };
-        }).toList(),
-        'shares': shareResult.shares
-            .map((share) => {
-                  'userId': share.userId,
-                  'shareCents': share.shareCents,
-                })
-            .toList(),
-      });
+      final input = _buildBillInput(receipt: receipt, shareResult: shareResult);
+      if (_flow.isEditing) {
+        await ref.read(billsApiProvider).updateBill(_flow.billId!, input);
+      } else {
+        await ref.read(billsApiProvider).createBill(input);
+      }
 
       notifyDataChanged(ref);
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Bill saved successfully.')),
+        SnackBar(
+          content: Text(
+            _flow.isEditing ? 'Bill updated successfully.' : 'Bill saved successfully.',
+          ),
+        ),
       );
-      context.go('/dashboard');
+      if (_flow.isEditing) {
+        context.go('/bills/${_flow.billId}');
+      } else {
+        context.go('/dashboard');
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = apiErrorMessage(e, _flow.isEditing ? 'Unable to update bill.' : 'Unable to save bill.');
         _saving = false;
       });
     }
@@ -121,24 +164,45 @@ class _CaptureConfirmScreenState extends ConsumerState<CaptureConfirmScreen> {
     };
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Confirm split')),
+      appBar: AppBar(title: Text(_flow.isEditing ? 'Review changes' : 'Confirm split')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          const BillFlowStepHeader(stepNumber: 3, totalSteps: 3, title: 'Review'),
+          const SizedBox(height: 12),
           if (_error != null) ...[
             ErrorBanner(message: _error!),
             const SizedBox(height: 16),
           ],
-          Text(
-            _flow.receipt?.storeName ?? 'Receipt',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+          BillFlowSummaryCard(
+            receipt: _flow.receipt!,
+            payerName: payerName,
+            incurredAt: _incurredAt,
+            eyebrowText: _flow.isEditing ? 'Editing receipt' : 'Captured receipt',
+          ),
+          const SizedBox(height: 20),
+          TextField(
+            controller: _descriptionController,
+            maxLength: 120,
+            decoration: const InputDecoration(labelText: 'Description'),
           ),
           const SizedBox(height: 8),
-          Text(
-            'Total ${formatCad(shareResult.totalCents)}',
-            style: const TextStyle(color: AppColors.text),
+          InkWell(
+            onTap: () async {
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: _incurredAt,
+                firstDate: DateTime(2000),
+                lastDate: DateTime(2100),
+              );
+              if (picked != null) {
+                setState(() => _incurredAt = picked);
+              }
+            },
+            child: InputDecorator(
+              decoration: const InputDecoration(labelText: 'Date'),
+              child: Text(formatDateUtc(_incurredAt.toUtc().toIso8601String())),
+            ),
           ),
           const SizedBox(height: 20),
           const Text(
@@ -189,7 +253,7 @@ class _CaptureConfirmScreenState extends ConsumerState<CaptureConfirmScreen> {
       bottomNavigationBar: Padding(
         padding: const EdgeInsets.all(16),
         child: PrimaryButton(
-          label: 'Confirm',
+          label: _flow.isEditing ? 'Save changes' : 'Confirm',
           isLoading: _saving,
           onPressed: _saving ? null : _confirm,
         ),

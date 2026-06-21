@@ -6,6 +6,7 @@ import '../screens/activity/activity_screen.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/auth/register_screen.dart';
 import '../screens/bills/bills_screen.dart';
+import '../screens/bills/edit_bill_screen.dart';
 import '../models/receipt.dart';
 import '../screens/capture/capture_camera_screen.dart';
 import '../screens/capture/capture_confirm_screen.dart';
@@ -13,7 +14,8 @@ import '../screens/capture/capture_participants_screen.dart';
 import '../screens/capture/capture_split_screen.dart';
 import '../screens/dashboard/dashboard_screen.dart';
 import '../screens/friends/friends_screen.dart';
-import '../screens/groups/groups_screen.dart';
+import '../screens/invitations/invitations_screen.dart';
+import '../screens/settings/settings_screen.dart';
 import '../widgets/app_scaffold.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -37,12 +39,7 @@ final routerProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
       GoRoute(path: '/register', builder: (_, __) => const RegisterScreen()),
-      GoRoute(
-        path: '/groups/:groupId',
-        builder: (_, state) => GroupDetailScreen(
-          groupId: state.pathParameters['groupId']!,
-        ),
-      ),
+      GoRoute(path: '/settings', builder: (_, __) => const SettingsScreen()),
       StatefulShellRoute.indexedStack(
         builder: (_, __, navigationShell) => AppScaffold(navigationShell: navigationShell),
         branches: [
@@ -53,29 +50,25 @@ final routerProvider = Provider<GoRouter>((ref) {
                 builder: (_, __) => const DashboardScreen(),
                 routes: [
                   GoRoute(
-                    path: 'add-bill',
-                    builder: (_, __) => const DashboardAddBillScreen(),
-                  ),
-                  GoRoute(
                     path: 'capture',
                     builder: (_, __) => const CaptureCameraScreen(),
                     routes: [
                       GoRoute(
                         path: 'participants',
                         builder: (_, state) => CaptureParticipantsScreen(
-                          flow: state.extra! as CaptureFlowState,
+                          flow: state.extra! as BillFlowState,
                         ),
                       ),
                       GoRoute(
                         path: 'split',
                         builder: (_, state) => CaptureSplitScreen(
-                          flow: state.extra! as CaptureFlowState,
+                          flow: state.extra! as BillFlowState,
                         ),
                       ),
                       GoRoute(
                         path: 'confirm',
                         builder: (_, state) => CaptureConfirmScreen(
-                          flow: state.extra! as CaptureFlowState,
+                          flow: state.extra! as BillFlowState,
                         ),
                       ),
                     ],
@@ -100,6 +93,28 @@ final routerProvider = Provider<GoRouter>((ref) {
                     builder: (_, state) => BillDetailScreen(
                       billId: state.pathParameters['billId']!,
                     ),
+                    routes: [
+                      GoRoute(
+                        path: 'edit',
+                        builder: (_, state) => EditBillScreen(
+                          billId: state.pathParameters['billId']!,
+                        ),
+                        routes: [
+                          GoRoute(
+                            path: 'split',
+                            builder: (_, state) => CaptureSplitScreen(
+                              flow: state.extra! as BillFlowState,
+                            ),
+                          ),
+                          GoRoute(
+                            path: 'confirm',
+                            builder: (_, state) => CaptureConfirmScreen(
+                              flow: state.extra! as BillFlowState,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -111,6 +126,10 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: '/friends',
                 builder: (_, __) => const FriendsScreen(),
                 routes: [
+                  GoRoute(
+                    path: 'invites',
+                    builder: (_, __) => const InvitationsScreen(),
+                  ),
                   GoRoute(
                     path: ':friendshipId',
                     builder: (_, state) => FriendDetailScreen(

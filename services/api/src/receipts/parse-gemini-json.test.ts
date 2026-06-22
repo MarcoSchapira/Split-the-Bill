@@ -16,6 +16,7 @@ const sampleReceipt = {
   ],
   item_count: 1,
   subtotal: 9.95,
+  other_fees: null,
   tax: 1.29,
   tip: 0,
   total: 11.24,
@@ -86,7 +87,7 @@ describe("parseGeminiReceiptJson", () => {
   });
 
   it("reports missing keys without dropping present totals", () => {
-    const partial = { subtotal: 9.95, tax: 1.29, total: 11.24, items: [] };
+    const partial = { subtotal: 9.95, other_fees: 0, tax: 1.29, total: 11.24, items: [] };
     const result = parseGeminiReceiptJson(JSON.stringify(partial));
 
     expect(result.rawTotals.subtotal).toBe(9.95);
@@ -98,8 +99,8 @@ describe("parseGeminiReceiptJson", () => {
 
 describe("extractBalancedJsonObject", () => {
   it("extracts a complete object from surrounding text", () => {
-    const inner = JSON.stringify({ subtotal: 1, total: 2 });
+    const inner = JSON.stringify({ subtotal: 1, other_fees: 0, total: 2 });
     const extracted = extractBalancedJsonObject(`noise ${inner} noise`);
-    expect(JSON.parse(extracted)).toEqual({ subtotal: 1, total: 2 });
+    expect(JSON.parse(extracted)).toEqual({ subtotal: 1, other_fees: 0, total: 2 });
   });
 });

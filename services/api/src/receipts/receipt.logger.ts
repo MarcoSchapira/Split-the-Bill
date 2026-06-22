@@ -45,6 +45,7 @@ export function logGeminiParsedReceipt(receipt: ParsedReceipt) {
     item_count: receipt.item_count,
     itemCount: receipt.items.length,
     subtotal: receipt.subtotal,
+    other_fees: receipt.other_fees,
     tax: receipt.tax,
     tip: receipt.tip,
     total: receipt.total,

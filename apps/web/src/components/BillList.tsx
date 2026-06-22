@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { deleteBill, settleBill } from '../api/billsApi'
 import { apiErrorMessage } from '../api/client'
-import type { Bill, FriendshipSummary, GroupSummary, PairwiseSummary, User } from '../api/types'
+import type { Bill, FriendshipSummary, PairwiseSummary, User } from '../api/types'
 import { BillForm } from './BillForm'
 import { BillListItem } from './BillListItem'
 import { Modal } from './Modal'
@@ -12,7 +12,6 @@ type BillListBill = Bill & { pairwise?: PairwiseSummary };
 type BillListProps = {
   bills: BillListBill[];
   friends: FriendshipSummary[];
-  groups: GroupSummary[];
   friend?: User;
   emptyMessage?: string;
   onChanged: () => void;
@@ -21,7 +20,6 @@ type BillListProps = {
 export function BillList({
   bills,
   friends,
-  groups,
   friend,
   emptyMessage = 'No bills recorded here yet.',
   onChanged,
@@ -89,15 +87,10 @@ export function BillList({
         ))}
       </div>
       {editing ? (
-        <Modal
-          onClose={() => setEditing(null)}
-          size={editing.targetType === 'group' ? 'wide' : 'default'}
-          title="Edit bill"
-        >
+        <Modal onClose={() => setEditing(null)} title="Edit bill">
           <BillForm
             bill={editing}
             friends={friends}
-            groups={groups}
             onCancel={() => setEditing(null)}
             onSaved={() => {
               setEditing(null)

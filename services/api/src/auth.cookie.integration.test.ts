@@ -36,11 +36,8 @@ beforeEach(async () => {
   await prismaAdmin.activityEvent.deleteMany();
   await prismaAdmin.billShare.deleteMany();
   await prismaAdmin.bill.deleteMany();
-  await prismaAdmin.groupInvitation.deleteMany();
   await prismaAdmin.friendInvitation.deleteMany();
   await prismaAdmin.friendship.deleteMany();
-  await prismaAdmin.groupMember.deleteMany();
-  await prismaAdmin.group.deleteMany();
   await prismaAdmin.session.deleteMany();
   await prismaAdmin.emailVerification.deleteMany();
   await prismaAdmin.user.deleteMany();
@@ -82,9 +79,9 @@ describe("cookie and CSRF authentication API", () => {
     const { cookies } = await registerWithCookies(agent, "cookie-csrf@example.com");
 
     const blocked = await request(app)
-      .post("/groups")
+      .post("/friend-invitations")
       .set(cookieHeader(cookies, [ACCESS_COOKIE, REFRESH_COOKIE]))
-      .send({ name: "Blocked Group" });
+      .send({ email: "friend@example.com" });
 
     expect(blocked.status).toBe(403);
     expect(blocked.body.error.code).toBe("CSRF_VALIDATION_FAILED");
@@ -95,12 +92,12 @@ describe("cookie and CSRF authentication API", () => {
     const { cookies } = await registerWithCookies(agent, "cookie-create@example.com");
 
     const created = await agent
-      .post("/groups")
+      .post("/friend-invitations")
       .set(csrfHeader(cookies))
-      .send({ name: "Cookie Group" });
+      .send({ email: "friend@example.com" });
 
     expect(created.status).toBe(201);
-    expect(created.body.group.name).toBe("Cookie Group");
+    expect(created.body.invitation.recipientEmail).toBe("friend@example.com");
   });
 
   it("clears the session after logout", async () => {

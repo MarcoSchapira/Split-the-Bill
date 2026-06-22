@@ -19,6 +19,7 @@ export const parsedReceiptSchema = z.object({
   items: z.array(receiptItemSchema),
   item_count: nullableNumber,
   subtotal: nullableNumber,
+  other_fees: nullableNumber,
   tax: nullableNumber,
   tip: nullableNumber,
   total: nullableNumber,

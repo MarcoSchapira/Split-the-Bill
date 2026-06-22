@@ -2,8 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { apiErrorMessage } from '../api/client'
 import { getFriendship, listFriends, settleFriend } from '../api/friendsApi'
-import { listGroups } from '../api/groupsApi'
-import type { FriendshipDetail, FriendshipSummary, GroupSummary } from '../api/types'
+import type { FriendshipDetail, FriendshipSummary } from '../api/types'
 import { BillForm } from '../components/BillForm'
 import { BillList } from '../components/BillList'
 import { Modal } from '../components/Modal'
@@ -14,7 +13,6 @@ export function FriendDetailPage() {
   const { friendshipId } = useParams()
   const [friendship, setFriendship] = useState<FriendshipDetail | null>(null)
   const [friends, setFriends] = useState<FriendshipSummary[]>([])
-  const [groups, setGroups] = useState<GroupSummary[]>([])
   const [showBillForm, setShowBillForm] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [settleMessage, setSettleMessage] = useState<string | null>(null)
@@ -25,14 +23,12 @@ export function FriendDetailPage() {
     }
 
     try {
-      const [nextFriendship, nextFriends, nextGroups] = await Promise.all([
+      const [nextFriendship, nextFriends] = await Promise.all([
         getFriendship(friendshipId),
         listFriends(),
-        listGroups(),
       ])
       setFriendship(nextFriendship)
       setFriends(nextFriends)
-      setGroups(nextGroups)
     } catch (requestError) {
       setError(apiErrorMessage(requestError, 'Unable to load friend details.'))
     }
@@ -73,10 +69,6 @@ export function FriendDetailPage() {
     return <p className="form-error">Friend not found.</p>
   }
 
-  const friendName = friendship ? displayName(friendship.friend) : 'this friend'
-  const sharedGroups = friendship?.sharedGroups ?? []
-  const sharedGroupBillCount = sharedGroups.reduce((sum, group) => sum + group.bills.length, 0)
-
   return (
     <section className="page">
       <Link className="back-link" to="/friends">
@@ -109,50 +101,14 @@ export function FriendDetailPage() {
             <BillList
               bills={friendship.bills}
               friends={friends}
-              groups={groups}
               onChanged={() => void load()}
             />
           </section>
-          {sharedGroups.length > 0 ? (
-            <section className="friend-shared-groups">
-              <header className="friend-shared-groups-header">
-                <p className="eyebrow">Shared groups</p>
-                <h2>Group bills with {friendName}</h2>
-                <p>Only group bills where you and {friendName} owe each other directly.</p>
-              </header>
-              <div className="friend-shared-groups-list">
-                {sharedGroups.map((group) => (
-                  <section className="panel friend-group-panel" key={group.id}>
-                    <div className="panel-title">
-                      <h2>
-                        <Link to={`/groups/${group.id}`}>{group.name}</Link>
-                      </h2>
-                      <span className="count-pill">{group.bills.length}</span>
-                    </div>
-                    <BillList
-                      bills={group.bills}
-                      emptyMessage={`No direct balances from group bills with ${friendName}.`}
-                      friend={friendship.friend}
-                      friends={friends}
-                      groups={groups}
-                      onChanged={() => void load()}
-                    />
-                  </section>
-                ))}
-              </div>
-              <p className="friend-shared-groups-meta">
-                {sharedGroupBillCount} bill{sharedGroupBillCount === 1 ? '' : 's'} across{' '}
-                {sharedGroups.length} shared group
-                {sharedGroups.length === 1 ? '' : 's'}
-              </p>
-            </section>
-          ) : null}
           {showBillForm ? (
             <Modal onClose={() => setShowBillForm(false)} title={`Add bill with ${displayName(friendship.friend)}`}>
               <BillForm
                 fixedTarget={{ targetType: 'friendship', targetId: friendship.id }}
                 friends={friends}
-                groups={groups}
                 onCancel={() => setShowBillForm(false)}
                 onSaved={() => {
                   setShowBillForm(false)

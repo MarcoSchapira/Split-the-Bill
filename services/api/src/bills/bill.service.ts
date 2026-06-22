@@ -11,7 +11,6 @@ import { assertParticipantsAllowed, sortedParticipantKey } from "./participants"
 export const billInclude = {
   payer: { select: safeUserSelect },
   creator: { select: safeUserSelect },
-  group: { select: { id: true, name: true } },
   friendship: {
     select: {
       id: true,
@@ -105,28 +104,17 @@ function assertPayerIsParticipant(payerId: string, participantIds: string[]) {
 async function resolveLegacyTargetParticipants(
   tx: PrismaTransaction,
   actingUserId: string,
-  targetType: "friendship" | "group",
+  targetType: "friendship",
   targetId: string,
 ) {
-  if (targetType === "friendship") {
-    const friendship = await tx.friendship.findUnique({ where: { id: targetId } });
-    if (
-      !friendship ||
-      (friendship.userAId !== actingUserId && friendship.userBId !== actingUserId)
-    ) {
-      throw new ApiError(403, "FRIENDSHIP_ACCESS_FORBIDDEN", "You are not part of this friendship");
-    }
-    return [friendship.userAId, friendship.userBId];
+  const friendship = await tx.friendship.findUnique({ where: { id: targetId } });
+  if (
+    !friendship ||
+    (friendship.userAId !== actingUserId && friendship.userBId !== actingUserId)
+  ) {
+    throw new ApiError(403, "FRIENDSHIP_ACCESS_FORBIDDEN", "You are not part of this friendship");
   }
-
-  const memberRows = await tx.groupMember.findMany({
-    where: { groupId: targetId },
-    select: { userId: true },
-  });
-  if (!memberRows.some((row) => row.userId === actingUserId)) {
-    throw new ApiError(403, "GROUP_ACCESS_FORBIDDEN", "You are not a member of this group");
-  }
-  return memberRows.map((row) => row.userId);
+  return [friendship.userAId, friendship.userBId];
 }
 
 async function determineBillContext(
@@ -137,7 +125,7 @@ async function determineBillContext(
   if (input.participantIds && input.participantIds.length > 0) {
     return {
       participantIds: sortedParticipantKey(input.participantIds),
-      targetType: null as "friendship" | "group" | null,
+      targetType: null as "friendship" | null,
       targetId: null as string | null,
     };
   }
@@ -233,12 +221,12 @@ export async function createBill(tx: PrismaTransaction, actingUserId: string, in
       cardLast4: input.cardLast4,
       itemCount: input.itemCount,
       subtotalCents: input.subtotalCents,
+      otherFeesCents: input.otherFeesCents,
       taxCents: input.taxCents,
       tipCents: input.tipCents,
       targetType: billContext.targetType,
       friendshipId:
         billContext.targetType === "friendship" ? billContext.targetId : null,
-      groupId: billContext.targetType === "group" ? billContext.targetId : null,
       payerId: input.payerId,
       creatorId: actingUserId,
       shares: { create: shares },
@@ -263,9 +251,7 @@ export async function listBills(
 ) {
   const whereTarget =
     query.targetType && query.targetId
-      ? query.targetType === "friendship"
-        ? { friendshipId: query.targetId }
-        : { groupId: query.targetId }
+      ? { friendshipId: query.targetId }
       : {};
 
   const whereParticipant = query.participantId
@@ -332,13 +318,13 @@ export async function updateBill(
       cardLast4: input.cardLast4,
       itemCount: input.itemCount,
       subtotalCents: input.subtotalCents,
+      otherFeesCents: input.otherFeesCents,
       taxCents: input.taxCents,
       tipCents: input.tipCents,
       targetType: billContext.targetType,
       payerId: input.payerId,
       friendshipId:
         billContext.targetType === "friendship" ? billContext.targetId : null,
-      groupId: billContext.targetType === "group" ? billContext.targetId : null,
       shares: {
         deleteMany: {},
         create: shares.map((share) => ({

@@ -1,6 +1,5 @@
 import type { PrismaTransaction } from "../db/userContext";
 import { safeUserSelect } from "../auth/auth.types";
-import { pairwiseSummaryForBill, type PairwiseSummary } from "../bills/bill-pairwise";
 import { billInclude, presentBill } from "../bills/bill.service";
 import { ApiError } from "../http/errors";
 
@@ -65,85 +64,10 @@ export async function getFriend(tx: PrismaTransaction, userId: string, friendshi
     })
   ).map((bill) => presentBill(bill, userId, friendUserId));
 
-  const sharedMemberships = await tx.groupMember.findMany({
-    where: {
-      userId,
-      group: { members: { some: { userId: friendUserId } } },
-    },
-    orderBy: { group: { name: "asc" } },
-    select: {
-      group: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
-    },
-  });
-
-  const sharedGroupIds = sharedMemberships.map((membership) => membership.group.id);
-  type SharedGroupBill = ReturnType<typeof presentBill> & {
-    pairwise: PairwiseSummary;
-  };
-  const billsByGroupId = new Map<string, SharedGroupBill[]>();
-
-  for (const membership of sharedMemberships) {
-    billsByGroupId.set(membership.group.id, []);
-  }
-
-  if (sharedGroupIds.length > 0) {
-    const groupBills = await tx.bill.findMany({
-      where: {
-        deletedAt: null,
-        groupId: { in: sharedGroupIds },
-        shares: { some: { userId } },
-        AND: [{ shares: { some: { userId: friendUserId } } }],
-      },
-      orderBy: [{ incurredAt: "desc" }, { createdAt: "desc" }],
-      include: billInclude,
-    });
-
-    for (const bill of groupBills) {
-      if (!bill.groupId) {
-        continue;
-      }
-
-      const pairwise = pairwiseSummaryForBill(
-        {
-          payerId: bill.payerId,
-          shares: bill.shares.map((share) => ({
-            userId: share.user.id,
-            shareCents: share.shareCents,
-          })),
-        },
-        userId,
-        friendUserId,
-      );
-
-      if (!pairwise) {
-        continue;
-      }
-
-      const groupBillsForFriend = billsByGroupId.get(bill.groupId) ?? [];
-      groupBillsForFriend.push({
-        ...presentBill(bill, userId, friendUserId),
-        pairwise,
-      } as SharedGroupBill);
-      billsByGroupId.set(bill.groupId, groupBillsForFriend);
-    }
-  }
-
-  const sharedGroups = sharedMemberships.map((membership) => ({
-    id: membership.group.id,
-    name: membership.group.name,
-    bills: billsByGroupId.get(membership.group.id) ?? [],
-  }));
-
   return {
     id: friendship.id,
     createdAt: friendship.createdAt,
     friend: friendForUser(friendship, userId),
     bills,
-    sharedGroups,
   };
 }

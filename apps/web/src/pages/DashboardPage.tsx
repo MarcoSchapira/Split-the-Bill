@@ -3,8 +3,7 @@ import { Link } from 'react-router-dom'
 import { apiErrorMessage } from '../api/client'
 import { getDashboard } from '../api/dashboardApi'
 import { listFriends } from '../api/friendsApi'
-import { listGroups } from '../api/groupsApi'
-import type { Dashboard, FriendshipSummary, GroupSummary } from '../api/types'
+import type { Dashboard, FriendshipSummary } from '../api/types'
 import { BillForm } from '../components/BillForm'
 import { Modal } from '../components/Modal'
 import { DATA_CHANGED_EVENT } from '../utils/events'
@@ -13,25 +12,19 @@ import { displayName, formatCad } from '../utils/format'
 export function DashboardPage() {
   const [dashboard, setDashboard] = useState<Dashboard | null>(null)
   const [friends, setFriends] = useState<FriendshipSummary[]>([])
-  const [groups, setGroups] = useState<GroupSummary[]>([])
   const [showBillForm, setShowBillForm] = useState(false)
-  const [billFormTargetType, setBillFormTargetType] = useState<'friendship' | 'group' | null>(
-    null,
-  )
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   const load = useCallback(async () => {
     setError(null)
     try {
-      const [nextDashboard, nextFriends, nextGroups] = await Promise.all([
+      const [nextDashboard, nextFriends] = await Promise.all([
         getDashboard(),
         listFriends(),
-        listGroups(),
       ])
       setDashboard(nextDashboard)
       setFriends(nextFriends)
-      setGroups(nextGroups)
     } catch (requestError) {
       setError(apiErrorMessage(requestError, 'Unable to load dashboard.'))
     } finally {
@@ -85,17 +78,16 @@ export function DashboardPage() {
               <span className="count-pill">{dashboard.balances.length}</span>
             </div>
             {dashboard.balances.length === 0 ? (
-              <p className="empty-state">Add a friend or join a group to start splitting bills.</p>
+              <p className="empty-state">Add a friend to start splitting bills.</p>
             ) : (
               <div className="balance-list">
                 {dashboard.balances.map((balance) => {
-                  const row = (
-                    <>
+                  if (!balance.friendshipId) return null
+                  return (
+                    <Link className="balance-row" key={balance.user.id} to={`/friends/${balance.friendshipId}`}>
                       <div>
                         <strong>{displayName(balance.user)}</strong>
-                        <span>
-                          {balance.relationship === 'friend' ? 'Friend' : 'Group contact'}
-                        </span>
+                        <span>Friend</span>
                       </div>
                       <p className={`balance-value ${balance.balanceCents < 0 ? 'negative' : 'positive'}`}>
                         {balance.balanceCents === 0
@@ -104,16 +96,7 @@ export function DashboardPage() {
                             ? `owes you ${formatCad(balance.balanceCents)}`
                             : `you owe ${formatCad(-balance.balanceCents)}`}
                       </p>
-                    </>
-                  )
-                  return balance.friendshipId ? (
-                    <Link className="balance-row" key={balance.user.id} to={`/friends/${balance.friendshipId}`}>
-                      {row}
                     </Link>
-                  ) : (
-                    <div className="balance-row" key={balance.user.id}>
-                      {row}
-                    </div>
                   )
                 })}
               </div>
@@ -122,15 +105,9 @@ export function DashboardPage() {
         </>
       ) : null}
       {showBillForm ? (
-        <Modal
-          onClose={() => setShowBillForm(false)}
-          size={billFormTargetType === 'group' ? 'wide' : 'default'}
-          title="Add a bill"
-        >
+        <Modal onClose={() => setShowBillForm(false)} title="Add a bill">
           <BillForm
             friends={friends}
-            groups={groups}
-            onTargetChange={(nextTarget) => setBillFormTargetType(nextTarget?.targetType ?? null)}
             onCancel={() => setShowBillForm(false)}
             onSaved={() => {
               setShowBillForm(false)

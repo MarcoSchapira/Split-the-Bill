@@ -2,8 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { listBills } from '../api/billsApi'
 import { apiErrorMessage } from '../api/client'
 import { listFriends } from '../api/friendsApi'
-import { listGroups } from '../api/groupsApi'
-import type { Bill, FriendshipSummary, GroupSummary } from '../api/types'
+import type { Bill, FriendshipSummary } from '../api/types'
 import { BillList } from '../components/BillList'
 import { DATA_CHANGED_EVENT } from '../utils/events'
 import { formatCad } from '../utils/format'
@@ -11,7 +10,6 @@ import { formatCad } from '../utils/format'
 export function BillsPage() {
   const [bills, setBills] = useState<Bill[]>([])
   const [friends, setFriends] = useState<FriendshipSummary[]>([])
-  const [groups, setGroups] = useState<GroupSummary[]>([])
   const [error, setError] = useState<string | null>(null)
 
   const capturedBills = bills.filter((bill) => bill.source === 'capture').length
@@ -24,14 +22,12 @@ export function BillsPage() {
 
   const load = useCallback(async () => {
     try {
-      const [nextBills, nextFriends, nextGroups] = await Promise.all([
+      const [nextBills, nextFriends] = await Promise.all([
         listBills(),
         listFriends(),
-        listGroups(),
       ])
       setBills(nextBills)
       setFriends(nextFriends)
-      setGroups(nextGroups)
     } catch (requestError) {
       setError(apiErrorMessage(requestError, 'Unable to load bills.'))
     }
@@ -82,7 +78,7 @@ export function BillsPage() {
           <h2>All bills</h2>
           <span className="count-pill">{bills.length}</span>
         </div>
-        <BillList bills={bills} friends={friends} groups={groups} onChanged={() => void load()} />
+        <BillList bills={bills} friends={friends} onChanged={() => void load()} />
       </section>
     </section>
   )

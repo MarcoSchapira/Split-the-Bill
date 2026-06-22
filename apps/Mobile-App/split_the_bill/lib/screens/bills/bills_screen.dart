@@ -449,7 +449,7 @@ class _BillDetailScreenState extends ConsumerState<BillDetailScreen> {
                           Padding(
                             padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                             child: Text(
-                              'Items subtotal ${formatCad(itemsSubtotalCents)}${deltaCents == 0 ? '' : ' · final share differs by ${formatCad(deltaCents.abs())} due to tax/tip allocation'}',
+                              'Items subtotal ${formatCad(itemsSubtotalCents)}${deltaCents == 0 ? '' : ' · final share differs by ${formatCad(deltaCents.abs())} due to tax/fees/tip allocation'}',
                               style: const TextStyle(color: AppColors.text),
                             ),
                           ),
@@ -461,7 +461,7 @@ class _BillDetailScreenState extends ConsumerState<BillDetailScreen> {
                   const Text('Totals', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 8),
                   Text(
-                    'Subtotal ${formatCad(bill.subtotalCents ?? 0)} • Tax ${formatCad(bill.taxCents ?? 0)} • Tip ${formatCad(bill.tipCents ?? 0)}',
+                    'Subtotal ${formatCad(bill.subtotalCents ?? 0)}${(bill.otherFeesCents ?? 0) > 0 ? ' • Fees ${formatCad(bill.otherFeesCents!)}' : ''} • Tax ${formatCad(bill.taxCents ?? 0)} • Tip ${formatCad(bill.tipCents ?? 0)}',
                     style: const TextStyle(color: AppColors.text),
                   ),
                   const SizedBox(height: 16),

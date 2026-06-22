@@ -115,7 +115,7 @@ export function RegisterPage() {
         <p className="eyebrow">EquiSplit</p>
         <h1>Start a fair tab.</h1>
         <p>
-          Create groups, invite registered friends, and keep every shared cost
+          Invite registered friends and keep every shared cost
           connected to your account.
         </p>
       </section>

@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { createBill, updateBill } from '../api/billsApi'
-import { apiErrorMessage } from '../api/client'
-import { getGroup } from '../api/groupsApi'
-import type { Bill, FriendshipSummary, GroupSummary, User } from '../api/types'
+import type { Bill, FriendshipSummary } from '../api/types'
 import { useAuth } from '../auth/useAuth'
+import { apiErrorMessage } from '../api/client'
 import {
   buildSharesFromMemberState,
   initializeMemberState,
@@ -18,16 +17,14 @@ import { BillSplitMemberList } from './BillSplitMemberList'
 import { SplitControls } from './SplitControls'
 
 type Target = {
-  targetType: 'friendship' | 'group';
+  targetType: 'friendship';
   targetId: string;
 }
 
 type BillFormProps = {
   bill?: Bill;
   friends: FriendshipSummary[];
-  groups: GroupSummary[];
   fixedTarget?: Target;
-  onTargetChange?: (target: Target | null) => void;
   onCancel: () => void;
   onSaved: (bill: Bill) => void;
 }
@@ -39,7 +36,7 @@ function targetValue(target: Target): string {
 function parseTarget(value: string): Target {
   const [targetType, targetId] = value.split(':')
   return {
-    targetType: targetType as 'friendship' | 'group',
+    targetType: targetType as 'friendship',
     targetId,
   }
 }
@@ -48,34 +45,24 @@ export function BillForm({
   bill,
   fixedTarget,
   friends,
-  groups,
-  onTargetChange,
   onCancel,
   onSaved,
 }: BillFormProps) {
   const auth = useAuth()
   const choices = useMemo(
-    () => [
-      ...friends.map((friendship) => ({
+    () =>
+      friends.map((friendship) => ({
         ...friendship,
         kind: 'friendship' as const,
         label: displayName(friendship.friend),
       })),
-      ...groups.map((group) => ({
-        ...group,
-        kind: 'group' as const,
-        label: group.name,
-      })),
-    ],
-    [friends, groups],
+    [friends],
   )
+
   const initialTarget =
     fixedTarget ??
-    (bill && bill.targetType
-      ? {
-          targetType: bill.targetType as 'friendship' | 'group',
-          targetId: (bill.friendshipId ?? bill.groupId) as string,
-        }
+    (bill && bill.targetType === 'friendship' && bill.friendshipId
+      ? { targetType: 'friendship' as const, targetId: bill.friendshipId }
       : choices[0]
         ? { targetType: choices[0].kind, targetId: choices[0].id }
         : null)
@@ -92,7 +79,6 @@ export function BillForm({
     bill ? (bill.totalCents / 100).toFixed(2) : '',
   )
   const [payerId, setPayerId] = useState(initialPayerId)
-  const [loadedGroup, setLoadedGroup] = useState<{ id: string; users: User[] } | null>(null)
   const [splitKind, setSplitKind] = useState<SplitKind>('equal')
   const [customMode, setCustomMode] = useState<CustomSplitMode>('amount')
   const [members, setMembers] = useState<MemberSplitState[]>([])
@@ -101,40 +87,7 @@ export function BillForm({
   const activeTarget =
     selectedTarget ||
     (choices[0] ? targetValue({ targetType: choices[0].kind, targetId: choices[0].id }) : '')
-
-  useEffect(() => {
-    if (!activeTarget || parseTarget(activeTarget).targetType !== 'group') {
-      setLoadedGroup(null)
-      return
-    }
-
-    const target = parseTarget(activeTarget)
-    let isActive = true
-    void getGroup(target.targetId)
-      .then((group) => {
-        if (isActive) {
-          setLoadedGroup({
-            id: target.targetId,
-            users: group.members.map((member) => member.user),
-          })
-        }
-      })
-      .catch((requestError) => {
-        if (isActive) {
-          setError(apiErrorMessage(requestError, 'Unable to load group members.'))
-        }
-      })
-
-    return () => {
-      isActive = false
-    }
-  }, [activeTarget])
-
   const target = activeTarget ? parseTarget(activeTarget) : null
-
-  useEffect(() => {
-    onTargetChange?.(target)
-  }, [onTargetChange, target?.targetType, target?.targetId])
 
   const participants =
     target?.targetType === 'friendship' && auth.user
@@ -144,16 +97,13 @@ export function BillForm({
             .filter((friendship) => friendship.id === target.targetId)
             .map((friendship) => friendship.friend),
         ]
-      : target?.targetType === 'group' && loadedGroup?.id === target.targetId
-        ? loadedGroup.users
-        : []
+      : []
 
   const selectedPayerId = participants.some((participant) => participant.id === payerId)
     ? payerId
     : (participants[0]?.id ?? '')
 
   const totalCents = Math.round(Number(amount) * 100)
-  const isGroupTarget = target?.targetType === 'group'
   const showMemberPanel = participants.length > 0
 
   const participantKey = participants.map((participant) => participant.id).join(',')
@@ -272,39 +222,14 @@ export function BillForm({
   }
 
   if (!activeTarget) {
-    return <p className="empty-state">Accept a friend or join a group before adding a bill.</p>
+    return <p className="empty-state">Accept a friend before adding a bill.</p>
   }
 
   const targetLocked = Boolean(fixedTarget && !bill) || Boolean(bill && !bill.canRetarget)
   const readOnlyValues = splitKind === 'equal'
 
-  const splitControls = (
-    <SplitControls
-      customMode={customMode}
-      splitKind={splitKind}
-      onCustomModeChange={setCustomMode}
-      onSplitKindChange={setSplitKind}
-    />
-  )
-
-  const memberPanel = showMemberPanel ? (
-    <section className="bill-split-panel">
-      <h3>Who shares this bill?</h3>
-      <BillSplitMemberList
-        customMode={customMode}
-        members={members}
-        payerId={selectedPayerId}
-        readOnlyValues={readOnlyValues}
-        splitKind={splitKind}
-        onAmountChange={(userId, value) => updateMember(userId, { amount: value })}
-        onPercentChange={(userId, value) => updateMember(userId, { percent: value })}
-        onToggleIncluded={toggleIncluded}
-      />
-    </section>
-  ) : null
-
-  const detailsColumn = (
-    <div className="bill-form-details">
+  return (
+    <form className="stack-form bill-form" onSubmit={submit}>
       <label>
         Split with
         <select
@@ -314,8 +239,7 @@ export function BillForm({
         >
           {choices.map((choice) => (
             <option key={`${choice.kind}:${choice.id}`} value={`${choice.kind}:${choice.id}`}>
-              {choice.kind === 'group' ? 'Group: ' : 'Friend: '}
-              {choice.label}
+              Friend: {choice.label}
             </option>
           ))}
         </select>
@@ -356,25 +280,27 @@ export function BillForm({
           ))}
         </select>
       </label>
-      {!isGroupTarget ? splitControls : null}
-      {!isGroupTarget ? memberPanel : null}
-    </div>
-  )
-
-  return (
-    <form
-      className={`stack-form bill-form${isGroupTarget ? ' bill-form--group' : ''}`}
-      onSubmit={submit}
-    >
-      <div className={isGroupTarget ? 'bill-form-layout' : undefined}>
-        {detailsColumn}
-        {isGroupTarget ? (
-          <div className="bill-form-split-column">
-            {splitControls}
-            {memberPanel}
-          </div>
-        ) : null}
-      </div>
+      <SplitControls
+        customMode={customMode}
+        splitKind={splitKind}
+        onCustomModeChange={setCustomMode}
+        onSplitKindChange={setSplitKind}
+      />
+      {showMemberPanel ? (
+        <section className="bill-split-panel">
+          <h3>Who shares this bill?</h3>
+          <BillSplitMemberList
+            customMode={customMode}
+            members={members}
+            payerId={selectedPayerId}
+            readOnlyValues={readOnlyValues}
+            splitKind={splitKind}
+            onAmountChange={(userId, value) => updateMember(userId, { amount: value })}
+            onPercentChange={(userId, value) => updateMember(userId, { percent: value })}
+            onToggleIncluded={toggleIncluded}
+          />
+        </section>
+      ) : null}
       {error ? <p className="form-error">{error}</p> : null}
       <div className="dialog-actions bill-form-actions">
         <button className="quiet-button" onClick={onCancel} type="button">

@@ -11,9 +11,6 @@ const _invitationActivityTypes = {
   'FRIEND_INVITATION_SENT',
   'FRIEND_INVITATION_ACCEPTED',
   'FRIEND_INVITATION_DECLINED',
-  'GROUP_INVITATION_SENT',
-  'GROUP_INVITATION_ACCEPTED',
-  'GROUP_INVITATION_DECLINED',
 };
 
 String? activityRoute(ActivityEvent event) {

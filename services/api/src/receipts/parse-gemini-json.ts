@@ -9,6 +9,7 @@ export const EXPECTED_RECEIPT_KEYS = [
   "items",
   "item_count",
   "subtotal",
+  "other_fees",
   "tax",
   "tip",
   "total",
@@ -23,6 +24,7 @@ export type GeminiJsonExtractionResult = {
   missingKeys: string[];
   rawTotals: {
     subtotal: unknown;
+    other_fees: unknown;
     tax: unknown;
     tip: unknown;
     total: unknown;
@@ -48,6 +50,7 @@ function checkCompleteness(parsed: Record<string, unknown>): Pick<
     missingKeys: [...missingKeys],
     rawTotals: {
       subtotal: parsed.subtotal ?? null,
+      other_fees: parsed.other_fees ?? null,
       tax: parsed.tax ?? null,
       tip: parsed.tip ?? null,
       total: parsed.total ?? null,

@@ -9,24 +9,6 @@ export type AuthResponse = {
   user: User;
 };
 
-export type GroupSummary = {
-  id: string;
-  name: string;
-  createdAt: string;
-  role: string;
-};
-
-export type GroupMember = {
-  id: string;
-  role: string;
-  joinedAt: string;
-  user: User;
-};
-
-export type GroupDetail = GroupSummary & {
-  members: GroupMember[];
-};
-
 export type FriendshipSummary = {
   id: string;
   createdAt: string;
@@ -40,19 +22,8 @@ export type PairwiseSummary = {
   friendShareCents: number;
 };
 
-export type FriendGroupBill = Bill & {
-  pairwise: PairwiseSummary;
-};
-
-export type SharedGroupBills = {
-  id: string;
-  name: string;
-  bills: FriendGroupBill[];
-};
-
 export type FriendshipDetail = FriendshipSummary & {
   bills: Bill[];
-  sharedGroups: SharedGroupBills[];
 };
 
 export type BillShare = {
@@ -88,10 +59,9 @@ export type Bill = {
   description: string;
   incurredAt: string;
   totalCents: number;
-  targetType: 'friendship' | 'group' | null;
+  targetType: 'friendship' | null;
   source: 'manual' | 'capture';
   friendshipId: string | null;
-  groupId: string | null;
   storeName: string | null;
   storeAddress: string | null;
   receiptNumber: string | null;
@@ -101,6 +71,7 @@ export type Bill = {
   cardLast4: string | null;
   itemCount: number | null;
   subtotalCents: number | null;
+  otherFeesCents: number | null;
   taxCents: number | null;
   tipCents: number | null;
   payerId: string;
@@ -109,7 +80,6 @@ export type Bill = {
   lastEditedAt: string;
   payer: User;
   creator: User;
-  group: { id: string; name: string } | null;
   friendship: {
     id: string;
     userA: User;
@@ -125,7 +95,7 @@ export type Bill = {
 
 export type BalanceContact = {
   user: User;
-  relationship: 'friend' | 'group';
+  relationship: 'friend';
   friendshipId?: string;
   balanceCents: number;
 };
@@ -149,15 +119,9 @@ export type FriendInvitation = {
   recipient: User | null;
 };
 
-export type GroupInvitation = FriendInvitation & {
-  group: { id: string; name: string };
-};
-
 export type Invitations = {
   receivedFriends: FriendInvitation[];
   sentFriends: FriendInvitation[];
-  receivedGroups: GroupInvitation[];
-  sentGroups: GroupInvitation[];
 };
 
 export type ActivityEvent = {

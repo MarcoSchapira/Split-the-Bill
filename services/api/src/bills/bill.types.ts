@@ -45,7 +45,7 @@ export const billInputSchema = z
     payerId: z.string().uuid(),
     source: z.enum(["manual", "capture"]).optional().default("manual"),
     participantIds: z.array(z.string().uuid()).min(1).optional(),
-    targetType: z.enum(["friendship", "group"]).optional(),
+    targetType: z.enum(["friendship"]).optional(),
     targetId: z.string().uuid().optional(),
     storeName: nullableStringSchema,
     storeAddress: nullableStringSchema,
@@ -56,6 +56,7 @@ export const billInputSchema = z
     cardLast4: nullableStringSchema,
     itemCount: nullableIntSchema,
     subtotalCents: nullableIntSchema,
+    otherFeesCents: nullableIntSchema,
     taxCents: nullableIntSchema,
     tipCents: nullableIntSchema,
     lineItems: z.array(billLineItemInputSchema).optional().default([]),
@@ -77,7 +78,7 @@ export const billInputSchema = z
 
 export const billListQuerySchema = z
   .object({
-    targetType: z.enum(["friendship", "group"]).optional(),
+    targetType: z.enum(["friendship"]).optional(),
     targetId: z.string().uuid().optional(),
     participantId: z.string().uuid().optional(),
   })

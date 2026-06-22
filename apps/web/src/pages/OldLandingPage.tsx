@@ -10,13 +10,6 @@ const features = [
     placeholder: 'Balance dashboard preview',
   },
   {
-    eyebrow: 'Groups',
-    title: 'Organize every shared expense.',
-    description:
-      'Create groups for roommates, trips, or dinner plans and keep the shared tab together.',
-    placeholder: 'Group expenses image',
-  },
-  {
     eyebrow: 'Friends',
     title: 'Split direct bills with friends.',
     description:
@@ -27,7 +20,7 @@ const features = [
     eyebrow: 'Invitations',
     title: 'Join only when you accept.',
     description:
-      'Review friend and group invitations before they become part of your expense history.',
+      'Review friend invitations before they become part of your expense history.',
     placeholder: 'Invitation inbox image',
   },
   {
@@ -56,7 +49,7 @@ export function OldLandingPage() {
           <p className="eyebrow">Shared expenses made clear</p>
           <h1>Split bills. Keep friendships simple.</h1>
           <p className="landing-lede">
-            EquiSplit keeps groups, invitations, bills, and balances in one
+            EquiSplit keeps invitations, bills, and balances in one
             calm place so everyone knows where things stand.
           </p>
           <div className="landing-actions">
@@ -108,7 +101,7 @@ export function OldLandingPage() {
       <section className="landing-final-cta">
         <p className="eyebrow">Start splitting fairly</p>
         <h2>Ready for a clearer shared tab?</h2>
-        <p>Create your account and set up your first group in minutes.</p>
+        <p>Create your account and add your first friend in minutes.</p>
         <div className="landing-actions">
           <Link className="landing-button landing-button-primary" to="/register">
             Create account

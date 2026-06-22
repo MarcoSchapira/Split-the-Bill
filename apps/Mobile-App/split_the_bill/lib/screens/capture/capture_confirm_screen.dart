@@ -90,6 +90,7 @@ class _CaptureConfirmScreenState extends ConsumerState<CaptureConfirmScreen> {
       'cardLast4': receipt.cardLast4,
       'itemCount': receipt.itemCount,
       'subtotalCents': receipt.subtotal != null ? (receipt.subtotal! * 100).round() : null,
+      'otherFeesCents': receipt.otherFees != null ? (receipt.otherFees! * 100).round() : null,
       'taxCents': receipt.tax != null ? (receipt.tax! * 100).round() : null,
       'tipCents': receipt.tip != null ? (receipt.tip! * 100).round() : null,
       'lineItems': receipt.items.asMap().entries.map((entry) {

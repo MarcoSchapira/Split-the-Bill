@@ -72,73 +72,17 @@ class FriendsApi {
   }
 }
 
-class GroupsApi {
-  GroupsApi(this._client);
-  final ApiClient _client;
-
-  Future<List<GroupSummary>> listGroups() async {
-    try {
-      final response = await _client.dio.get<Map<String, dynamic>>('/groups');
-      return (response.data!['groups'] as List<dynamic>)
-          .map((e) => GroupSummary.fromJson(e as Map<String, dynamic>))
-          .toList();
-    } on DioException catch (e) {
-      _client.throwApiError(e, 'Unable to load groups.');
-    }
-  }
-
-  Future<GroupSummary> createGroup(String name) async {
-    try {
-      final response =
-          await _client.dio.post<Map<String, dynamic>>('/groups', data: {'name': name});
-      return GroupSummary.fromJson(response.data!['group'] as Map<String, dynamic>);
-    } on DioException catch (e) {
-      _client.throwApiError(e, 'Unable to create group.');
-    }
-  }
-
-  Future<GroupDetail> getGroup(String groupId) async {
-    try {
-      final response =
-          await _client.dio.get<Map<String, dynamic>>('/groups/$groupId');
-      return GroupDetail.fromJson(response.data!['group'] as Map<String, dynamic>);
-    } on DioException catch (e) {
-      _client.throwApiError(e, 'Unable to load group.');
-    }
-  }
-
-  Future<GroupInvitation> inviteGroupMember(String groupId, String email) async {
-    try {
-      final response = await _client.dio.post<Map<String, dynamic>>(
-        '/groups/$groupId/invitations',
-        data: {'email': email},
-      );
-      return GroupInvitation.fromJson(
-        response.data!['invitation'] as Map<String, dynamic>,
-      );
-    } on DioException catch (e) {
-      _client.throwApiError(e, 'Unable to send invitation.');
-    }
-  }
-}
-
 class BillsApi {
   BillsApi(this._client);
   final ApiClient _client;
 
   Future<List<Bill>> listBills({
-    TargetType? targetType,
-    String? targetId,
     String? participantId,
   }) async {
     try {
       final response = await _client.dio.get<Map<String, dynamic>>(
         '/bills',
-        queryParameters: {
-          if (targetType != null) 'targetType': targetType.name,
-          if (targetId != null) 'targetId': targetId,
-          if (participantId != null) 'participantId': participantId,
-        },
+        queryParameters: participantId == null ? null : {'participantId': participantId},
       );
       return (response.data!['bills'] as List<dynamic>)
           .map((e) => Bill.fromJson(e as Map<String, dynamic>))
@@ -191,9 +135,7 @@ class BillsApi {
     try {
       final response = await _client.dio.post<Map<String, dynamic>>(
         '/bills/$billId/settle',
-        queryParameters: {
-          if (friendUserId != null) 'friendUserId': friendUserId,
-        },
+        queryParameters: friendUserId == null ? null : {'friendUserId': friendUserId},
       );
       return Bill.fromJson(response.data!['bill'] as Map<String, dynamic>);
     } on DioException catch (e) {
@@ -205,9 +147,7 @@ class BillsApi {
     try {
       final response = await _client.dio.post<Map<String, dynamic>>(
         '/bills/$billId/unsettle',
-        queryParameters: {
-          if (friendUserId != null) 'friendUserId': friendUserId,
-        },
+        queryParameters: friendUserId == null ? null : {'friendUserId': friendUserId},
       );
       return Bill.fromJson(response.data!['bill'] as Map<String, dynamic>);
     } on DioException catch (e) {
@@ -267,23 +207,6 @@ class InvitationsApi {
         data: {'decision': decision},
       );
       return FriendInvitation.fromJson(
-        response.data!['invitation'] as Map<String, dynamic>,
-      );
-    } on DioException catch (e) {
-      _client.throwApiError(e, 'Unable to update invitation.');
-    }
-  }
-
-  Future<GroupInvitation> answerGroupInvitation(
-    String invitationId,
-    String decision,
-  ) async {
-    try {
-      final response = await _client.dio.patch<Map<String, dynamic>>(
-        '/group-invitations/$invitationId',
-        data: {'decision': decision},
-      );
-      return GroupInvitation.fromJson(
         response.data!['invitation'] as Map<String, dynamic>,
       );
     } on DioException catch (e) {

@@ -2,10 +2,9 @@ import { useCallback, useEffect, useState } from 'react'
 import { apiErrorMessage } from '../api/client'
 import {
   answerFriendInvitation,
-  answerGroupInvitation,
   getInvitations,
 } from '../api/invitationsApi'
-import type { FriendInvitation, GroupInvitation, Invitations } from '../api/types'
+import type { FriendInvitation, Invitations } from '../api/types'
 import { DATA_CHANGED_EVENT, notifyDataChanged } from '../utils/events'
 import { displayName } from '../utils/format'
 
@@ -31,18 +30,10 @@ export function InvitationsPage() {
     }
   }, [load])
 
-  async function answer(
-    kind: 'friend' | 'group',
-    invitationId: string,
-    decision: 'accept' | 'decline',
-  ) {
+  async function answer(invitationId: string, decision: 'accept' | 'decline') {
     setError(null)
     try {
-      if (kind === 'friend') {
-        await answerFriendInvitation(invitationId, decision)
-      } else {
-        await answerGroupInvitation(invitationId, decision)
-      }
+      await answerFriendInvitation(invitationId, decision)
       notifyDataChanged()
       await load()
     } catch (requestError) {
@@ -51,13 +42,8 @@ export function InvitationsPage() {
   }
 
   const receivedFriends = invitations?.receivedFriends ?? []
-  const receivedGroups = invitations?.receivedGroups ?? []
   const sentFriends = invitations?.sentFriends ?? []
-  const sentGroups = invitations?.sentGroups ?? []
-
-  const receivedPending =
-    receivedFriends.filter((invite) => invite.status === 'pending').length +
-    receivedGroups.filter((invite) => invite.status === 'pending').length
+  const receivedPending = receivedFriends.filter((invite) => invite.status === 'pending').length
 
   return (
     <section className="page">
@@ -65,7 +51,7 @@ export function InvitationsPage() {
         <div>
           <p className="eyebrow">Requests</p>
           <h1>Invitations</h1>
-          <p>Friendships and memberships activate only when accepted.</p>
+          <p>Friendships activate only when accepted.</p>
         </div>
       </header>
       {error ? <p className="form-error">{error}</p> : null}
@@ -82,17 +68,7 @@ export function InvitationsPage() {
                 description={`${displayName(invite.sender)} wants to be friends.`}
                 invite={invite}
                 key={invite.id}
-                onAnswer={(decision) => void answer('friend', invite.id, decision)}
-              />
-            ))}
-          {receivedGroups
-            .filter((invite) => invite.status === 'pending')
-            .map((invite) => (
-              <InvitationRow
-                description={`${displayName(invite.sender)} invited you to ${invite.group.name}.`}
-                invite={invite}
-                key={invite.id}
-                onAnswer={(decision) => void answer('group', invite.id, decision)}
+                onAnswer={(decision) => void answer(invite.id, decision)}
               />
             ))}
           {invitations && receivedPending === 0 ? (
@@ -109,14 +85,7 @@ export function InvitationsPage() {
                 key={invite.id}
               />
             ))}
-            {sentGroups.map((invite) => (
-              <SentRow
-                description={`${inviteRecipientLabel(invite)} to ${invite.group.name}`}
-                invite={invite}
-                key={invite.id}
-              />
-            ))}
-            {invitations && sentFriends.length === 0 && sentGroups.length === 0 ? (
+            {invitations && sentFriends.length === 0 ? (
               <p className="empty-state">No invitations sent yet.</p>
             ) : null}
           </div>
@@ -126,7 +95,7 @@ export function InvitationsPage() {
   )
 }
 
-function inviteRecipientLabel(invite: FriendInvitation | GroupInvitation): string {
+function inviteRecipientLabel(invite: FriendInvitation): string {
   if (invite.recipient) {
     return displayName(invite.recipient)
   }
@@ -140,7 +109,7 @@ function InvitationRow({
   onAnswer,
 }: {
   description: string;
-  invite: FriendInvitation | GroupInvitation;
+  invite: FriendInvitation;
   onAnswer: (decision: 'accept' | 'decline') => void;
 }) {
   return (
@@ -166,7 +135,7 @@ function SentRow({
   invite,
 }: {
   description: string;
-  invite: FriendInvitation | GroupInvitation;
+  invite: FriendInvitation;
 }) {
   return (
     <article className="sent-row">

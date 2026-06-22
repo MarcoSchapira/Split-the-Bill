@@ -24,28 +24,5 @@ export async function claimPendingInvitations(userId: string, email: string): Pr
         message: "sent a friend invitation.",
       });
     }
-
-    const groupInvites = await tx.groupInvitation.findMany({
-      where: {
-        recipientEmail: email,
-        recipientId: null,
-        status: "pending",
-      },
-      include: { group: { select: { name: true } } },
-    });
-
-    for (const invitation of groupInvites) {
-      await tx.groupInvitation.update({
-        where: { id: invitation.id },
-        data: { recipientId: userId },
-      });
-      await createActivity(tx, {
-        actorId: invitation.senderId,
-        recipientIds: [userId],
-        groupInvitationId: invitation.id,
-        type: "GROUP_INVITATION_SENT",
-        message: `sent an invitation to join ${invitation.group.name}.`,
-      });
-    }
   });
 }

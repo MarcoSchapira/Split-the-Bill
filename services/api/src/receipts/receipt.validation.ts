@@ -30,6 +30,7 @@ export type ReceiptTotalsDebug = {
     | "implicit_adjustment"
     | null;
   subtotalCents: number | null;
+  otherFeesCents: number;
   taxCents: number;
   tipCents: number;
   totalCents: number | null;
@@ -97,11 +98,13 @@ export function getReceiptTotalsDebug(receipt: ParsedReceipt): ReceiptTotalsDebu
   const itemsSumUnitPriceTimesQtyCents = sumItemCents(receipt.items, "unit_price_times_qty");
   const itemsSumUnitPriceCents = sumItemCents(receipt.items, "unit_price");
   const subtotalCents = receipt.subtotal === null ? null : toCents(receipt.subtotal);
+  const otherFeesCents = toCents(receipt.other_fees ?? 0);
   const taxCents = toCents(receipt.tax ?? 0);
   const tipCents = toCents(receipt.tip ?? 0);
   const totalCents = receipt.total === null ? null : toCents(receipt.total);
-  const expectedTotalCents = subtotalCents === null ? null : subtotalCents + taxCents + tipCents;
-  const expectedTotalFromItemsCents = itemsSumTotalPriceCents + taxCents + tipCents;
+  const expectedTotalCents =
+    subtotalCents === null ? null : subtotalCents + otherFeesCents + taxCents + tipCents;
+  const expectedTotalFromItemsCents = itemsSumTotalPriceCents + otherFeesCents + taxCents + tipCents;
   const matchedItemsStrategy =
     subtotalCents === null ? null : pickItemsSubtotalStrategy(receipt.items, subtotalCents);
 
@@ -125,7 +128,7 @@ export function getReceiptTotalsDebug(receipt: ParsedReceipt): ReceiptTotalsDebu
 
   const summary =
     subtotalCents !== null && totalCents !== null
-      ? `subtotal + tax + tip = ${(expectedTotalCents! / 100).toFixed(2)}, total = ${(totalCents / 100).toFixed(2)}, delta = ${grandTotalDeltaCents} cents`
+      ? `subtotal + other_fees + tax + tip = ${(expectedTotalCents! / 100).toFixed(2)}, total = ${(totalCents / 100).toFixed(2)}, delta = ${grandTotalDeltaCents} cents`
       : undefined;
 
   return {
@@ -135,6 +138,7 @@ export function getReceiptTotalsDebug(receipt: ParsedReceipt): ReceiptTotalsDebu
     itemsSumUnitPriceCents,
     matchedItemsStrategy,
     subtotalCents,
+    otherFeesCents,
     taxCents,
     tipCents,
     totalCents,

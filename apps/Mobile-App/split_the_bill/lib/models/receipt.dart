@@ -43,6 +43,7 @@ class ParsedReceipt {
     required this.items,
     required this.itemCount,
     required this.subtotal,
+    required this.otherFees,
     required this.tax,
     required this.tip,
     required this.total,
@@ -58,6 +59,7 @@ class ParsedReceipt {
   final List<ReceiptItem> items;
   final int? itemCount;
   final double? subtotal;
+  final double? otherFees;
   final double? tax;
   final double? tip;
   final double? total;
@@ -76,6 +78,7 @@ class ParsedReceipt {
           .toList(),
       itemCount: (json['item_count'] as num?)?.toInt(),
       subtotal: (json['subtotal'] as num?)?.toDouble(),
+      otherFees: (json['other_fees'] as num?)?.toDouble(),
       tax: (json['tax'] as num?)?.toDouble(),
       tip: (json['tip'] as num?)?.toDouble(),
       total: (json['total'] as num?)?.toDouble(),
@@ -93,6 +96,7 @@ class ParsedReceipt {
         'items': items.map((item) => item.toJson()).toList(),
         'item_count': itemCount,
         'subtotal': subtotal,
+        'other_fees': otherFees,
         'tax': tax,
         'tip': tip,
         'total': total,
@@ -101,48 +105,19 @@ class ParsedReceipt {
       };
 }
 
-class ResolvedBillTarget {
-  const ResolvedBillTarget({
-    required this.targetType,
-    required this.targetId,
-    required this.created,
-  });
-
-  final String targetType;
-  final String targetId;
-  final bool created;
-
-  factory ResolvedBillTarget.fromJson(Map<String, dynamic> json) {
-    return ResolvedBillTarget(
-      targetType: json['targetType'] as String,
-      targetId: json['targetId'] as String,
-      created: json['created'] as bool,
-    );
-  }
-}
-
-enum CaptureContactKind { friend, group }
+enum CaptureContactKind { friend }
 
 class CaptureSelectableContact {
   const CaptureSelectableContact.friend({
     required this.id,
     required this.label,
     required this.user,
-  })  : kind = CaptureContactKind.friend,
-        groupId = null;
-
-  const CaptureSelectableContact.group({
-    required this.id,
-    required this.label,
-    required this.groupId,
-  })  : kind = CaptureContactKind.group,
-        user = null;
+  }) : kind = CaptureContactKind.friend;
 
   final CaptureContactKind kind;
   final String id;
   final String label;
   final User? user;
-  final String? groupId;
 }
 
 class BillFlowState {

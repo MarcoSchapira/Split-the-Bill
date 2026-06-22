@@ -297,7 +297,7 @@ export function BillDetailPage() {
                         <p className="muted">
                           Items subtotal {formatCad(participant.itemsSubtotalCents)}
                           {deltaCents !== 0 ? (
-                            <> · Final share differs by {formatCad(Math.abs(deltaCents))} due to tax/tip allocation</>
+                            <> · Final share differs by {formatCad(Math.abs(deltaCents))} due to tax/fees/tip allocation</>
                           ) : null}
                         </p>
                       </div>
@@ -318,6 +318,12 @@ export function BillDetailPage() {
                   <dt>Subtotal</dt>
                   <dd>{formatCad(bill.subtotalCents ?? 0)}</dd>
                 </div>
+                {bill.otherFeesCents && bill.otherFeesCents > 0 ? (
+                  <div className="bill-totals-line">
+                    <dt>Fees</dt>
+                    <dd>{formatCad(bill.otherFeesCents)}</dd>
+                  </div>
+                ) : null}
                 <div className="bill-totals-line">
                   <dt>Tax</dt>
                   <dd>{formatCad(bill.taxCents ?? 0)}</dd>

@@ -14,7 +14,7 @@ export function LandingPage() {
             <span className="landing-title-accent">Track Expenses</span>
           </h1>
           <p className="landing-lede">
-            EquiSplit keeps groups, bills, and balances in one calm place so
+            EquiSplit keeps friends, bills, and balances in one calm place so
             everyone knows where things stand.
           </p>
           <div className="landing-actions">

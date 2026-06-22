@@ -13,6 +13,7 @@ Top-level fields:
 - items (array of line items — see below)
 - item_count (number — total purchased units; sum of item quantities, or printed count if visible)
 - subtotal (number)
+- other_fees (number — sum of all non-tax/non-tip surcharges such as admin fee, service charge, delivery fee)
 - tax (number)
 - tip (number)
 - total (number)
@@ -28,14 +29,15 @@ Each item in items[]:
 ## Missing or unreadable fields
 
 - String fields you cannot read: use "" (empty string).
-- Top-level numeric fields you cannot read (subtotal, tax, tip, total, item_count): use null.
+- Top-level numeric fields you cannot read (subtotal, other_fees, tax, tip, total, item_count): use null.
 - Item numeric fields you cannot read: use 0.
 - Never omit a key from the output.
 
 ## Line item rules
 
 - Include every purchasable product/service line from the receipt.
-- Do NOT include summary rows in items[] (subtotal, tax, tip, total, change, payment lines).
+- Do NOT include summary rows in items[] (subtotal, other fees, tax, tip, total, change, payment lines).
+- Aggregate all non-tax/non-tip surcharge rows into other_fees (admin fee, service fee, delivery fee, etc.).
 - Prefer the printed line total over a calculated one when both are visible.
 - If quantity is shown as "2 @ 4.99", set quantity=2, unit_price=4.99, total_price=9.98.
 - If only a single price is shown with no quantity, set quantity=1, unit_price and total_price to that price.
@@ -50,7 +52,7 @@ Each item in items[]:
 
 Before returning JSON, verify these equations using the exact numbers you extracted:
 - subtotal MUST equal the printed subtotal on the receipt
-- subtotal + tax + tip MUST equal total
+- subtotal + other_fees + tax + tip MUST equal total
 - Each item's total_price MUST equal unit_price × quantity (when both are visible)
 - The sum of items[].total_price MUST equal subtotal when the receipt shows line totals; if the receipt subtotal is the sum of per-line unit prices instead, set total_price = unit_price × quantity and subtotal = sum(total_price)
 - If the receipt shows a discount, include it as a separate item with a negative total_price (do not omit it)
@@ -86,6 +88,7 @@ Before returning JSON, verify these equations using the exact numbers you extrac
   ],
   "item_count": 3,
   "subtotal": 22.48,
+  "other_fees": 0.00,
   "tax": 2.92,
   "tip": 0.00,
   "total": 25.40,

@@ -35,7 +35,7 @@ export type BillInput = {
 }
 
 export async function listBills(
-  query?: { targetType: 'friendship' | 'group'; targetId: string; participantId?: string } | { participantId: string },
+  query?: { targetType: 'friendship'; targetId: string; participantId?: string } | { participantId: string },
 ): Promise<Bill[]> {
   const response = await apiClient.get<{ bills: Bill[] }>('/bills', {
     params: query,

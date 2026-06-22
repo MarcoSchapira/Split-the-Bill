@@ -50,6 +50,7 @@ BillFlowState billFlowFromBill({
     items: receiptItems,
     itemCount: bill.itemCount ?? receiptItems.length,
     subtotal: bill.subtotalCents != null ? bill.subtotalCents! / 100 : null,
+    otherFees: bill.otherFeesCents != null ? bill.otherFeesCents! / 100 : null,
     tax: bill.taxCents != null ? bill.taxCents! / 100 : null,
     tip: bill.tipCents != null ? bill.tipCents! / 100 : null,
     total: bill.totalCents / 100,

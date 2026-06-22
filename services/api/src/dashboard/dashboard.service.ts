@@ -8,7 +8,7 @@ type BalanceContact = {
     name: string | null;
     createdAt: Date;
   };
-  relationship: "friend" | "group";
+  relationship: "friend";
   friendshipId?: string;
   balanceCents: number;
 };
@@ -58,17 +58,8 @@ export async function getDashboard(tx: PrismaTransaction, userId: string) {
     amountCents: number,
   ) {
     const existing = contacts.get(contactUser.id);
-
-    if (existing) {
-      existing.balanceCents += amountCents;
-      return;
-    }
-
-    contacts.set(contactUser.id, {
-      user: contactUser,
-      relationship: "group",
-      balanceCents: amountCents,
-    });
+    if (!existing) return;
+    existing.balanceCents += amountCents;
   }
 
   for (const bill of bills) {
@@ -89,7 +80,7 @@ export async function getDashboard(tx: PrismaTransaction, userId: string) {
   }
 
   const balances = [...contacts.values()]
-    .filter((contact) => contact.relationship === "friend" || contact.balanceCents !== 0)
+    .filter((contact) => contact.balanceCents !== 0)
     .sort((left, right) => {
       const byBalance = Math.abs(right.balanceCents) - Math.abs(left.balanceCents);
       return byBalance || (left.user.name ?? left.user.email).localeCompare(right.user.name ?? right.user.email);

@@ -4,7 +4,6 @@ import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import authRoutes from "./auth/auth.routes";
-import groupRoutes from "./groups/group.routes";
 import friendRoutes from "./friends/friend.routes";
 import invitationRoutes from "./invitations/invitation.routes";
 import billRoutes from "./bills/bill.routes";
@@ -75,7 +74,6 @@ app.use("/auth/register/send-code", sendRegistrationCodeRateLimit);
 app.use("/auth/register", authRateLimit);
 app.use("/auth/refresh", authRateLimit);
 app.use("/friend-invitations", invitationRateLimit);
-app.use("/groups/:groupId/invitations", invitationRateLimit);
 
 app.get("/", (_req, res) => {
   res.json({ ok: true, message: "API is running" });
@@ -89,7 +87,6 @@ app.get("/health", (_req, res) => {
 });
 
 app.use("/auth", authRoutes);
-app.use("/groups", groupRoutes);
 app.use("/friends", friendRoutes);
 app.use("/", invitationRoutes);
 app.use("/bills", billRoutes);

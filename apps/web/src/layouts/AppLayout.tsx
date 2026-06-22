@@ -2,8 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { apiErrorMessage } from '../api/client'
 import { inviteFriend, listFriends } from '../api/friendsApi'
-import { listGroups } from '../api/groupsApi'
-import type { FriendshipSummary, GroupSummary } from '../api/types'
+import type { FriendshipSummary } from '../api/types'
 import { useAuth } from '../auth/useAuth'
 import { BillForm } from '../components/BillForm'
 import { Modal } from '../components/Modal'
@@ -20,9 +19,7 @@ const navigation = [
 export function AppLayout() {
   const [dialog, setDialog] = useState<'friend' | null>(null)
   const [showBillForm, setShowBillForm] = useState(false)
-  const [billFormTargetType, setBillFormTargetType] = useState<'friendship' | 'group' | null>(null)
   const [friends, setFriends] = useState<FriendshipSummary[]>([])
-  const [groups, setGroups] = useState<GroupSummary[]>([])
   const [email, setEmail] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -31,9 +28,8 @@ export function AppLayout() {
   const navigate = useNavigate()
 
   const loadBillFormData = useCallback(async () => {
-    const [nextFriends, nextGroups] = await Promise.all([listFriends(), listGroups()])
+    const nextFriends = await listFriends()
     setFriends(nextFriends)
-    setGroups(nextGroups)
   }, [])
 
   useEffect(() => {
@@ -175,15 +171,9 @@ export function AppLayout() {
         </Modal>
       ) : null}
       {showBillForm ? (
-        <Modal
-          onClose={() => setShowBillForm(false)}
-          size={billFormTargetType === 'group' ? 'wide' : 'default'}
-          title="Add a bill"
-        >
+        <Modal onClose={() => setShowBillForm(false)} title="Add a bill">
           <BillForm
             friends={friends}
-            groups={groups}
-            onTargetChange={(nextTarget) => setBillFormTargetType(nextTarget?.targetType ?? null)}
             onCancel={() => setShowBillForm(false)}
             onSaved={() => {
               setShowBillForm(false)

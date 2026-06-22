@@ -10,7 +10,6 @@ type ActivityInput = {
   recipientIds: string[];
   billId?: string;
   friendInvitationId?: string;
-  groupInvitationId?: string;
 };
 
 function friendshipUsers(firstUserId: string, secondUserId: string) {
@@ -33,9 +32,6 @@ export async function createActivity(
       ...(input.billId ? { billId: input.billId } : {}),
       ...(input.friendInvitationId
         ? { friendInvitationId: input.friendInvitationId }
-        : {}),
-      ...(input.groupInvitationId
-        ? { groupInvitationId: input.groupInvitationId }
         : {}),
       recipients: {
         create: recipientIds.map((userId) => ({ userId })),
@@ -60,7 +56,6 @@ export async function listActivity(tx: PrismaTransaction, userId: string) {
       createdAt: true,
       billId: true,
       friendInvitationId: true,
-      groupInvitationId: true,
       actor: { select: safeUserSelect },
       recipients: {
         select: { userId: true },
@@ -90,7 +85,6 @@ export async function listActivity(tx: PrismaTransaction, userId: string) {
         createdAt: event.createdAt,
         billId: event.billId,
         friendInvitationId: event.friendInvitationId,
-        groupInvitationId: event.groupInvitationId,
         friendshipId,
         actor: event.actor,
       };

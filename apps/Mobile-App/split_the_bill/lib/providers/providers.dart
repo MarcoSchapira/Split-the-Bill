@@ -25,10 +25,6 @@ final friendsApiProvider = Provider<FriendsApi>((ref) {
   return FriendsApi(ref.watch(apiClientProvider));
 });
 
-final groupsApiProvider = Provider<GroupsApi>((ref) {
-  return GroupsApi(ref.watch(apiClientProvider));
-});
-
 final billsApiProvider = Provider<BillsApi>((ref) {
   return BillsApi(ref.watch(apiClientProvider));
 });

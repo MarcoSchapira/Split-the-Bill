@@ -30,22 +30,7 @@ export async function assertParticipantsAllowed(
     if (friendship) {
       continue;
     }
-
-    const sharedGroup = await tx.groupMember.findFirst({
-      where: {
-        userId: participantId,
-        group: { members: { some: { userId: actingUserId } } },
-      },
-      select: { id: true },
-    });
-
-    if (!sharedGroup) {
-      throw new ApiError(
-        403,
-        "PARTICIPANT_NOT_ALLOWED",
-        "All participants must be your friends or group members",
-      );
-    }
+    throw new ApiError(403, "PARTICIPANT_NOT_ALLOWED", "All participants must be your friends");
   }
 }
 

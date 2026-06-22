@@ -1,5 +1,5 @@
 import { apiClient } from './client'
-import type { FriendInvitation, GroupInvitation, Invitations } from './types'
+import type { FriendInvitation, Invitations } from './types'
 
 export async function getInvitations(): Promise<Invitations> {
   const response = await apiClient.get<Invitations>('/invitations')
@@ -17,13 +17,3 @@ export async function answerFriendInvitation(
   return response.data.invitation
 }
 
-export async function answerGroupInvitation(
-  invitationId: string,
-  decision: 'accept' | 'decline',
-): Promise<GroupInvitation> {
-  const response = await apiClient.patch<{ invitation: GroupInvitation }>(
-    `/group-invitations/${invitationId}`,
-    { decision },
-  )
-  return response.data.invitation
-}

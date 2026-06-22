@@ -35,7 +35,7 @@ export function LoginPage() {
         <p className="eyebrow">EquiSplit</p>
         <h1>Shared expenses, clear balances.</h1>
         <p>
-          Keep groups organized and settle together with an account built on
+          Keep shared expenses organized and settle together with an account built on
           your own secure ledger.
         </p>
       </section>

@@ -18,13 +18,10 @@ model User {
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
 
-  memberships               GroupMember[]
   sentFriendInvitations     FriendInvitation[]  @relation("FriendInvitationSender")
   receivedFriendInvitations FriendInvitation[]  @relation("FriendInvitationRecipient")
   friendshipsA              Friendship[]        @relation("FriendshipUserA")
   friendshipsB              Friendship[]        @relation("FriendshipUserB")
-  sentGroupInvitations      GroupInvitation[]   @relation("GroupInvitationSender")
-  receivedGroupInvitations  GroupInvitation[]   @relation("GroupInvitationRecipient")
   createdBills              Bill[]              @relation("BillCreator")
   paidBills                 Bill[]              @relation("BillPayer")
   billShares                BillShare[]
@@ -64,34 +61,6 @@ model EmailVerification {
   @@map("email_verifications")
 }
 
-model Group {
-  id        String   @id @default(uuid())
-  name      String
-  createdAt DateTime @default(now()) @map("created_at")
-
-  members     GroupMember[]
-  invitations GroupInvitation[]
-  bills       Bill[]
-
-  @@map("groups")
-}
-
-model GroupMember {
-  id       String   @id @default(uuid())
-  groupId  String   @map("group_id")
-  userId   String   @map("user_id")
-  role     String   @default("member")
-  joinedAt DateTime @default(now()) @map("joined_at")
-
-  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([groupId, userId])
-  @@index([groupId])
-  @@index([userId])
-  @@map("group_members")
-}
-
 model Friendship {
   id        String   @id @default(uuid())
   userAId   String   @map("user_a_id")
@@ -129,30 +98,6 @@ model FriendInvitation {
   @@map("friend_invitations")
 }
 
-model GroupInvitation {
-  id             String    @id @default(uuid())
-  groupId        String    @map("group_id")
-  senderId       String    @map("sender_id")
-  recipientId    String?   @map("recipient_id")
-  recipientEmail String?   @map("recipient_email")
-  status         String    @default("pending")
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
-  respondedAt    DateTime? @map("responded_at")
-
-  group      Group           @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  sender     User            @relation("GroupInvitationSender", fields: [senderId], references: [id], onDelete: Cascade)
-  recipient  User?           @relation("GroupInvitationRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
-  activities ActivityEvent[]
-
-  @@index([groupId])
-  @@index([senderId])
-  @@index([recipientId])
-  @@index([recipientEmail])
-  @@index([status])
-  @@map("group_invitations")
-}
-
 model Bill {
   id            String    @id @default(uuid())
   description   String
@@ -168,11 +113,11 @@ model Bill {
   cardLast4     String?   @map("card_last_4")
   itemCount     Int?      @map("item_count")
   subtotalCents Int?      @map("subtotal_cents")
+  otherFeesCents Int?     @map("other_fees_cents")
   taxCents      Int?      @map("tax_cents")
   tipCents      Int?      @map("tip_cents")
   targetType    String?   @map("target_type")
   friendshipId  String?   @map("friendship_id")
-  groupId       String?   @map("group_id")
   payerId       String    @map("payer_id")
   creatorId     String    @map("creator_id")
   createdAt     DateTime  @default(now()) @map("created_at")
@@ -180,7 +125,6 @@ model Bill {
   deletedAt     DateTime? @map("deleted_at")
 
   friendship Friendship?     @relation(fields: [friendshipId], references: [id], onDelete: SetNull)
-  group      Group?          @relation(fields: [groupId], references: [id], onDelete: SetNull)
   payer      User            @relation("BillPayer", fields: [payerId], references: [id], onDelete: Restrict)
   creator    User            @relation("BillCreator", fields: [creatorId], references: [id], onDelete: Restrict)
   shares     BillShare[]
@@ -188,7 +132,6 @@ model Bill {
   activities ActivityEvent[]
 
   @@index([friendshipId])
-  @@index([groupId])
   @@index([payerId])
   @@index([creatorId])
   @@index([deletedAt])
@@ -248,13 +191,11 @@ model ActivityEvent {
   actorId            String   @map("actor_id")
   billId             String?  @map("bill_id")
   friendInvitationId String?  @map("friend_invitation_id")
-  groupInvitationId  String?  @map("group_invitation_id")
   createdAt          DateTime @default(now()) @map("created_at")
 
   actor            User                @relation("ActivityActor", fields: [actorId], references: [id], onDelete: Cascade)
   bill             Bill?               @relation(fields: [billId], references: [id], onDelete: Cascade)
   friendInvitation FriendInvitation?   @relation(fields: [friendInvitationId], references: [id], onDelete: Cascade)
-  groupInvitation  GroupInvitation?    @relation(fields: [groupInvitationId], references: [id], onDelete: Cascade)
   recipients       ActivityRecipient[]
 
   @@index([actorId])

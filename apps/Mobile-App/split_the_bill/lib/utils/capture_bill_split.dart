@@ -53,7 +53,8 @@ CaptureShareResult computeCaptureShares({
 
   final taxCents = _dollarsToCents(receipt.tax);
   final tipCents = _dollarsToCents(receipt.tip);
-  final extrasCents = taxCents + tipCents;
+  final otherFeesCents = _dollarsToCents(receipt.otherFees);
+  final extrasCents = taxCents + tipCents + otherFeesCents;
   final extrasBase = <String, int>{for (final id in participants) id: 0};
 
   if (extrasCents > 0) {

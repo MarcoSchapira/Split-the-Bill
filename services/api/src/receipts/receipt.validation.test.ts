@@ -18,6 +18,7 @@ const validReceipt: ParsedReceipt = {
   ],
   item_count: 3,
   subtotal: 22.48,
+  other_fees: null,
   tax: 2.92,
   tip: 0,
   total: 25.4,
@@ -39,6 +40,7 @@ const defineReceipt: ParsedReceipt = {
   ],
   item_count: 6,
   subtotal: 47.5,
+  other_fees: null,
   tax: 3.8,
   tip: 0,
   total: 51.3,
@@ -60,9 +62,35 @@ const rivoliReceipt: ParsedReceipt = {
   ],
   item_count: 6,
   subtotal: 41.55,
+  other_fees: null,
   tax: 6.38,
   tip: null,
   total: 48.13,
+  payment_method: null,
+  card_last_4: null,
+};
+
+const tackRoomReceipt: ParsedReceipt = {
+  store_name: "The Tack Room",
+  store_address: "145 Lincoln Road Lincoln, MA 01773",
+  receipt_number: "36",
+  date: "2024-04-08",
+  time: "7:13 PM",
+  items: [
+    { name: "BBQ Potato Chips", quantity: 1, unit_price: 7, total_price: 7 },
+    { name: "Diet Coke", quantity: 1, unit_price: 3, total_price: 3 },
+    { name: "Trillium Fort Point", quantity: 1, unit_price: 10, total_price: 10 },
+    { name: "Fried Chicken Sandwich", quantity: 2, unit_price: 17, total_price: 34 },
+    { name: "Famous Duck Grilled Cheese", quantity: 1, unit_price: 25, total_price: 25 },
+    { name: "Mac & Cheese", quantity: 1, unit_price: 17, total_price: 17 },
+    { name: "Burger of the moment", quantity: 1, unit_price: 18, total_price: 18 },
+  ],
+  item_count: 8,
+  subtotal: 114,
+  other_fees: 3.42,
+  tax: 7.11,
+  tip: null,
+  total: 124.53,
   payment_method: null,
   card_last_4: null,
 };
@@ -78,6 +106,10 @@ describe("validateReceiptTotals", () => {
 
   it("accepts Rivoli receipt with 20 cent tax rounding on grand total", () => {
     expect(validateReceiptTotals(rivoliReceipt)).toEqual(rivoliReceipt);
+  });
+
+  it("accepts receipt with other fees included in the printed total", () => {
+    expect(validateReceiptTotals(tackRoomReceipt)).toEqual(tackRoomReceipt);
   });
 
   it("accepts null tax and tip treated as zero", () => {

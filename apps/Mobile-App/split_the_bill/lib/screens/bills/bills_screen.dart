@@ -222,17 +222,11 @@ class _BillDetailScreenState extends ConsumerState<BillDetailScreen> {
     ref.listen<int>(dataRefreshProvider, (_, __) => _load());
     final bill = _bill;
     final summary = bill?.userSummary;
-    final canSettle = summary != null &&
-        summary.direction != 'none' &&
-        summary.amountCents > 0 &&
-        !summary.settled;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Bill'),
         actions: [
-          if (bill != null && canSettle)
-            TextButton(onPressed: () => _settleBill(bill), child: const Text('Settle up')),
           if (bill?.canEdit == true)
             IconButton(
               onPressed: () => _editBill(bill!),
@@ -345,16 +339,50 @@ class _BillDetailScreenState extends ConsumerState<BillDetailScreen> {
                                         ),
                                       ],
                                     )
-                                  : Text(
-                                      summary.direction == 'owed_to_you'
-                                          ? 'Owes you ${formatCad(summary.amountCents)}'
-                                          : 'You owe ${formatCad(summary.amountCents)}',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        color: summary.direction == 'owed_to_you'
-                                            ? AppColors.accent
-                                            : AppColors.error,
-                                      ),
+                                  : Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            summary.direction == 'owed_to_you'
+                                                ? 'Owes you ${formatCad(summary.amountCents)}'
+                                                : 'You owe ${formatCad(summary.amountCents)}',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                              color: summary.direction == 'owed_to_you'
+                                                  ? AppColors.accent
+                                                  : AppColors.error,
+                                            ),
+                                          ),
+                                        ),
+                                        Material(
+                                          color: AppColors.surface,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(999),
+                                            side: const BorderSide(color: AppColors.border),
+                                          ),
+                                          clipBehavior: Clip.antiAlias,
+                                          child: InkWell(
+                                            onTap: () => _settleBill(bill),
+                                            borderRadius: BorderRadius.circular(999),
+                                            child: Padding(
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 14,
+                                                vertical: 6,
+                                              ),
+                                              child: Text(
+                                                'Settle up',
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.w600,
+                                                  fontSize: 13,
+                                                  color: summary.direction == 'owed_to_you'
+                                                      ? AppColors.accent
+                                                      : AppColors.error,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                             ),
                           ],

@@ -19,9 +19,6 @@ CREATE POLICY "users_select" ON "users" FOR SELECT USING (
   OR app_shares_friendship_with("id")
 );
 
-DROP FUNCTION IF EXISTS app_is_group_member(text);
-DROP FUNCTION IF EXISTS app_shares_group_with(text);
-
 -- Remove activity_events group-invitation relation.
 ALTER TABLE "activity_events" DROP CONSTRAINT IF EXISTS "activity_events_group_invitation_id_fkey";
 DROP INDEX IF EXISTS "activity_events_group_invitation_id_idx";
@@ -57,3 +54,7 @@ DROP POLICY IF EXISTS "groups_select" ON "groups";
 DROP POLICY IF EXISTS "groups_insert" ON "groups";
 DROP POLICY IF EXISTS "groups_update" ON "groups";
 DROP TABLE IF EXISTS "groups";
+
+-- Remove helper functions once dependent policies are gone.
+DROP FUNCTION IF EXISTS app_is_group_member(text);
+DROP FUNCTION IF EXISTS app_shares_group_with(text);

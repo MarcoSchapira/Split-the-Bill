@@ -75,47 +75,48 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen> {
   Widget build(BuildContext context) {
     ref.listen<int>(dataRefreshProvider, (_, __) => _load());
 
-    if (_isLoading && _events.isEmpty) {
-      return const LoadingView(message: 'Loading activity...');
-    }
-
-    return RefreshIndicator(
-      onRefresh: _load,
-      color: AppColors.accent,
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          const Text('Recent Activity', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 16),
-          if (_error != null) ...[ErrorBanner(message: _error!), const SizedBox(height: 12)],
-          if (_events.isEmpty)
-            const EmptyState(message: 'No activity yet.')
-          else
-            ..._events.map((event) {
-              final deleting = _deletingIds.contains(event.id);
-              return Card(
-                margin: const EdgeInsets.only(bottom: 8),
-                child: ListTile(
-                  title: Text(event.message),
-                  subtitle: Text(
-                    '${displayName(event.actor)} · ${formatRelativeTime(event.createdAt)}',
+    return Scaffold(
+      appBar: AppBar(title: const Text('Activity')),
+      body: _isLoading && _events.isEmpty
+          ? const LoadingView(message: 'Loading activity...')
+          : RefreshIndicator(
+        onRefresh: _load,
+        color: AppColors.accent,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            const Text('Recent Activity', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 16),
+            if (_error != null) ...[ErrorBanner(message: _error!), const SizedBox(height: 12)],
+            if (_events.isEmpty)
+              const EmptyState(message: 'No activity yet.')
+            else
+              ..._events.map((event) {
+                final deleting = _deletingIds.contains(event.id);
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    title: Text(event.message),
+                    subtitle: Text(
+                      '${displayName(event.actor)} · ${formatRelativeTime(event.createdAt)}',
+                    ),
+                    onTap: () => _openActivity(event),
+                    trailing: IconButton(
+                      tooltip: 'Remove activity',
+                      icon: deleting
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.delete_outline),
+                      onPressed: deleting ? null : () => _deleteActivity(event.id),
+                    ),
                   ),
-                  onTap: () => _openActivity(event),
-                  trailing: IconButton(
-                    tooltip: 'Remove activity',
-                    icon: deleting
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.delete_outline),
-                    onPressed: deleting ? null : () => _deleteActivity(event.id),
-                  ),
-                ),
-              );
-            }),
-        ],
+                );
+              }),
+          ],
+        ),
       ),
     );
   }

@@ -52,6 +52,7 @@ class BillShare {
     required this.id,
     required this.shareCents,
     required this.user,
+    required this.settlementStatus,
     this.settledAt,
   });
 
@@ -59,13 +60,24 @@ class BillShare {
   final int shareCents;
   final User user;
   final String? settledAt;
+  final String settlementStatus;
 
   factory BillShare.fromJson(Map<String, dynamic> json) {
+    final settledAt = json['settledAt'] as String?;
+    final rawStatus = json['settlementStatus'] as String?;
+    final settlementStatus = switch (rawStatus) {
+      'PAID' => 'PAID',
+      'PENDING' => 'PENDING',
+      'NOT_PAID' => 'NOT_PAID',
+      _ => settledAt == null ? 'NOT_PAID' : 'PAID',
+    };
+
     return BillShare(
       id: json['id'] as String,
       shareCents: json['shareCents'] as int,
       user: User.fromJson(json['user'] as Map<String, dynamic>),
-      settledAt: json['settledAt'] as String?,
+      settledAt: settledAt,
+      settlementStatus: settlementStatus,
     );
   }
 }
@@ -93,10 +105,7 @@ class BillUserSummary {
 enum BillSource { manual, capture }
 
 class BillLineItemAssignment {
-  const BillLineItemAssignment({
-    required this.id,
-    required this.user,
-  });
+  const BillLineItemAssignment({required this.id, required this.user});
 
   final String id;
   final User user;
@@ -152,7 +161,9 @@ class BillLineItem {
       totalPriceCents: json['totalPriceCents'] as int,
       sortOrder: json['sortOrder'] as int,
       assignments: (json['assignments'] as List<dynamic>)
-          .map((e) => BillLineItemAssignment.fromJson(e as Map<String, dynamic>))
+          .map(
+            (e) => BillLineItemAssignment.fromJson(e as Map<String, dynamic>),
+          )
           .toList(),
     );
   }
@@ -239,7 +250,9 @@ class Bill {
         'friendship' => TargetType.friendship,
         _ => null,
       },
-      source: json['source'] == 'capture' ? BillSource.capture : BillSource.manual,
+      source: json['source'] == 'capture'
+          ? BillSource.capture
+          : BillSource.manual,
       friendshipId: json['friendshipId'] as String?,
       storeName: json['storeName'] as String?,
       storeAddress: json['storeAddress'] as String?,
@@ -384,10 +397,7 @@ class FriendInvitation {
 }
 
 class Invitations {
-  const Invitations({
-    required this.receivedFriends,
-    required this.sentFriends,
-  });
+  const Invitations({required this.receivedFriends, required this.sentFriends});
 
   final List<FriendInvitation> receivedFriends;
   final List<FriendInvitation> sentFriends;
@@ -447,20 +457,14 @@ InvitationStatus _parseStatus(String value) {
 }
 
 class AuthTokens {
-  const AuthTokens({
-    required this.accessToken,
-    required this.refreshToken,
-  });
+  const AuthTokens({required this.accessToken, required this.refreshToken});
 
   final String accessToken;
   final String refreshToken;
 }
 
 class AuthResponse {
-  const AuthResponse({
-    required this.user,
-    required this.tokens,
-  });
+  const AuthResponse({required this.user, required this.tokens});
 
   final User user;
   final AuthTokens tokens;

@@ -24,6 +24,7 @@ export const billInclude = {
       id: true,
       shareCents: true,
       settledAt: true,
+      settlementStatus: true,
       user: { select: safeUserSelect },
     },
   },
@@ -63,6 +64,7 @@ type BillWithShares = {
     id: string;
     shareCents: number;
     settledAt: Date | null;
+    settlementStatus: "NOT_PAID" | "PENDING" | "PAID";
     user: { id: string; email: string; name: string | null; createdAt: Date };
   }>;
 };
@@ -121,6 +123,7 @@ async function determineBillContext(
   tx: PrismaTransaction,
   actingUserId: string,
   input: BillInput,
+  existingParticipantIds?: string[],
 ) {
   if (input.participantIds && input.participantIds.length > 0) {
     return {
@@ -140,11 +143,34 @@ async function determineBillContext(
     };
   }
 
-  throw new ApiError(
-    400,
-    "INVALID_PARTICIPANTS",
-    "Either participantIds or targetType/targetId must be supplied",
-  );
+  if (existingParticipantIds && existingParticipantIds.length > 0) {
+    return {
+      participantIds: sortedParticipantKey(existingParticipantIds),
+      targetType: null as "friendship" | null,
+      targetId: null as string | null,
+    };
+  }
+
+  return {
+    participantIds: sortedParticipantKey([actingUserId]),
+    targetType: null as "friendship" | null,
+    targetId: null as string | null,
+  };
+}
+
+function defaultIncurredAt(input: BillInput) {
+  if (input.incurredAt) {
+    return input.incurredAt;
+  }
+
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+}
+
+function resolvePayerId(input: BillInput, actingUserId: string, participantIds: string[]) {
+  const payerId = input.payerId ?? actingUserId;
+  assertPayerIsParticipant(payerId, participantIds);
+  return payerId;
 }
 
 function normalizeLineItems(input: BillInput, participantIds: string[]) {
@@ -201,7 +227,8 @@ export async function createBill(tx: PrismaTransaction, actingUserId: string, in
   const billContext = await determineBillContext(tx, actingUserId, input);
   const participantIds = billContext.participantIds;
   await assertParticipantsAllowed(tx, actingUserId, participantIds);
-  assertPayerIsParticipant(input.payerId, participantIds);
+  const payerId = resolvePayerId(input, actingUserId, participantIds);
+  const incurredAt = defaultIncurredAt(input);
   const shares = buildSharesFromInput(input.totalCents, participantIds, input.shares);
   const recipientIds = shares.map((share) => share.userId);
   const lineItems = normalizeLineItems(input, participantIds);
@@ -209,7 +236,7 @@ export async function createBill(tx: PrismaTransaction, actingUserId: string, in
   const bill = await tx.bill.create({
     data: {
       description: input.description,
-      incurredAt: input.incurredAt,
+      incurredAt,
       totalCents: input.totalCents,
       source: input.source,
       storeName: input.storeName,
@@ -227,7 +254,7 @@ export async function createBill(tx: PrismaTransaction, actingUserId: string, in
       targetType: billContext.targetType,
       friendshipId:
         billContext.targetType === "friendship" ? billContext.targetId : null,
-      payerId: input.payerId,
+      payerId,
       creatorId: actingUserId,
       shares: { create: shares },
       lineItems: { create: lineItems },
@@ -284,10 +311,12 @@ export async function updateBill(
   input: BillInput,
 ) {
   const bill = await findVisibleBill(tx, actingUserId, billId);
-  const billContext = await determineBillContext(tx, actingUserId, input);
+  const existingParticipantIds = bill.shares.map((share) => share.user.id);
+  const billContext = await determineBillContext(tx, actingUserId, input, existingParticipantIds);
   const participantIds = billContext.participantIds;
   await assertParticipantsAllowed(tx, actingUserId, participantIds);
-  assertPayerIsParticipant(input.payerId, participantIds);
+  const payerId = resolvePayerId(input, actingUserId, participantIds);
+  const incurredAt = defaultIncurredAt(input);
   const shares = buildSharesFromInput(
     input.totalCents,
     participantIds,
@@ -299,14 +328,20 @@ export async function updateBill(
   ];
 
   const settledByUserId = new Map(
-    bill.shares.map((share) => [share.user.id, share.settledAt] as const),
+    bill.shares.map(
+      (share) =>
+        [
+          share.user.id,
+          { settledAt: share.settledAt, settlementStatus: share.settlementStatus },
+        ] as const,
+    ),
   );
 
   const updated = await tx.bill.update({
     where: { id: billId },
     data: {
       description: input.description,
-      incurredAt: input.incurredAt,
+      incurredAt,
       totalCents: input.totalCents,
       source: input.source,
       storeName: input.storeName,
@@ -322,7 +357,7 @@ export async function updateBill(
       taxCents: input.taxCents,
       tipCents: input.tipCents,
       targetType: billContext.targetType,
-      payerId: input.payerId,
+      payerId,
       friendshipId:
         billContext.targetType === "friendship" ? billContext.targetId : null,
       shares: {
@@ -330,9 +365,7 @@ export async function updateBill(
         create: shares.map((share) => ({
           userId: share.userId,
           shareCents: share.shareCents,
-          ...(settledByUserId.get(share.userId)
-            ? { settledAt: settledByUserId.get(share.userId) }
-            : {}),
+          ...(settledByUserId.get(share.userId) ?? {}),
         })),
       },
       lineItems: {

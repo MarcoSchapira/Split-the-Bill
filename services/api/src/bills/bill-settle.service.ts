@@ -13,8 +13,16 @@ export async function settleBill(
   actingUserId: string,
   billId: string,
   friendUserId?: string,
+  participantUserId?: string,
 ) {
   const bill = await findVisibleBill(tx, actingUserId, billId);
+  if (participantUserId && bill.payerId !== actingUserId) {
+    throw new ApiError(
+      403,
+      "PARTICIPANT_SETTLE_FORBIDDEN",
+      "Only the bill payer can confirm settlement for a participant",
+    );
+  }
   const shareIds = sharesToSettle(
     {
       payerId: bill.payerId,
@@ -23,10 +31,12 @@ export async function settleBill(
         userId: share.user.id,
         shareCents: share.shareCents,
         settledAt: share.settledAt,
+        settlementStatus: share.settlementStatus,
       })),
     },
     actingUserId,
     friendUserId,
+    participantUserId,
   );
 
   if (shareIds.length === 0) {
@@ -36,7 +46,7 @@ export async function settleBill(
   const settledAt = new Date();
   await tx.billShare.updateMany({
     where: { id: { in: shareIds } },
-    data: { settledAt },
+    data: { settledAt, settlementStatus: "PAID" },
   });
 
   const updated = await findVisibleBill(tx, actingUserId, billId);
@@ -56,8 +66,16 @@ export async function unsettleBill(
   actingUserId: string,
   billId: string,
   friendUserId?: string,
+  participantUserId?: string,
 ) {
   const bill = await findVisibleBill(tx, actingUserId, billId);
+  if (participantUserId && bill.payerId !== actingUserId) {
+    throw new ApiError(
+      403,
+      "PARTICIPANT_UNSETTLE_FORBIDDEN",
+      "Only the bill payer can undo settlement for a participant",
+    );
+  }
   const shareIds = sharesToUnsettle(
     {
       payerId: bill.payerId,
@@ -66,10 +84,12 @@ export async function unsettleBill(
         userId: share.user.id,
         shareCents: share.shareCents,
         settledAt: share.settledAt,
+        settlementStatus: share.settlementStatus,
       })),
     },
     actingUserId,
     friendUserId,
+    participantUserId,
   );
 
   if (shareIds.length === 0) {
@@ -78,7 +98,7 @@ export async function unsettleBill(
 
   await tx.billShare.updateMany({
     where: { id: { in: shareIds } },
-    data: { settledAt: null },
+    data: { settledAt: null, settlementStatus: "NOT_PAID" },
   });
 
   const updated = await findVisibleBill(tx, actingUserId, billId);
@@ -132,6 +152,7 @@ export async function settleFriend(
           userId: share.user.id,
           shareCents: share.shareCents,
           settledAt: share.settledAt,
+          settlementStatus: share.settlementStatus,
         })),
       },
       actingUserId,
@@ -144,7 +165,7 @@ export async function settleFriend(
 
     await tx.billShare.updateMany({
       where: { id: { in: shareIds } },
-      data: { settledAt },
+      data: { settledAt, settlementStatus: "PAID" },
     });
     settledCount += shareIds.length;
   }

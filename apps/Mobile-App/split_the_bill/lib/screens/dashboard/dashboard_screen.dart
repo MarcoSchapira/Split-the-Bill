@@ -7,6 +7,8 @@ import '../../providers/providers.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/format.dart';
 import '../../widgets/common_widgets.dart';
+import '../../widgets/modals/capture_options_sheet.dart';
+import '../activity/activity_screen.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -59,7 +61,21 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
           children: [
-          const Text('Dashboard', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const Expanded(
+                child: Text('Dashboard', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
+              ),
+              IconButton(
+                tooltip: 'Activity',
+                icon: const Icon(Icons.history),
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ActivityScreen()),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 4),
           const Text('Keep track of every shared balance in one place.'),
           const SizedBox(height: 16),
@@ -119,7 +135,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.push('/dashboard/capture'),
+        onPressed: () => showCaptureOptionsSheet(context),
         backgroundColor: AppColors.accent,
         foregroundColor: Colors.white,
         icon: const Icon(Icons.camera_alt),

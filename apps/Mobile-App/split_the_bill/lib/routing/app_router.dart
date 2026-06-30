@@ -2,16 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/providers.dart';
-import '../screens/activity/activity_screen.dart';
+import '../screens/requests/requests_screen.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/auth/register_screen.dart';
 import '../screens/bills/bills_screen.dart';
 import '../screens/bills/edit_bill_screen.dart';
 import '../models/receipt.dart';
-import '../screens/capture/capture_camera_screen.dart';
 import '../screens/capture/capture_confirm_screen.dart';
 import '../screens/capture/capture_participants_screen.dart';
 import '../screens/capture/capture_split_screen.dart';
+import '../screens/capture/manual_receipt_screen.dart';
 import '../screens/dashboard/dashboard_screen.dart';
 import '../screens/friends/friends_screen.dart';
 import '../screens/invitations/invitations_screen.dart';
@@ -51,8 +51,13 @@ final routerProvider = Provider<GoRouter>((ref) {
                 routes: [
                   GoRoute(
                     path: 'capture',
-                    builder: (_, __) => const CaptureCameraScreen(),
+                    redirect: (_, state) =>
+                        state.uri.path == '/dashboard/capture' ? '/dashboard' : null,
                     routes: [
+                      GoRoute(
+                        path: 'manual',
+                        builder: (_, __) => const ManualReceiptScreen(),
+                      ),
                       GoRoute(
                         path: 'participants',
                         builder: (_, state) => CaptureParticipantsScreen(
@@ -75,11 +80,6 @@ final routerProvider = Provider<GoRouter>((ref) {
                   ),
                 ],
               ),
-            ],
-          ),
-          StatefulShellBranch(
-            routes: [
-              GoRoute(path: '/activity', builder: (_, __) => const ActivityScreen()),
             ],
           ),
           StatefulShellBranch(
@@ -118,6 +118,11 @@ final routerProvider = Provider<GoRouter>((ref) {
                   ),
                 ],
               ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(path: '/requests', builder: (_, __) => const RequestsScreen()),
             ],
           ),
           StatefulShellBranch(

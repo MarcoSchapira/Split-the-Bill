@@ -11,8 +11,12 @@ class DashboardApi {
 
   Future<Dashboard> getDashboard() async {
     try {
-      final response = await _client.dio.get<Map<String, dynamic>>('/dashboard');
-      return Dashboard.fromJson(response.data!['dashboard'] as Map<String, dynamic>);
+      final response = await _client.dio.get<Map<String, dynamic>>(
+        '/dashboard',
+      );
+      return Dashboard.fromJson(
+        response.data!['dashboard'] as Map<String, dynamic>,
+      );
     } on DioException catch (e) {
       _client.throwApiError(e, 'Unable to load dashboard.');
     }
@@ -36,8 +40,9 @@ class FriendsApi {
 
   Future<FriendshipDetail> getFriendship(String friendshipId) async {
     try {
-      final response =
-          await _client.dio.get<Map<String, dynamic>>('/friends/$friendshipId');
+      final response = await _client.dio.get<Map<String, dynamic>>(
+        '/friends/$friendshipId',
+      );
       return FriendshipDetail.fromJson(
         response.data!['friendship'] as Map<String, dynamic>,
       );
@@ -76,13 +81,13 @@ class BillsApi {
   BillsApi(this._client);
   final ApiClient _client;
 
-  Future<List<Bill>> listBills({
-    String? participantId,
-  }) async {
+  Future<List<Bill>> listBills({String? participantId}) async {
     try {
       final response = await _client.dio.get<Map<String, dynamic>>(
         '/bills',
-        queryParameters: participantId == null ? null : {'participantId': participantId},
+        queryParameters: participantId == null
+            ? null
+            : {'participantId': participantId},
       );
       return (response.data!['bills'] as List<dynamic>)
           .map((e) => Bill.fromJson(e as Map<String, dynamic>))
@@ -94,7 +99,9 @@ class BillsApi {
 
   Future<Bill> getBill(String billId) async {
     try {
-      final response = await _client.dio.get<Map<String, dynamic>>('/bills/$billId');
+      final response = await _client.dio.get<Map<String, dynamic>>(
+        '/bills/$billId',
+      );
       return Bill.fromJson(response.data!['bill'] as Map<String, dynamic>);
     } on DioException catch (e) {
       _client.throwApiError(e, 'Unable to load bill details.');
@@ -103,8 +110,10 @@ class BillsApi {
 
   Future<Bill> createBill(Map<String, dynamic> input) async {
     try {
-      final response =
-          await _client.dio.post<Map<String, dynamic>>('/bills', data: input);
+      final response = await _client.dio.post<Map<String, dynamic>>(
+        '/bills',
+        data: input,
+      );
       return Bill.fromJson(response.data!['bill'] as Map<String, dynamic>);
     } on DioException catch (e) {
       _client.throwApiError(e, 'Unable to create bill.');
@@ -131,11 +140,22 @@ class BillsApi {
     }
   }
 
-  Future<Bill> settleBill(String billId, {String? friendUserId}) async {
+  Future<Bill> settleBill(
+    String billId, {
+    String? friendUserId,
+    String? participantUserId,
+  }) async {
     try {
+      final queryParameters = <String, dynamic>{};
+      if (friendUserId != null) {
+        queryParameters['friendUserId'] = friendUserId;
+      }
+      if (participantUserId != null) {
+        queryParameters['participantUserId'] = participantUserId;
+      }
       final response = await _client.dio.post<Map<String, dynamic>>(
         '/bills/$billId/settle',
-        queryParameters: friendUserId == null ? null : {'friendUserId': friendUserId},
+        queryParameters: queryParameters.isEmpty ? null : queryParameters,
       );
       return Bill.fromJson(response.data!['bill'] as Map<String, dynamic>);
     } on DioException catch (e) {
@@ -143,11 +163,22 @@ class BillsApi {
     }
   }
 
-  Future<Bill> unsettleBill(String billId, {String? friendUserId}) async {
+  Future<Bill> unsettleBill(
+    String billId, {
+    String? friendUserId,
+    String? participantUserId,
+  }) async {
     try {
+      final queryParameters = <String, dynamic>{};
+      if (friendUserId != null) {
+        queryParameters['friendUserId'] = friendUserId;
+      }
+      if (participantUserId != null) {
+        queryParameters['participantUserId'] = participantUserId;
+      }
       final response = await _client.dio.post<Map<String, dynamic>>(
         '/bills/$billId/unsettle',
-        queryParameters: friendUserId == null ? null : {'friendUserId': friendUserId},
+        queryParameters: queryParameters.isEmpty ? null : queryParameters,
       );
       return Bill.fromJson(response.data!['bill'] as Map<String, dynamic>);
     } on DioException catch (e) {
@@ -160,20 +191,18 @@ class ReceiptsApi {
   ReceiptsApi(this._client);
   final ApiClient _client;
 
-  Future<ParsedReceipt> parseReceipt(Uint8List imageBytes, String filename) async {
+  Future<ParsedReceipt> parseReceipt(
+    Uint8List imageBytes,
+    String filename,
+  ) async {
     try {
       final formData = FormData.fromMap({
-        'image': MultipartFile.fromBytes(
-          imageBytes,
-          filename: filename,
-        ),
+        'image': MultipartFile.fromBytes(imageBytes, filename: filename),
       });
       final response = await _client.dio.post<Map<String, dynamic>>(
         '/receipts/parse',
         data: formData,
-        options: Options(
-          receiveTimeout: const Duration(seconds: 60),
-        ),
+        options: Options(receiveTimeout: const Duration(seconds: 60)),
       );
       return ParsedReceipt.fromJson(
         response.data!['receipt'] as Map<String, dynamic>,
@@ -190,7 +219,9 @@ class InvitationsApi {
 
   Future<Invitations> getInvitations() async {
     try {
-      final response = await _client.dio.get<Map<String, dynamic>>('/invitations');
+      final response = await _client.dio.get<Map<String, dynamic>>(
+        '/invitations',
+      );
       return Invitations.fromJson(response.data!);
     } on DioException catch (e) {
       _client.throwApiError(e, 'Unable to load invitations.');

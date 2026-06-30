@@ -524,6 +524,52 @@ describe("bill ledger and dashboard API", () => {
     expect(friendDashboard.body.dashboard.totalYouOweCents).toBe(3000);
   });
 
+  it("creates a minimal manual bill with only description and total", async () => {
+    const user = await register("minimal-manual@example.com");
+
+    const created = await request(app).post("/bills").set(bearer(user.token)).send({
+      description: "Quick lunch",
+      totalCents: 2450,
+    });
+
+    expect(created.status).toBe(201);
+    expect(created.body.bill.description).toBe("Quick lunch");
+    expect(created.body.bill.totalCents).toBe(2450);
+    expect(created.body.bill.source).toBe("manual");
+    expect(created.body.bill.payer.id).toBe(user.user.id);
+    expect(created.body.bill.shares).toHaveLength(1);
+    expect(created.body.bill.shares[0].user.id).toBe(user.user.id);
+    expect(created.body.bill.shares[0].shareCents).toBe(2450);
+    expect(created.body.bill.lineItems).toHaveLength(0);
+    expect(created.body.bill.userSummary.direction).toBe("none");
+  });
+
+  it("creates a manual bill with custom friend shares and no line items", async () => {
+    const payer = await register("manual-split-payer@example.com");
+    const friend = await register("manual-split-friend@example.com");
+    await becomeFriends(payer, friend);
+
+    const created = await request(app).post("/bills").set(bearer(payer.token)).send({
+      description: "Shared taxi",
+      totalCents: 3000,
+      source: "manual",
+      participantIds: [payer.user.id, friend.user.id],
+      payerId: payer.user.id,
+      shares: [
+        { userId: payer.user.id, shareCents: 1000 },
+        { userId: friend.user.id, shareCents: 2000 },
+      ],
+    });
+
+    expect(created.status).toBe(201);
+    expect(created.body.bill.lineItems).toHaveLength(0);
+    expect(
+      created.body.bill.shares
+        .map((share: { shareCents: number }) => share.shareCents)
+        .sort(),
+    ).toEqual([1000, 2000]);
+  });
+
   it("lets a user dismiss activity from their feed", async () => {
     const payer = await register("payer-activity@example.com");
     const friend = await register("friend-activity@example.com");
@@ -686,7 +732,7 @@ describe("bill settle API", () => {
     const friend = await register("bulk-settle-friend@example.com");
     const friendshipId = await becomeFriends(you, friend);
 
-    await request(app).post("/bills").set(bearer(you.token)).send({
+    const lunchBill = await request(app).post("/bills").set(bearer(you.token)).send({
       description: "Lunch",
       incurredAt: "2026-05-25",
       totalCents: 2000,
@@ -694,7 +740,7 @@ describe("bill settle API", () => {
       targetId: friendshipId,
       payerId: you.user.id,
     });
-    await request(app).post("/bills").set(bearer(friend.token)).send({
+    const taxiBill = await request(app).post("/bills").set(bearer(friend.token)).send({
       description: "Taxi",
       incurredAt: "2026-05-25",
       totalCents: 1000,
@@ -708,6 +754,12 @@ describe("bill settle API", () => {
       .post(`/friends/${friendshipId}/settle`)
       .set(bearer(you.token));
     const afterSettle = await request(app).get("/dashboard").set(bearer(you.token));
+    const lunchAfterSettle = await request(app)
+      .get(`/bills/${lunchBill.body.bill.id as string}`)
+      .set(bearer(you.token));
+    const taxiAfterSettle = await request(app)
+      .get(`/bills/${taxiBill.body.bill.id as string}`)
+      .set(bearer(you.token));
     const activity = await request(app).get("/activity").set(bearer(you.token));
     const friendSettledEvent = activity.body.activity.find(
       (event: { type: string }) => event.type === "FRIEND_SETTLED",
@@ -717,11 +769,111 @@ describe("bill settle API", () => {
     expect(settled.status).toBe(200);
     expect(settled.body.settledCount).toBeGreaterThan(0);
     expect(afterSettle.body.dashboard.balances[0].balanceCents).toBe(0);
+    expect(
+      lunchAfterSettle.body.bill.shares.find(
+        (share: { user: { id: string } }) => share.user.id === friend.user.id,
+      )?.settlementStatus,
+    ).toBe("PAID");
+    expect(
+      taxiAfterSettle.body.bill.shares.find(
+        (share: { user: { id: string } }) => share.user.id === you.user.id,
+      )?.settlementStatus,
+    ).toBe("PAID");
     expect(friendSettledEvent).toMatchObject({
       friendshipId,
       billId: null,
       friendInvitationId: null,
     });
+  });
+
+  it("settles one participant on a multi-person bill", async () => {
+    const payer = await register("participant-settle-payer@example.com");
+    const firstFriend = await register("participant-settle-first@example.com");
+    const secondFriend = await register("participant-settle-second@example.com");
+    await becomeFriends(payer, firstFriend);
+    await becomeFriends(payer, secondFriend);
+
+    const created = await request(app).post("/bills").set(bearer(payer.token)).send({
+      description: "Trip groceries",
+      incurredAt: "2026-05-25",
+      totalCents: 3000,
+      payerId: payer.user.id,
+      participantIds: [payer.user.id, firstFriend.user.id, secondFriend.user.id],
+    });
+
+    const settledOne = await request(app)
+      .post(`/bills/${created.body.bill.id as string}/settle`)
+      .set(bearer(payer.token))
+      .query({ participantUserId: firstFriend.user.id });
+    const afterSettle = await request(app).get("/dashboard").set(bearer(payer.token));
+
+    const firstShare = settledOne.body.bill.shares.find(
+      (share: { user: { id: string } }) => share.user.id === firstFriend.user.id,
+    );
+    const secondShare = settledOne.body.bill.shares.find(
+      (share: { user: { id: string } }) => share.user.id === secondFriend.user.id,
+    );
+
+    expect(settledOne.status).toBe(200);
+    expect(settledOne.body.bill.userSummary).toMatchObject({
+      direction: "owed_to_you",
+      amountCents: 1000,
+      settled: false,
+    });
+    expect(firstShare.settlementStatus).toBe("PAID");
+    expect(secondShare.settlementStatus).toBe("NOT_PAID");
+    expect(afterSettle.body.dashboard.totalOwedToYouCents).toBe(1000);
+  });
+
+  it("forbids non-payer from confirming another participant as paid", async () => {
+    const payer = await register("participant-perm-payer@example.com");
+    const firstFriend = await register("participant-perm-first@example.com");
+    const secondFriend = await register("participant-perm-second@example.com");
+    await becomeFriends(payer, firstFriend);
+    await becomeFriends(payer, secondFriend);
+
+    const created = await request(app).post("/bills").set(bearer(payer.token)).send({
+      description: "Weekend fuel",
+      incurredAt: "2026-05-25",
+      totalCents: 3000,
+      payerId: payer.user.id,
+      participantIds: [payer.user.id, firstFriend.user.id, secondFriend.user.id],
+    });
+
+    const forbidden = await request(app)
+      .post(`/bills/${created.body.bill.id as string}/settle`)
+      .set(bearer(firstFriend.token))
+      .query({ participantUserId: secondFriend.user.id });
+
+    expect(forbidden.status).toBe(403);
+    expect(forbidden.body.error.code).toBe("PARTICIPANT_SETTLE_FORBIDDEN");
+  });
+
+  it("returns NOTHING_TO_SETTLE when participant is already marked paid", async () => {
+    const payer = await register("participant-already-paid-payer@example.com");
+    const friend = await register("participant-already-paid-friend@example.com");
+    await becomeFriends(payer, friend);
+
+    const created = await request(app).post("/bills").set(bearer(payer.token)).send({
+      description: "Coffee run",
+      incurredAt: "2026-05-25",
+      totalCents: 1000,
+      payerId: payer.user.id,
+      participantIds: [payer.user.id, friend.user.id],
+    });
+
+    const firstSettle = await request(app)
+      .post(`/bills/${created.body.bill.id as string}/settle`)
+      .set(bearer(payer.token))
+      .query({ participantUserId: friend.user.id });
+    const secondSettle = await request(app)
+      .post(`/bills/${created.body.bill.id as string}/settle`)
+      .set(bearer(payer.token))
+      .query({ participantUserId: friend.user.id });
+
+    expect(firstSettle.status).toBe(200);
+    expect(secondSettle.status).toBe(400);
+    expect(secondSettle.body.error.code).toBe("NOTHING_TO_SETTLE");
   });
 
   it("preserves settledAt when a bill is edited", async () => {
@@ -760,6 +912,7 @@ describe("bill settle API", () => {
 
     expect(updated.body.bill.description).toBe("Snacks updated");
     expect(friendShare.settledAt).not.toBeNull();
+    expect(friendShare.settlementStatus).toBe("PAID");
     expect(updated.body.bill.userSummary.settled).toBe(true);
   });
 });

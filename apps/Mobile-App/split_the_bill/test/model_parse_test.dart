@@ -84,4 +84,32 @@ void main() {
 
     expect(event.friendInvitationId, 'fi_1');
   });
+
+  test('BillShare.fromJson falls back settlement status from settledAt', () {
+    final paid = BillShare.fromJson({
+      'id': 's1',
+      'shareCents': 500,
+      'settledAt': '2026-06-11T00:00:00.000Z',
+      'user': {
+        'id': 'u1',
+        'email': 'a@b.com',
+        'name': null,
+        'createdAt': '2026-06-11T00:00:00.000Z',
+      },
+    });
+    final notPaid = BillShare.fromJson({
+      'id': 's2',
+      'shareCents': 500,
+      'settledAt': null,
+      'user': {
+        'id': 'u2',
+        'email': 'c@d.com',
+        'name': null,
+        'createdAt': '2026-06-11T00:00:00.000Z',
+      },
+    });
+
+    expect(paid.settlementStatus, 'PAID');
+    expect(notPaid.settlementStatus, 'NOT_PAID');
+  });
 }

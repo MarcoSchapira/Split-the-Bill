@@ -11,15 +11,15 @@ class AppScaffold extends ConsumerWidget {
 
   static const tabs = [
     ('Dashboard', Icons.dashboard_outlined, Icons.dashboard),
-    ('Activity', Icons.history, Icons.history),
     ('Bills', Icons.receipt_long_outlined, Icons.receipt_long),
+    ('Requests', Icons.inbox_outlined, Icons.inbox),
     ('Friends', Icons.people_outline, Icons.people),
   ];
 
   static const tabRootPaths = {
     '/dashboard',
-    '/activity',
     '/bills',
+    '/requests',
     '/friends',
   };
 

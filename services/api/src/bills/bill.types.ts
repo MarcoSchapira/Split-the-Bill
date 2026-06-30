@@ -40,9 +40,9 @@ const billLineItemInputSchema = z.object({
 export const billInputSchema = z
   .object({
     description: z.string().trim().min(1).max(120),
-    incurredAt: incurredAtSchema,
+    incurredAt: incurredAtSchema.optional(),
     totalCents: z.number().int().positive().max(100_000_000),
-    payerId: z.string().uuid(),
+    payerId: z.string().uuid().optional(),
     source: z.enum(["manual", "capture"]).optional().default("manual"),
     participantIds: z.array(z.string().uuid()).min(1).optional(),
     targetType: z.enum(["friendship"]).optional(),
@@ -63,14 +63,6 @@ export const billInputSchema = z
     shares: z.array(billShareInputSchema).min(1).optional(),
   })
   .refine(
-    ({ participantIds, targetType, targetId }) => {
-      const hasParticipantIds = Boolean(participantIds && participantIds.length > 0);
-      const hasTarget = Boolean(targetType && targetId);
-      return hasParticipantIds || hasTarget;
-    },
-    "Either participantIds or targetType/targetId must be supplied",
-  )
-  .refine(
     ({ targetType, targetId }) => Boolean(targetType) === Boolean(targetId),
     "targetType and targetId must be supplied together",
   )
@@ -87,9 +79,15 @@ export const billListQuerySchema = z
     "targetType and targetId must be supplied together",
   );
 
-export const billSettleQuerySchema = z.object({
-  friendUserId: z.string().uuid().optional(),
-});
+export const billSettleQuerySchema = z
+  .object({
+    friendUserId: z.string().uuid().optional(),
+    participantUserId: z.string().uuid().optional(),
+  })
+  .refine(
+    ({ friendUserId, participantUserId }) => !(friendUserId && participantUserId),
+    "friendUserId and participantUserId cannot be used together",
+  );
 
 export type BillInput = z.infer<typeof billInputSchema>;
 export type BillListQuery = z.infer<typeof billListQuerySchema>;

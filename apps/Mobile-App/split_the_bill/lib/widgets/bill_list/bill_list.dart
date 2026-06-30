@@ -15,12 +15,16 @@ class BillList extends ConsumerWidget {
     required this.bills,
     required this.onChanged,
     this.friend,
+    this.showSettleAction = true,
+    this.showBalanceSummary = true,
     this.emptyMessage = 'No bills yet.',
   });
 
   final List<Bill> bills;
   final VoidCallback onChanged;
   final User? friend;
+  final bool showSettleAction;
+  final bool showBalanceSummary;
   final String emptyMessage;
 
   @override
@@ -44,6 +48,8 @@ class BillList extends ConsumerWidget {
           bill: bill,
           friend: friend,
           onChanged: onChanged,
+          showSettleAction: showSettleAction,
+          showBalanceSummary: showBalanceSummary,
         );
       }).toList(),
     );
@@ -55,11 +61,15 @@ class _BillListItem extends ConsumerStatefulWidget {
     required this.bill,
     required this.onChanged,
     this.friend,
+    required this.showSettleAction,
+    required this.showBalanceSummary,
   });
 
   final Bill bill;
   final User? friend;
   final VoidCallback onChanged;
+  final bool showSettleAction;
+  final bool showBalanceSummary;
 
   @override
   ConsumerState<_BillListItem> createState() => _BillListItemState();
@@ -190,7 +200,7 @@ class _BillListItemState extends ConsumerState<_BillListItem> {
                       ],
                     ),
                   ),
-                  if (showBalance)
+                  if (widget.showBalanceSummary && showBalance)
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
@@ -223,7 +233,8 @@ class _BillListItemState extends ConsumerState<_BillListItem> {
               ),
             ),
           ),
-            if (showBalance && !isSettled || shares.length > 1)
+            if ((showBalance && !isSettled && widget.showSettleAction) ||
+                shares.length > 1)
               Container(
                 decoration: const BoxDecoration(
                   border: Border(top: BorderSide(color: AppColors.border)),
@@ -241,14 +252,27 @@ class _BillListItemState extends ConsumerState<_BillListItem> {
                             borderRadius: BorderRadius.circular(8),
                             child: Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                              child: AnimatedRotation(
-                                turns: _expanded ? 0.5 : 0,
-                                duration: const Duration(milliseconds: 200),
-                                curve: Curves.easeInOut,
-                                child: const Icon(
-                                  Icons.keyboard_arrow_down,
-                                  color: AppColors.text,
-                                ),
+                              child: Row(
+                                children: [
+                                  AnimatedRotation(
+                                    turns: _expanded ? 0.5 : 0,
+                                    duration: const Duration(milliseconds: 200),
+                                    curve: Curves.easeInOut,
+                                    child: const Icon(
+                                      Icons.keyboard_arrow_down,
+                                      color: AppColors.text,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  const Text(
+                                    'Split breakdown',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textH,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
@@ -256,7 +280,7 @@ class _BillListItemState extends ConsumerState<_BillListItem> {
                       )
                     else
                       const Spacer(),
-                    if (showBalance && !isSettled)
+                    if (showBalance && !isSettled && widget.showSettleAction)
                       TextButton.icon(
                         onPressed: _settle,
                         icon: const Icon(Icons.check_circle_outline, size: 18),
@@ -284,15 +308,6 @@ class _BillListItemState extends ConsumerState<_BillListItem> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'Split breakdown',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.textH,
-                                  fontSize: 13,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
                               ...shares.map(
                                 (share) => Padding(
                                   padding: const EdgeInsets.symmetric(vertical: 4),

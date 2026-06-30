@@ -145,6 +145,7 @@ model BillShare {
   userId     String    @map("user_id")
   shareCents Int       @map("share_cents")
   settledAt  DateTime? @map("settled_at")
+  settlementStatus BillShareSettlementStatus @default(NOT_PAID) @map("settlement_status")
 
   bill Bill @relation(fields: [billId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id], onDelete: Restrict)
@@ -152,6 +153,12 @@ model BillShare {
   @@unique([billId, userId])
   @@index([userId])
   @@map("bill_shares")
+}
+
+enum BillShareSettlementStatus {
+  NOT_PAID
+  PENDING
+  PAID
 }
 
 model BillLineItem {

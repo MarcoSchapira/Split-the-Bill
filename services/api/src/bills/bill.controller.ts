@@ -49,7 +49,13 @@ export const settle: RequestHandler = async (req, res) => {
   const userId = currentUser(req).id;
   const query = billSettleQuerySchema.parse(req.query);
   const bill = await withUserContext(userId, (tx) =>
-    settleBill(tx, userId, billIdSchema.parse(req.params.billId), query.friendUserId),
+    settleBill(
+      tx,
+      userId,
+      billIdSchema.parse(req.params.billId),
+      query.friendUserId,
+      query.participantUserId,
+    ),
   );
   res.json({ bill });
 };
@@ -58,7 +64,13 @@ export const unsettle: RequestHandler = async (req, res) => {
   const userId = currentUser(req).id;
   const query = billSettleQuerySchema.parse(req.query);
   const bill = await withUserContext(userId, (tx) =>
-    unsettleBill(tx, userId, billIdSchema.parse(req.params.billId), query.friendUserId),
+    unsettleBill(
+      tx,
+      userId,
+      billIdSchema.parse(req.params.billId),
+      query.friendUserId,
+      query.participantUserId,
+    ),
   );
   res.json({ bill });
 };

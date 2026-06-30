@@ -6,11 +6,21 @@ export type BillUserSummary = {
   settled: boolean;
 };
 
+export type BillShareSettlementStatus = "NOT_PAID" | "PENDING" | "PAID";
+
 export type BillShareBalanceLike = {
   userId: string;
   shareCents: number;
   settledAt: Date | null;
+  settlementStatus?: BillShareSettlementStatus;
 };
+
+function isPaid(share: BillShareBalanceLike): boolean {
+  if (share.settlementStatus) {
+    return share.settlementStatus === "PAID";
+  }
+  return share.settledAt != null;
+}
 
 export function userSummaryForBill(
   bill: { payerId: string; shares: BillShareBalanceLike[] },
@@ -41,14 +51,14 @@ function pairwiseUserSummary(
     return {
       amountCents: pairwise.amountCents,
       direction: "owed_to_you",
-      settled: friendShare?.settledAt != null,
+      settled: friendShare ? isPaid(friendShare) : false,
     };
   }
 
   return {
     amountCents: pairwise.amountCents,
     direction: "you_owe",
-    settled: yourShare?.settledAt != null,
+    settled: yourShare ? isPaid(yourShare) : false,
   };
 }
 
@@ -67,9 +77,9 @@ function fullBillUserSummary(
 
     const totalDebtCents = debtorShares.reduce((sum, share) => sum + share.shareCents, 0);
     const unsettledDebtCents = debtorShares
-      .filter((share) => share.settledAt == null)
+      .filter((share) => !isPaid(share))
       .reduce((sum, share) => sum + share.shareCents, 0);
-    const allSettled = debtorShares.every((share) => share.settledAt != null);
+    const allSettled = debtorShares.every((share) => isPaid(share));
 
     return {
       amountCents: allSettled ? totalDebtCents : unsettledDebtCents,
@@ -87,7 +97,7 @@ function fullBillUserSummary(
   return {
     amountCents: ownShare.shareCents,
     direction: "you_owe",
-    settled: ownShare.settledAt != null,
+    settled: isPaid(ownShare),
   };
 }
 
@@ -95,7 +105,18 @@ export function sharesToSettle(
   bill: { payerId: string; shares: Array<BillShareBalanceLike & { id: string }> },
   currentUserId: string,
   friendUserId?: string,
+  participantUserId?: string,
 ): string[] {
+  if (participantUserId) {
+    const targetShare = bill.shares.find(
+      (share) =>
+        share.userId === participantUserId &&
+        share.userId !== bill.payerId &&
+        !isPaid(share),
+    );
+    return targetShare ? [targetShare.id] : [];
+  }
+
   if (friendUserId) {
     const pairwise = pairwiseSummaryForBill(bill, currentUserId, friendUserId);
 
@@ -105,25 +126,25 @@ export function sharesToSettle(
 
     if (pairwise.direction === "friend_owes_you") {
       const friendShare = bill.shares.find(
-        (share) => share.userId === friendUserId && share.settledAt == null,
+        (share) => share.userId === friendUserId && !isPaid(share),
       );
       return friendShare ? [friendShare.id] : [];
     }
 
     const yourShare = bill.shares.find(
-      (share) => share.userId === currentUserId && share.settledAt == null,
+      (share) => share.userId === currentUserId && !isPaid(share),
     );
     return yourShare ? [yourShare.id] : [];
   }
 
   if (bill.payerId === currentUserId) {
     return bill.shares
-      .filter((share) => share.userId !== currentUserId && share.settledAt == null)
+      .filter((share) => share.userId !== currentUserId && !isPaid(share))
       .map((share) => share.id);
   }
 
   const ownShare = bill.shares.find(
-    (share) => share.userId === currentUserId && share.settledAt == null,
+    (share) => share.userId === currentUserId && !isPaid(share),
   );
   return ownShare ? [ownShare.id] : [];
 }
@@ -132,7 +153,15 @@ export function sharesToUnsettle(
   bill: { payerId: string; shares: Array<BillShareBalanceLike & { id: string }> },
   currentUserId: string,
   friendUserId?: string,
+  participantUserId?: string,
 ): string[] {
+  if (participantUserId) {
+    const targetShare = bill.shares.find(
+      (share) => share.userId === participantUserId && share.userId !== bill.payerId && isPaid(share),
+    );
+    return targetShare ? [targetShare.id] : [];
+  }
+
   if (friendUserId) {
     const pairwise = pairwiseSummaryForBill(bill, currentUserId, friendUserId);
 
@@ -142,35 +171,41 @@ export function sharesToUnsettle(
 
     if (pairwise.direction === "friend_owes_you") {
       const friendShare = bill.shares.find(
-        (share) => share.userId === friendUserId && share.settledAt != null,
+        (share) => share.userId === friendUserId && isPaid(share),
       );
       return friendShare ? [friendShare.id] : [];
     }
 
     const yourShare = bill.shares.find(
-      (share) => share.userId === currentUserId && share.settledAt != null,
+      (share) => share.userId === currentUserId && isPaid(share),
     );
     return yourShare ? [yourShare.id] : [];
   }
 
   if (bill.payerId === currentUserId) {
     return bill.shares
-      .filter((share) => share.userId !== currentUserId && share.settledAt != null)
+      .filter((share) => share.userId !== currentUserId && isPaid(share))
       .map((share) => share.id);
   }
 
   const ownShare = bill.shares.find(
-    (share) => share.userId === currentUserId && share.settledAt != null,
+    (share) => share.userId === currentUserId && isPaid(share),
   );
   return ownShare ? [ownShare.id] : [];
 }
 
 export function toBillShareBalanceLike(
-  shares: Array<{ user: { id: string }; shareCents: number; settledAt: Date | null }>,
+  shares: Array<{
+    user: { id: string };
+    shareCents: number;
+    settledAt: Date | null;
+    settlementStatus?: BillShareSettlementStatus;
+  }>,
 ): BillShareBalanceLike[] {
   return shares.map((share) => ({
     userId: share.user.id,
     shareCents: share.shareCents,
     settledAt: share.settledAt,
+    settlementStatus: share.settlementStatus,
   }));
 }

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../api/api_exception.dart';
+import '../../models/models.dart';
 import '../../models/receipt.dart';
 import '../../providers/providers.dart';
 import '../../utils/bill_flow_from_bill.dart';
 import '../capture/capture_participants_screen.dart';
+import '../capture/manual_receipt_screen.dart';
 
 class EditBillScreen extends ConsumerStatefulWidget {
   const EditBillScreen({super.key, required this.billId});
@@ -17,6 +19,7 @@ class EditBillScreen extends ConsumerStatefulWidget {
 
 class _EditBillScreenState extends ConsumerState<EditBillScreen> {
   BillFlowState? _flow;
+  Bill? _manualBill;
   String? _error;
   bool _loading = true;
 
@@ -43,6 +46,15 @@ class _EditBillScreenState extends ConsumerState<EditBillScreen> {
         throw Exception('You do not have permission to edit this bill.');
       }
 
+      if (bill.lineItems.isEmpty) {
+        if (!mounted) return;
+        setState(() {
+          _manualBill = bill;
+          _loading = false;
+        });
+        return;
+      }
+
       final flow = billFlowFromBill(bill: bill, currentUser: user);
       if (!mounted) return;
       setState(() {
@@ -67,7 +79,8 @@ class _EditBillScreenState extends ConsumerState<EditBillScreen> {
   @override
   Widget build(BuildContext context) {
     final flow = _flow;
-    if (_loading || flow == null) {
+    final manualBill = _manualBill;
+    if (_loading || (flow == null && manualBill == null)) {
       return Scaffold(
         appBar: AppBar(title: const Text('Edit bill')),
         body: Center(
@@ -87,6 +100,9 @@ class _EditBillScreenState extends ConsumerState<EditBillScreen> {
         ),
       );
     }
-    return CaptureParticipantsScreen(flow: flow);
+    if (manualBill != null) {
+      return ManualReceiptScreen(initialBill: manualBill);
+    }
+    return CaptureParticipantsScreen(flow: flow!);
   }
 }

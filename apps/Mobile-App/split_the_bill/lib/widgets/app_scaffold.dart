@@ -18,6 +18,7 @@ class AppScaffold extends ConsumerWidget {
 
   static const tabRootPaths = {
     '/dashboard',
+    '/dashboard/activity',
     '/bills',
     '/requests',
     '/friends',

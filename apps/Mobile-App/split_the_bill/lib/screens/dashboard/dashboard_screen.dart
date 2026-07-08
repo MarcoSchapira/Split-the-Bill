@@ -8,8 +8,6 @@ import '../../theme/app_colors.dart';
 import '../../utils/format.dart';
 import '../../widgets/common_widgets.dart';
 import '../../widgets/modals/capture_options_sheet.dart';
-import '../activity/activity_screen.dart';
-
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
@@ -70,9 +68,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               IconButton(
                 tooltip: 'Activity',
                 icon: const Icon(Icons.history),
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const ActivityScreen()),
-                ),
+                onPressed: () => context.push('/dashboard/activity'),
               ),
             ],
           ),

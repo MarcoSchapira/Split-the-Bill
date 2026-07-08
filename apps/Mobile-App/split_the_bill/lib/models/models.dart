@@ -414,6 +414,29 @@ class Invitations {
   }
 }
 
+class ActivityBillSummary {
+  const ActivityBillSummary({
+    required this.id,
+    required this.description,
+    required this.incurredAt,
+    required this.totalCents,
+  });
+
+  final String id;
+  final String description;
+  final String incurredAt;
+  final int totalCents;
+
+  factory ActivityBillSummary.fromJson(Map<String, dynamic> json) {
+    return ActivityBillSummary(
+      id: json['id'] as String,
+      description: json['description'] as String,
+      incurredAt: json['incurredAt'] as String,
+      totalCents: json['totalCents'] as int,
+    );
+  }
+}
+
 class ActivityEvent {
   const ActivityEvent({
     required this.id,
@@ -424,6 +447,7 @@ class ActivityEvent {
     this.billId,
     this.friendInvitationId,
     this.friendshipId,
+    this.bill,
   });
 
   final String id;
@@ -434,6 +458,7 @@ class ActivityEvent {
   final String? billId;
   final String? friendInvitationId;
   final String? friendshipId;
+  final ActivityBillSummary? bill;
 
   factory ActivityEvent.fromJson(Map<String, dynamic> json) {
     return ActivityEvent(
@@ -445,6 +470,9 @@ class ActivityEvent {
       billId: json['billId'] as String?,
       friendInvitationId: json['friendInvitationId'] as String?,
       friendshipId: json['friendshipId'] as String?,
+      bill: json['bill'] == null
+          ? null
+          : ActivityBillSummary.fromJson(json['bill'] as Map<String, dynamic>),
     );
   }
 }

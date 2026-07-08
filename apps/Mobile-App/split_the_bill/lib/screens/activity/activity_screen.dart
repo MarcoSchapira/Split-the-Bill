@@ -76,7 +76,6 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen> {
     ref.listen<int>(dataRefreshProvider, (_, __) => _load());
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Activity')),
       body: _isLoading && _events.isEmpty
           ? const LoadingView(message: 'Loading activity...')
           : RefreshIndicator(
@@ -85,7 +84,22 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            const Text('Recent Activity', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                IconButton(
+                  tooltip: 'Back',
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () => context.pop(),
+                ),
+                const Expanded(
+                  child: Text(
+                    'Recent Activity',
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 16),
             if (_error != null) ...[ErrorBanner(message: _error!), const SizedBox(height: 12)],
             if (_events.isEmpty)
@@ -94,6 +108,7 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen> {
               ..._events.map((event) {
                 final deleting = _deletingIds.contains(event.id);
                 return Card(
+                  key: ValueKey(event.id),
                   margin: const EdgeInsets.only(bottom: 8),
                   child: ListTile(
                     title: Text(event.message),

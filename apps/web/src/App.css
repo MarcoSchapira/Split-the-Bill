@@ -2261,6 +2261,14 @@ a.balance-row:hover {
   padding: 16px 0 16px 4px;
 }
 
+.activity-row.is-clickable {
+  cursor: pointer;
+}
+
+.activity-row.is-clickable:hover p {
+  color: var(--accent);
+}
+
 .activity-row + .activity-row {
   border-top: 1px solid var(--border);
 }

@@ -12,6 +12,7 @@ import '../screens/capture/capture_confirm_screen.dart';
 import '../screens/capture/capture_participants_screen.dart';
 import '../screens/capture/capture_split_screen.dart';
 import '../screens/capture/manual_receipt_screen.dart';
+import '../screens/activity/activity_screen.dart';
 import '../screens/dashboard/dashboard_screen.dart';
 import '../screens/friends/friends_screen.dart';
 import '../screens/invitations/invitations_screen.dart';
@@ -49,6 +50,10 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: '/dashboard',
                 builder: (_, __) => const DashboardScreen(),
                 routes: [
+                  GoRoute(
+                    path: 'activity',
+                    builder: (_, __) => const ActivityScreen(),
+                  ),
                   GoRoute(
                     path: 'capture',
                     redirect: (_, state) =>

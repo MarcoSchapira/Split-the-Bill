@@ -16,10 +16,6 @@ BillFlowState billFlowFromBill({
   required Bill bill,
   required User currentUser,
 }) {
-  if (bill.lineItems.isEmpty) {
-    throw const BillFlowBuildError("This bill can't be edited in the new flow.");
-  }
-
   final sortedItems = [...bill.lineItems]..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
 
   final receiptItems = sortedItems

@@ -124,10 +124,21 @@ export type Invitations = {
   sentFriends: FriendInvitation[];
 };
 
+export type ActivityBillSummary = {
+  id: string;
+  description: string;
+  incurredAt: string;
+  totalCents: number;
+};
+
 export type ActivityEvent = {
   id: string;
   type: string;
   message: string;
   createdAt: string;
   actor: User;
+  billId: string | null;
+  friendInvitationId: string | null;
+  friendshipId: string | null;
+  bill: ActivityBillSummary | null;
 };

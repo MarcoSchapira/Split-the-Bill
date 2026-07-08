@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { deleteActivity, listActivity } from '../api/activityApi'
 import { apiErrorMessage } from '../api/client'
 import type { ActivityEvent } from '../api/types'
+import { activityIsNavigable, activityRoute } from '../utils/activityNavigation'
 import { DATA_CHANGED_EVENT } from '../utils/events'
 import { displayName } from '../utils/format'
 
 export function ActivityPage() {
+  const navigate = useNavigate()
   const [activity, setActivity] = useState<ActivityEvent[]>([])
   const [error, setError] = useState<string | null>(null)
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
@@ -46,6 +49,14 @@ export function ActivityPage() {
     }
   }
 
+  function openActivity(event: ActivityEvent) {
+    const route = activityRoute(event)
+    if (!route) {
+      return
+    }
+    navigate(route)
+  }
+
   return (
     <section className="page">
       <header className="page-header">
@@ -64,26 +75,48 @@ export function ActivityPage() {
           </div>
         ) : (
           <div className="activity-list">
-            {activity.map((event) => (
-              <article className="activity-row" key={event.id}>
-                <div className="activity-mark" />
-                <p>
-                  <strong>{displayName(event.actor)}</strong> {event.message}
-                  <span>{new Date(event.createdAt).toLocaleString()}</span>
-                </p>
-                <button
-                  aria-label="Remove activity"
-                  className="activity-delete-button"
-                  disabled={deletingIds.has(event.id)}
-                  onClick={() => void removeActivity(event.id)}
-                  type="button"
+            {activity.map((event) => {
+              const navigable = activityIsNavigable(event)
+              return (
+                <article
+                  className={`activity-row${navigable ? ' is-clickable' : ''}`}
+                  key={event.id}
+                  onClick={navigable ? () => openActivity(event) : undefined}
+                  onKeyDown={
+                    navigable
+                      ? (keyboardEvent) => {
+                          if (keyboardEvent.key === 'Enter' || keyboardEvent.key === ' ') {
+                            keyboardEvent.preventDefault()
+                            openActivity(event)
+                          }
+                        }
+                      : undefined
+                  }
+                  role={navigable ? 'button' : undefined}
+                  tabIndex={navigable ? 0 : undefined}
                 >
-                  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M10 11v7M14 11v7M6 7l1 13a1 1 0 0 0 1 .9h8a1 1 0 0 0 1-.9l1-13" />
-                  </svg>
-                </button>
-              </article>
-            ))}
+                  <div className="activity-mark" />
+                  <p>
+                    <strong>{displayName(event.actor)}</strong> {event.message}
+                    <span>{new Date(event.createdAt).toLocaleString()}</span>
+                  </p>
+                  <button
+                    aria-label="Remove activity"
+                    className="activity-delete-button"
+                    disabled={deletingIds.has(event.id)}
+                    onClick={(clickEvent) => {
+                      clickEvent.stopPropagation()
+                      void removeActivity(event.id)
+                    }}
+                    type="button"
+                  >
+                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M10 11v7M14 11v7M6 7l1 13a1 1 0 0 0 1 .9h8a1 1 0 0 0 1-.9l1-13" />
+                    </svg>
+                  </button>
+                </article>
+              )
+            })}
           </div>
         )}
       </section>

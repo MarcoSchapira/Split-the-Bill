@@ -85,13 +85,7 @@ class _RequestsTabBody extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       children: [
-        Text(
-          owedToYou
-              ? 'Money friends still need to send you.'
-              : 'Payments you still need to make.',
-          style: const TextStyle(color: AppColors.text),
-        ),
-        const SizedBox(height: 32),
+        const SizedBox(height: 48),
         _RequestsEmptyState(
           icon: owedToYou ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded,
           iconColor: owedToYou ? AppColors.accent : AppColors.error,

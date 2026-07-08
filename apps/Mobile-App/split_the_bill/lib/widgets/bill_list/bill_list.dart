@@ -45,6 +45,7 @@ class BillList extends ConsumerWidget {
     return Column(
       children: bills.map((bill) {
         return _BillListItem(
+          key: ValueKey(bill.id),
           bill: bill,
           friend: friend,
           onChanged: onChanged,
@@ -58,6 +59,7 @@ class BillList extends ConsumerWidget {
 
 class _BillListItem extends ConsumerStatefulWidget {
   const _BillListItem({
+    super.key,
     required this.bill,
     required this.onChanged,
     this.friend,

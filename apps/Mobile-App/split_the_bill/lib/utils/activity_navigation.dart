@@ -4,6 +4,7 @@ const _billActivityTypes = {
   'BILL_CREATED',
   'BILL_UPDATED',
   'BILL_SETTLED',
+  'BILL_UNSETTLED',
   'BILL_DELETED',
 };
 

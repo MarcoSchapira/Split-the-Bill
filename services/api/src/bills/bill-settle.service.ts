@@ -174,6 +174,7 @@ export async function settleFriend(
     await createActivity(tx, {
       actorId: actingUserId,
       recipientIds: [friendUserId],
+      friendshipId,
       type: "FRIEND_SETTLED",
       message: "settled up all outstanding bills.",
     });

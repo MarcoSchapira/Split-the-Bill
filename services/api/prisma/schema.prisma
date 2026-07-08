@@ -69,7 +69,8 @@ model Friendship {
 
   userA User   @relation("FriendshipUserA", fields: [userAId], references: [id], onDelete: Cascade)
   userB User   @relation("FriendshipUserB", fields: [userBId], references: [id], onDelete: Cascade)
-  bills Bill[]
+  bills      Bill[]
+  activities ActivityEvent[]
 
   @@unique([userAId, userBId])
   @@index([userAId])
@@ -198,15 +199,18 @@ model ActivityEvent {
   actorId            String   @map("actor_id")
   billId             String?  @map("bill_id")
   friendInvitationId String?  @map("friend_invitation_id")
+  friendshipId       String?  @map("friendship_id")
   createdAt          DateTime @default(now()) @map("created_at")
 
   actor            User                @relation("ActivityActor", fields: [actorId], references: [id], onDelete: Cascade)
   bill             Bill?               @relation(fields: [billId], references: [id], onDelete: Cascade)
   friendInvitation FriendInvitation?   @relation(fields: [friendInvitationId], references: [id], onDelete: Cascade)
+  friendship       Friendship?         @relation(fields: [friendshipId], references: [id], onDelete: SetNull)
   recipients       ActivityRecipient[]
 
   @@index([actorId])
   @@index([createdAt])
+  @@index([friendshipId])
   @@map("activity_events")
 }
 

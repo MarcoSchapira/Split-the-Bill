@@ -103,6 +103,9 @@ model Bill {
   id            String    @id @default(uuid())
   description   String
   source        String    @default("manual")
+  isOneMainTotal      Boolean   @default(true) @map("is_one_main_total")
+  isSplitWithFriends  Boolean   @default(false) @map("is_split_with_friends")
+  isSplitByFinalAmounts Boolean @default(true) @map("is_split_by_final_amounts")
   incurredAt    DateTime  @map("incurred_at")
   totalCents    Int       @map("total_cents")
   storeName     String?   @map("store_name")

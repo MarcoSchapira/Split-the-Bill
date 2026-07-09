@@ -490,6 +490,9 @@ describe("bill ledger and dashboard API", () => {
     expect(created.status).toBe(201);
     expect(created.body.bill.source).toBe("capture");
     expect(created.body.bill.otherFeesCents).toBe(100);
+    expect(created.body.bill.isOneMainTotal).toBe(false);
+    expect(created.body.bill.isSplitWithFriends).toBe(true);
+    expect(created.body.bill.isSplitByFinalAmounts).toBe(false);
     expect(created.body.bill.lineItems).toHaveLength(2);
     expect(detail.status).toBe(200);
     expect(detail.body.bill.storeName).toBe("Corner Store");
@@ -540,6 +543,9 @@ describe("bill ledger and dashboard API", () => {
     expect(created.body.bill.shares).toHaveLength(1);
     expect(created.body.bill.shares[0].user.id).toBe(user.user.id);
     expect(created.body.bill.shares[0].shareCents).toBe(2450);
+    expect(created.body.bill.isOneMainTotal).toBe(true);
+    expect(created.body.bill.isSplitWithFriends).toBe(false);
+    expect(created.body.bill.isSplitByFinalAmounts).toBe(true);
     expect(created.body.bill.lineItems).toHaveLength(0);
     expect(created.body.bill.userSummary.direction).toBe("none");
   });
@@ -568,6 +574,75 @@ describe("bill ledger and dashboard API", () => {
         .map((share: { shareCents: number }) => share.shareCents)
         .sort(),
     ).toEqual([1000, 2000]);
+    expect(created.body.bill.isOneMainTotal).toBe(true);
+    expect(created.body.bill.isSplitWithFriends).toBe(true);
+    expect(created.body.bill.isSplitByFinalAmounts).toBe(true);
+  });
+
+  it("accepts line-item details split by final amounts and rejects invalid one-main-total assignment mode", async () => {
+    const payer = await register("mode-payer@example.com");
+    const friend = await register("mode-friend@example.com");
+    await becomeFriends(payer, friend);
+
+    const valid = await request(app).post("/bills").set(bearer(payer.token)).send({
+      description: "Line items, final amounts",
+      totalCents: 3000,
+      source: "manual",
+      participantIds: [payer.user.id, friend.user.id],
+      payerId: payer.user.id,
+      isOneMainTotal: false,
+      isSplitWithFriends: true,
+      isSplitByFinalAmounts: true,
+      lineItems: [
+        {
+          name: "Item A",
+          quantity: 1,
+          unitPriceCents: 1000,
+          totalPriceCents: 1000,
+          assignedUserIds: [],
+        },
+        {
+          name: "Item B",
+          quantity: 1,
+          unitPriceCents: 2000,
+          totalPriceCents: 2000,
+          assignedUserIds: [],
+        },
+      ],
+      shares: [
+        { userId: payer.user.id, shareCents: 1200 },
+        { userId: friend.user.id, shareCents: 1800 },
+      ],
+    });
+
+    const invalid = await request(app).post("/bills").set(bearer(payer.token)).send({
+      description: "Invalid one-main-total assignment mode",
+      totalCents: 1000,
+      source: "manual",
+      participantIds: [payer.user.id, friend.user.id],
+      payerId: payer.user.id,
+      isOneMainTotal: true,
+      isSplitWithFriends: true,
+      isSplitByFinalAmounts: false,
+      lineItems: [
+        {
+          name: "Assigned line item",
+          quantity: 1,
+          unitPriceCents: 1000,
+          totalPriceCents: 1000,
+          assignedUserIds: [friend.user.id],
+        },
+      ],
+    });
+
+    expect(valid.status).toBe(201);
+    expect(valid.body.bill.isOneMainTotal).toBe(false);
+    expect(valid.body.bill.isSplitWithFriends).toBe(true);
+    expect(valid.body.bill.isSplitByFinalAmounts).toBe(true);
+    expect(valid.body.bill.lineItems).toHaveLength(2);
+
+    expect(invalid.status).toBe(400);
+    expect(invalid.body.error.code).toBe("INVALID_SPLIT_MODE");
   });
 
   it("lets a user dismiss activity from their feed", async () => {

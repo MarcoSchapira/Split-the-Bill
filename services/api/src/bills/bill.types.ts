@@ -34,7 +34,7 @@ const billLineItemInputSchema = z.object({
   quantity: z.number().positive().max(999_999),
   unitPriceCents: z.number().int().max(100_000_000),
   totalPriceCents: z.number().int().max(100_000_000),
-  assignedUserIds: z.array(z.string().uuid()).min(1),
+  assignedUserIds: z.array(z.string().uuid()).optional().default([]),
 });
 
 export const billInputSchema = z
@@ -44,6 +44,9 @@ export const billInputSchema = z
     totalCents: z.number().int().positive().max(100_000_000),
     payerId: z.string().uuid().optional(),
     source: z.enum(["manual", "capture"]).optional().default("manual"),
+    isOneMainTotal: z.boolean().optional(),
+    isSplitWithFriends: z.boolean().optional(),
+    isSplitByFinalAmounts: z.boolean().optional(),
     participantIds: z.array(z.string().uuid()).min(1).optional(),
     targetType: z.enum(["friendship"]).optional(),
     targetId: z.string().uuid().optional(),

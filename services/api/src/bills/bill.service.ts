@@ -173,13 +173,87 @@ function resolvePayerId(input: BillInput, actingUserId: string, participantIds: 
   return payerId;
 }
 
-function normalizeLineItems(input: BillInput, participantIds: string[]) {
+type ResolvedBillModeFlags = {
+  isOneMainTotal: boolean;
+  isSplitWithFriends: boolean;
+  isSplitByFinalAmounts: boolean;
+};
+
+function resolveBillModeFlags(input: BillInput, participantIds: string[]): ResolvedBillModeFlags {
+  const hasLineItems = input.lineItems.length > 0;
+  const hasLineItemAssignments = input.lineItems.some(
+    (item) => item.assignedUserIds.length > 0,
+  );
+  const isOneMainTotal = input.isOneMainTotal ?? !hasLineItems;
+  const isSplitWithFriends = input.isSplitWithFriends ?? participantIds.length > 1;
+  const isSplitByFinalAmounts = input.isSplitByFinalAmounts ?? !hasLineItemAssignments;
+
+  if (isSplitWithFriends && participantIds.length <= 1) {
+    throw new ApiError(
+      400,
+      "INVALID_SPLIT_MODE",
+      "Split-with-friends bills must include more than one participant",
+    );
+  }
+
+  if (!isSplitWithFriends && participantIds.length > 1) {
+    throw new ApiError(
+      400,
+      "INVALID_SPLIT_MODE",
+      "Solo bills cannot include multiple participants",
+    );
+  }
+
+  if (isOneMainTotal && !isSplitByFinalAmounts) {
+    throw new ApiError(
+      400,
+      "INVALID_SPLIT_MODE",
+      "One-main-total bills cannot split by line-item assignments",
+    );
+  }
+
+  if (!isSplitByFinalAmounts && !hasLineItems) {
+    throw new ApiError(
+      400,
+      "INVALID_SPLIT_MODE",
+      "Line-item assignment split requires line items",
+    );
+  }
+
+  if (isOneMainTotal && hasLineItemAssignments) {
+    throw new ApiError(
+      400,
+      "INVALID_SPLIT_MODE",
+      "One-main-total bills cannot include line-item assignments",
+    );
+  }
+
+  return {
+    isOneMainTotal,
+    isSplitWithFriends,
+    isSplitByFinalAmounts,
+  };
+}
+
+function normalizeLineItems(
+  input: BillInput,
+  participantIds: string[],
+  modeFlags: ResolvedBillModeFlags,
+) {
   const allowedParticipantIds = new Set(participantIds);
 
   return input.lineItems.map((item, index) => {
     const assignedUserIds = sortedParticipantKey(item.assignedUserIds);
 
-    if (assignedUserIds.length === 0) {
+    if (modeFlags.isOneMainTotal && assignedUserIds.length > 0) {
+      throw new ApiError(
+        400,
+        "INVALID_LINE_ITEM_ASSIGNMENTS",
+        "One-main-total bills cannot include line-item assignments",
+      );
+    }
+
+    if (!modeFlags.isSplitByFinalAmounts && assignedUserIds.length === 0) {
       throw new ApiError(400, "INVALID_LINE_ITEM_ASSIGNMENTS", "Each item must have assignees");
     }
 
@@ -228,10 +302,11 @@ export async function createBill(tx: PrismaTransaction, actingUserId: string, in
   const participantIds = billContext.participantIds;
   await assertParticipantsAllowed(tx, actingUserId, participantIds);
   const payerId = resolvePayerId(input, actingUserId, participantIds);
+  const modeFlags = resolveBillModeFlags(input, participantIds);
   const incurredAt = defaultIncurredAt(input);
   const shares = buildSharesFromInput(input.totalCents, participantIds, input.shares);
   const recipientIds = shares.map((share) => share.userId);
-  const lineItems = normalizeLineItems(input, participantIds);
+  const lineItems = normalizeLineItems(input, participantIds, modeFlags);
 
   const bill = await tx.bill.create({
     data: {
@@ -239,6 +314,9 @@ export async function createBill(tx: PrismaTransaction, actingUserId: string, in
       incurredAt,
       totalCents: input.totalCents,
       source: input.source,
+      isOneMainTotal: modeFlags.isOneMainTotal,
+      isSplitWithFriends: modeFlags.isSplitWithFriends,
+      isSplitByFinalAmounts: modeFlags.isSplitByFinalAmounts,
       storeName: input.storeName,
       storeAddress: input.storeAddress,
       receiptNumber: input.receiptNumber,
@@ -316,13 +394,14 @@ export async function updateBill(
   const participantIds = billContext.participantIds;
   await assertParticipantsAllowed(tx, actingUserId, participantIds);
   const payerId = resolvePayerId(input, actingUserId, participantIds);
+  const modeFlags = resolveBillModeFlags(input, participantIds);
   const incurredAt = defaultIncurredAt(input);
   const shares = buildSharesFromInput(
     input.totalCents,
     participantIds,
     input.shares,
   );
-  const lineItems = normalizeLineItems(input, participantIds);
+  const lineItems = normalizeLineItems(input, participantIds, modeFlags);
   const recipientIds = [
     ...new Set([...bill.shares.map((share) => share.user.id), ...shares.map((share) => share.userId)]),
   ];
@@ -344,6 +423,9 @@ export async function updateBill(
       incurredAt,
       totalCents: input.totalCents,
       source: input.source,
+      isOneMainTotal: modeFlags.isOneMainTotal,
+      isSplitWithFriends: modeFlags.isSplitWithFriends,
+      isSplitByFinalAmounts: modeFlags.isSplitByFinalAmounts,
       storeName: input.storeName,
       storeAddress: input.storeAddress,
       receiptNumber: input.receiptNumber,

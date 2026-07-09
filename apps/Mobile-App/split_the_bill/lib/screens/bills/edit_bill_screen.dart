@@ -46,7 +46,7 @@ class _EditBillScreenState extends ConsumerState<EditBillScreen> {
         throw Exception('You do not have permission to edit this bill.');
       }
 
-      if (bill.lineItems.isEmpty) {
+      if (bill.lineItems.isEmpty || bill.source == BillSource.manual) {
         if (!mounted) return;
         setState(() {
           _manualBill = bill;

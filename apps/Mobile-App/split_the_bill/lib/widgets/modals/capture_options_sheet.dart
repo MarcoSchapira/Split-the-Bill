@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import '../../models/receipt.dart';
 import '../../providers/providers.dart';
 import '../../theme/app_colors.dart';
 
@@ -45,13 +44,7 @@ class _CaptureOptionsSheetState extends ConsumerState<CaptureOptionsSheet> {
       final bytes = await image.readAsBytes();
       if (user == null) return;
 
-      final flow = BillFlowState(
-        imageBytes: bytes,
-        currentUser: user,
-        payerId: user.id,
-      );
-
-      router.push('/dashboard/capture/participants', extra: flow);
+      router.push('/dashboard/capture/manual', extra: bytes);
     } catch (_) {
       messenger.showSnackBar(
         SnackBar(

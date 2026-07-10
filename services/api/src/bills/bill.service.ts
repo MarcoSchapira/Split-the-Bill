@@ -6,18 +6,11 @@ import { buildSharesFromInput } from "./bill-split";
 import { toBillShareBalanceLike, userSummaryForBill } from "./bill-balance";
 import { pairwiseSummaryForBill } from "./bill-pairwise";
 import type { BillInput, BillListQuery } from "./bill.types";
-import { assertParticipantsAllowed, sortedParticipantKey } from "./participants";
+import { assertParticipantsAllowed, billsSharedBetween, sortedParticipantKey } from "./participants";
 
 export const billInclude = {
   payer: { select: safeUserSelect },
   creator: { select: safeUserSelect },
-  friendship: {
-    select: {
-      id: true,
-      userA: { select: safeUserSelect },
-      userB: { select: safeUserSelect },
-    },
-  },
   shares: {
     orderBy: { userId: "asc" as const },
     select: {
@@ -103,59 +96,20 @@ function assertPayerIsParticipant(payerId: string, participantIds: string[]) {
   }
 }
 
-async function resolveLegacyTargetParticipants(
-  tx: PrismaTransaction,
-  actingUserId: string,
-  targetType: "friendship",
-  targetId: string,
-) {
-  const friendship = await tx.friendship.findUnique({ where: { id: targetId } });
-  if (
-    !friendship ||
-    (friendship.userAId !== actingUserId && friendship.userBId !== actingUserId)
-  ) {
-    throw new ApiError(403, "FRIENDSHIP_ACCESS_FORBIDDEN", "You are not part of this friendship");
-  }
-  return [friendship.userAId, friendship.userBId];
-}
-
-async function determineBillContext(
-  tx: PrismaTransaction,
+function resolveParticipantIds(
   actingUserId: string,
   input: BillInput,
   existingParticipantIds?: string[],
 ) {
   if (input.participantIds && input.participantIds.length > 0) {
-    return {
-      participantIds: sortedParticipantKey(input.participantIds),
-      targetType: null as "friendship" | null,
-      targetId: null as string | null,
-    };
-  }
-
-  if (input.targetType && input.targetId) {
-    return {
-      participantIds: sortedParticipantKey(
-        await resolveLegacyTargetParticipants(tx, actingUserId, input.targetType, input.targetId),
-      ),
-      targetType: input.targetType,
-      targetId: input.targetId,
-    };
+    return sortedParticipantKey(input.participantIds);
   }
 
   if (existingParticipantIds && existingParticipantIds.length > 0) {
-    return {
-      participantIds: sortedParticipantKey(existingParticipantIds),
-      targetType: null as "friendship" | null,
-      targetId: null as string | null,
-    };
+    return sortedParticipantKey(existingParticipantIds);
   }
 
-  return {
-    participantIds: sortedParticipantKey([actingUserId]),
-    targetType: null as "friendship" | null,
-    targetId: null as string | null,
-  };
+  return sortedParticipantKey([actingUserId]);
 }
 
 function defaultIncurredAt(input: BillInput) {
@@ -298,8 +252,7 @@ export async function findVisibleBill(tx: PrismaTransaction, userId: string, bil
 }
 
 export async function createBill(tx: PrismaTransaction, actingUserId: string, input: BillInput) {
-  const billContext = await determineBillContext(tx, actingUserId, input);
-  const participantIds = billContext.participantIds;
+  const participantIds = resolveParticipantIds(actingUserId, input);
   await assertParticipantsAllowed(tx, actingUserId, participantIds);
   const payerId = resolvePayerId(input, actingUserId, participantIds);
   const modeFlags = resolveBillModeFlags(input, participantIds);
@@ -329,9 +282,6 @@ export async function createBill(tx: PrismaTransaction, actingUserId: string, in
       otherFeesCents: input.otherFeesCents,
       taxCents: input.taxCents,
       tipCents: input.tipCents,
-      targetType: billContext.targetType,
-      friendshipId:
-        billContext.targetType === "friendship" ? billContext.targetId : null,
       payerId,
       creatorId: actingUserId,
       shares: { create: shares },
@@ -354,21 +304,18 @@ export async function listBills(
   userId: string,
   query: BillListQuery = {},
 ) {
-  const whereTarget =
-    query.targetType && query.targetId
-      ? { friendshipId: query.targetId }
-      : {};
-
   const whereParticipant = query.participantId
     ? { shares: { some: { userId: query.participantId } } }
     : {};
 
+  const whereFriend = query.friendUserId
+    ? billsSharedBetween(userId, query.friendUserId)
+    : { deletedAt: null, shares: { some: { userId } } };
+
   const bills = await tx.bill.findMany({
     where: {
-      deletedAt: null,
-      ...whereTarget,
+      ...whereFriend,
       ...whereParticipant,
-      shares: { some: { userId } },
     },
     orderBy: [{ incurredAt: "desc" }, { createdAt: "desc" }],
     include: billInclude,
@@ -390,8 +337,7 @@ export async function updateBill(
 ) {
   const bill = await findVisibleBill(tx, actingUserId, billId);
   const existingParticipantIds = bill.shares.map((share) => share.user.id);
-  const billContext = await determineBillContext(tx, actingUserId, input, existingParticipantIds);
-  const participantIds = billContext.participantIds;
+  const participantIds = resolveParticipantIds(actingUserId, input, existingParticipantIds);
   await assertParticipantsAllowed(tx, actingUserId, participantIds);
   const payerId = resolvePayerId(input, actingUserId, participantIds);
   const modeFlags = resolveBillModeFlags(input, participantIds);
@@ -438,10 +384,7 @@ export async function updateBill(
       otherFeesCents: input.otherFeesCents,
       taxCents: input.taxCents,
       tipCents: input.tipCents,
-      targetType: billContext.targetType,
       payerId,
-      friendshipId:
-        billContext.targetType === "friendship" ? billContext.targetId : null,
       shares: {
         deleteMany: {},
         create: shares.map((share) => ({

@@ -69,8 +69,6 @@ model Friendship {
 
   userA User   @relation("FriendshipUserA", fields: [userAId], references: [id], onDelete: Cascade)
   userB User   @relation("FriendshipUserB", fields: [userBId], references: [id], onDelete: Cascade)
-  bills      Bill[]
-  activities ActivityEvent[]
 
   @@unique([userAId, userBId])
   @@index([userAId])
@@ -120,22 +118,18 @@ model Bill {
   otherFeesCents Int?     @map("other_fees_cents")
   taxCents      Int?      @map("tax_cents")
   tipCents      Int?      @map("tip_cents")
-  targetType    String?   @map("target_type")
-  friendshipId  String?   @map("friendship_id")
   payerId       String    @map("payer_id")
   creatorId     String    @map("creator_id")
   createdAt     DateTime  @default(now()) @map("created_at")
   lastEditedAt  DateTime  @updatedAt @map("last_edited_at")
   deletedAt     DateTime? @map("deleted_at")
 
-  friendship Friendship?     @relation(fields: [friendshipId], references: [id], onDelete: SetNull)
   payer      User            @relation("BillPayer", fields: [payerId], references: [id], onDelete: Restrict)
   creator    User            @relation("BillCreator", fields: [creatorId], references: [id], onDelete: Restrict)
   shares     BillShare[]
   lineItems  BillLineItem[]
   activities ActivityEvent[]
 
-  @@index([friendshipId])
   @@index([payerId])
   @@index([creatorId])
   @@index([deletedAt])
@@ -202,18 +196,15 @@ model ActivityEvent {
   actorId            String   @map("actor_id")
   billId             String?  @map("bill_id")
   friendInvitationId String?  @map("friend_invitation_id")
-  friendshipId       String?  @map("friendship_id")
   createdAt          DateTime @default(now()) @map("created_at")
 
   actor            User                @relation("ActivityActor", fields: [actorId], references: [id], onDelete: Cascade)
   bill             Bill?               @relation(fields: [billId], references: [id], onDelete: Cascade)
   friendInvitation FriendInvitation?   @relation(fields: [friendInvitationId], references: [id], onDelete: Cascade)
-  friendship       Friendship?         @relation(fields: [friendshipId], references: [id], onDelete: SetNull)
   recipients       ActivityRecipient[]
 
   @@index([actorId])
   @@index([createdAt])
-  @@index([friendshipId])
   @@map("activity_events")
 }
 

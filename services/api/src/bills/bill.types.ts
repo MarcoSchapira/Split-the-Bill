@@ -48,8 +48,6 @@ export const billInputSchema = z
     isSplitWithFriends: z.boolean().optional(),
     isSplitByFinalAmounts: z.boolean().optional(),
     participantIds: z.array(z.string().uuid()).min(1).optional(),
-    targetType: z.enum(["friendship"]).optional(),
-    targetId: z.string().uuid().optional(),
     storeName: nullableStringSchema,
     storeAddress: nullableStringSchema,
     receiptNumber: nullableStringSchema,
@@ -65,22 +63,12 @@ export const billInputSchema = z
     lineItems: z.array(billLineItemInputSchema).optional().default([]),
     shares: z.array(billShareInputSchema).min(1).optional(),
   })
-  .refine(
-    ({ targetType, targetId }) => Boolean(targetType) === Boolean(targetId),
-    "targetType and targetId must be supplied together",
-  )
   .strict();
 
-export const billListQuerySchema = z
-  .object({
-    targetType: z.enum(["friendship"]).optional(),
-    targetId: z.string().uuid().optional(),
-    participantId: z.string().uuid().optional(),
-  })
-  .refine(
-    ({ targetId, targetType }) => Boolean(targetId) === Boolean(targetType),
-    "targetType and targetId must be supplied together",
-  );
+export const billListQuerySchema = z.object({
+  participantId: z.string().uuid().optional(),
+  friendUserId: z.string().uuid().optional(),
+});
 
 export const billSettleQuerySchema = z
   .object({

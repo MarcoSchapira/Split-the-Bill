@@ -7,6 +7,7 @@ import {
   findVisibleBill,
   presentBill,
 } from "./bill.service";
+import { billsSharedBetween } from "./participants";
 
 export async function settleBill(
   tx: PrismaTransaction,
@@ -135,11 +136,7 @@ export async function settleFriend(
   let settledCount = 0;
 
   const billsWithFriend = await tx.bill.findMany({
-    where: {
-      deletedAt: null,
-      shares: { some: { userId: actingUserId } },
-      AND: [{ shares: { some: { userId: friendUserId } } }],
-    },
+    where: billsSharedBetween(actingUserId, friendUserId),
     include: billInclude,
   });
 
@@ -174,7 +171,6 @@ export async function settleFriend(
     await createActivity(tx, {
       actorId: actingUserId,
       recipientIds: [friendUserId],
-      friendshipId,
       type: "FRIEND_SETTLED",
       message: "settled up all outstanding bills.",
     });

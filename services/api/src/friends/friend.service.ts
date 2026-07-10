@@ -1,6 +1,7 @@
 import type { PrismaTransaction } from "../db/userContext";
 import { safeUserSelect } from "../auth/auth.types";
 import { billInclude, presentBill } from "../bills/bill.service";
+import { billsSharedBetween } from "../bills/participants";
 import { ApiError } from "../http/errors";
 
 function friendForUser<T extends { userA: unknown; userB: unknown; userAId: string }>(
@@ -46,19 +47,7 @@ export async function getFriend(tx: PrismaTransaction, userId: string, friendshi
     friendship.userAId === userId ? friendship.userBId : friendship.userAId;
   const bills = (
     await tx.bill.findMany({
-      where: {
-        deletedAt: null,
-        shares: {
-          some: { userId },
-        },
-        AND: [
-          {
-            shares: {
-              some: { userId: friendUserId },
-            },
-          },
-        ],
-      },
+      where: billsSharedBetween(userId, friendUserId),
       orderBy: [{ incurredAt: "desc" }, { createdAt: "desc" }],
       include: billInclude,
     })

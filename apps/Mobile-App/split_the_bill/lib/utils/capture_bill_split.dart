@@ -105,36 +105,3 @@ CaptureShareResult computeCaptureShares({
 
   return CaptureShareResult(shares: shares, totalCents: totalCents);
 }
-
-List<({ReceiptItem item, int shareCents})> itemsForUser({
-  required List<ReceiptItem> items,
-  required Map<int, Set<String>> assignments,
-  required String targetUserId,
-}) {
-  final result = <({ReceiptItem item, int shareCents})>[];
-  for (var index = 0; index < items.length; index++) {
-    final assignees = assignments[index] ?? {};
-    if (!assignees.contains(targetUserId)) continue;
-
-    final item = items[index];
-    final perAssignee = item.totalPriceCents ~/ assignees.length;
-    final remainder = item.totalPriceCents % assignees.length;
-    final sorted = assignees.toList()..sort();
-    final position = sorted.indexOf(targetUserId);
-    final extra = position < remainder ? 1 : 0;
-    result.add((item: item, shareCents: perAssignee + extra));
-  }
-  return result;
-}
-
-int userItemSubtotalCents({
-  required List<ReceiptItem> items,
-  required Map<int, Set<String>> assignments,
-  required String targetUserId,
-}) {
-  return itemsForUser(
-    items: items,
-    assignments: assignments,
-    targetUserId: targetUserId,
-  ).fold<int>(0, (sum, entry) => sum + entry.shareCents);
-}

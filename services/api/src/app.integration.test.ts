@@ -339,8 +339,7 @@ describe("friend invitation API", () => {
         description: "Coffee",
         incurredAt: "2026-05-25",
         totalCents: 800,
-        targetType: "friendship",
-        targetId: "00000000-0000-0000-0000-000000000000",
+        participantIds: [sender.user.id, recipient.user.id],
         payerId: sender.user.id,
       });
     const received = await request(app).get("/invitations").set(bearer(recipient.token));
@@ -406,8 +405,7 @@ describe("bill ledger and dashboard API", () => {
       description: "Odd total",
       incurredAt: "2026-05-25",
       totalCents: 1001,
-      targetType: "friendship",
-      targetId: friendshipId,
+      participantIds: [first.user.id, second.user.id],
       payerId: first.user.id,
     });
     const dashboardAfterCreate = await request(app)
@@ -420,8 +418,7 @@ describe("bill ledger and dashboard API", () => {
         description: "Corrected total",
         incurredAt: "2026-05-25",
         totalCents: 1000,
-        targetType: "friendship",
-        targetId: friendshipId,
+        participantIds: [first.user.id, second.user.id],
         payerId: second.user.id,
       });
     const dashboardAfterUpdate = await request(app)
@@ -442,6 +439,45 @@ describe("bill ledger and dashboard API", () => {
     expect(dashboardAfterUpdate.body.dashboard.totalYouOweCents).toBe(500);
     expect(deleted.status).toBe(204);
     expect(dashboardAfterDelete.body.dashboard.balances[0].balanceCents).toBe(0);
+  });
+
+  it("lists bills shared with a specific friend via friendUserId", async () => {
+    const first = await register("list-friend-first@example.com");
+    const second = await register("list-friend-second@example.com");
+    const third = await register("list-friend-third@example.com");
+    await becomeFriends(first, second);
+    await becomeFriends(first, third);
+
+    await request(app).post("/bills").set(bearer(first.token)).send({
+      description: "With second",
+      incurredAt: "2026-05-25",
+      totalCents: 1000,
+      participantIds: [first.user.id, second.user.id],
+      payerId: first.user.id,
+    });
+    await request(app).post("/bills").set(bearer(first.token)).send({
+      description: "With third",
+      incurredAt: "2026-05-25",
+      totalCents: 2000,
+      participantIds: [first.user.id, third.user.id],
+      payerId: first.user.id,
+    });
+
+    const sharedWithSecond = await request(app)
+      .get("/bills")
+      .query({ friendUserId: second.user.id })
+      .set(bearer(first.token));
+    const sharedWithThird = await request(app)
+      .get("/bills")
+      .query({ friendUserId: third.user.id })
+      .set(bearer(first.token));
+
+    expect(sharedWithSecond.status).toBe(200);
+    expect(sharedWithSecond.body.bills).toHaveLength(1);
+    expect(sharedWithSecond.body.bills[0].description).toBe("With second");
+    expect(sharedWithThird.status).toBe(200);
+    expect(sharedWithThird.body.bills).toHaveLength(1);
+    expect(sharedWithThird.body.bills[0].description).toBe("With third");
   });
 
   it("stores receipt metadata and line items with participant-based payloads", async () => {
@@ -508,8 +544,7 @@ describe("bill ledger and dashboard API", () => {
       description: "Custom dinner",
       incurredAt: "2026-05-25",
       totalCents: 10_000,
-      targetType: "friendship",
-      targetId: friendshipId,
+      participantIds: [payer.user.id, friend.user.id],
       payerId: payer.user.id,
       shares: [
         { userId: payer.user.id, shareCents: 7000 },
@@ -654,8 +689,7 @@ describe("bill ledger and dashboard API", () => {
       description: "Lunch",
       incurredAt: "2026-05-25",
       totalCents: 4000,
-      targetType: "friendship",
-      targetId: friendshipId,
+      participantIds: [payer.user.id, friend.user.id],
       payerId: payer.user.id,
     });
 
@@ -683,8 +717,7 @@ describe("bill ledger and dashboard API", () => {
       description: "Mismatch",
       incurredAt: "2026-05-25",
       totalCents: 1000,
-      targetType: "friendship",
-      targetId: friendshipId,
+      participantIds: [first.user.id, second.user.id],
       payerId: first.user.id,
       shares: [
         { userId: first.user.id, shareCents: 400 },
@@ -695,8 +728,7 @@ describe("bill ledger and dashboard API", () => {
       description: "Payer excluded",
       incurredAt: "2026-05-25",
       totalCents: 1000,
-      targetType: "friendship",
-      targetId: friendshipId,
+      participantIds: [first.user.id, second.user.id],
       payerId: first.user.id,
       shares: [{ userId: second.user.id, shareCents: 1000 }],
     });
@@ -716,8 +748,7 @@ describe("bill ledger and dashboard API", () => {
       description: "Invalid payer",
       incurredAt: "2026-05-25",
       totalCents: 1000,
-      targetType: "friendship",
-      targetId: friendshipId,
+      participantIds: [first.user.id, second.user.id],
       payerId: outsider.user.id,
     });
 
@@ -749,8 +780,7 @@ describe("bill settle API", () => {
       description: "Dinner",
       incurredAt: "2026-05-25",
       totalCents: 1000,
-      targetType: "friendship",
-      targetId: friendshipId,
+      participantIds: [payer.user.id, friend.user.id],
       payerId: payer.user.id,
     });
 
@@ -779,8 +809,7 @@ describe("bill settle API", () => {
       description: "Brunch",
       incurredAt: "2026-05-25",
       totalCents: 1000,
-      targetType: "friendship",
-      targetId: friendshipId,
+      participantIds: [payer.user.id, friend.user.id],
       payerId: payer.user.id,
     });
 
@@ -811,16 +840,14 @@ describe("bill settle API", () => {
       description: "Lunch",
       incurredAt: "2026-05-25",
       totalCents: 2000,
-      targetType: "friendship",
-      targetId: friendshipId,
+      participantIds: [you.user.id, friend.user.id],
       payerId: you.user.id,
     });
     const taxiBill = await request(app).post("/bills").set(bearer(friend.token)).send({
       description: "Taxi",
       incurredAt: "2026-05-25",
       totalCents: 1000,
-      targetType: "friendship",
-      targetId: friendshipId,
+      participantIds: [friend.user.id, you.user.id],
       payerId: friend.user.id,
     });
 
@@ -960,8 +987,7 @@ describe("bill settle API", () => {
       description: "Snacks",
       incurredAt: "2026-05-25",
       totalCents: 1000,
-      targetType: "friendship",
-      targetId: friendshipId,
+      participantIds: [payer.user.id, friend.user.id],
       payerId: payer.user.id,
     });
 
@@ -976,8 +1002,7 @@ describe("bill settle API", () => {
         description: "Snacks updated",
         incurredAt: "2026-05-25",
         totalCents: 1200,
-        targetType: "friendship",
-        targetId: friendshipId,
+        participantIds: [payer.user.id, friend.user.id],
         payerId: payer.user.id,
       });
 

@@ -7,10 +7,6 @@ import '../screens/auth/login_screen.dart';
 import '../screens/auth/register_screen.dart';
 import '../screens/bills/bills_screen.dart';
 import '../screens/bills/edit_bill_screen.dart';
-import '../models/receipt.dart';
-import '../screens/capture/capture_confirm_screen.dart';
-import '../screens/capture/capture_participants_screen.dart';
-import '../screens/capture/capture_split_screen.dart';
 import '../screens/capture/manual_receipt_screen.dart';
 import '../screens/activity/activity_screen.dart';
 import '../screens/dashboard/dashboard_screen.dart';
@@ -28,7 +24,8 @@ final routerProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final isLoading = auth.isLoading;
       final isAuthenticated = auth.isAuthenticated;
-      final isAuthRoute = state.matchedLocation == '/login' ||
+      final isAuthRoute =
+          state.matchedLocation == '/login' ||
           state.matchedLocation == '/register';
 
       if (isLoading) return null;
@@ -42,7 +39,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/register', builder: (_, __) => const RegisterScreen()),
       GoRoute(path: '/settings', builder: (_, __) => const SettingsScreen()),
       StatefulShellRoute.indexedStack(
-        builder: (_, __, navigationShell) => AppScaffold(navigationShell: navigationShell),
+        builder: (_, __, navigationShell) =>
+            AppScaffold(navigationShell: navigationShell),
         branches: [
           StatefulShellBranch(
             routes: [
@@ -57,28 +55,14 @@ final routerProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: 'capture',
                     redirect: (_, state) =>
-                        state.uri.path == '/dashboard/capture' ? '/dashboard' : null,
+                        state.uri.path == '/dashboard/capture'
+                        ? '/dashboard'
+                        : null,
                     routes: [
                       GoRoute(
                         path: 'manual',
-                        builder: (_, __) => const ManualReceiptScreen(),
-                      ),
-                      GoRoute(
-                        path: 'participants',
-                        builder: (_, state) => CaptureParticipantsScreen(
-                          flow: state.extra! as BillFlowState,
-                        ),
-                      ),
-                      GoRoute(
-                        path: 'split',
-                        builder: (_, state) => CaptureSplitScreen(
-                          flow: state.extra! as BillFlowState,
-                        ),
-                      ),
-                      GoRoute(
-                        path: 'confirm',
-                        builder: (_, state) => CaptureConfirmScreen(
-                          flow: state.extra! as BillFlowState,
+                        builder: (_, state) => ManualReceiptScreen(
+                          imageBytes: state.extra as List<int>?,
                         ),
                       ),
                     ],
@@ -104,20 +88,6 @@ final routerProvider = Provider<GoRouter>((ref) {
                         builder: (_, state) => EditBillScreen(
                           billId: state.pathParameters['billId']!,
                         ),
-                        routes: [
-                          GoRoute(
-                            path: 'split',
-                            builder: (_, state) => CaptureSplitScreen(
-                              flow: state.extra! as BillFlowState,
-                            ),
-                          ),
-                          GoRoute(
-                            path: 'confirm',
-                            builder: (_, state) => CaptureConfirmScreen(
-                              flow: state.extra! as BillFlowState,
-                            ),
-                          ),
-                        ],
                       ),
                     ],
                   ),
@@ -127,7 +97,12 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           StatefulShellBranch(
             routes: [
-              GoRoute(path: '/requests', builder: (_, __) => const RequestsScreen()),
+              GoRoute(
+                path: '/requests',
+                builder: (_, state) => RequestsScreen(
+                  initialTab: state.uri.queryParameters['tab'],
+                ),
+              ),
             ],
           ),
           StatefulShellBranch(
@@ -153,9 +128,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         ],
       ),
     ],
-    errorBuilder: (_, __) => const Scaffold(
-      body: Center(child: Text('Page not found')),
-    ),
+    errorBuilder: (_, __) =>
+        const Scaffold(body: Center(child: Text('Page not found'))),
   );
 });
 

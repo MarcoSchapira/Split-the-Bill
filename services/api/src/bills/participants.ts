@@ -37,3 +37,11 @@ export async function assertParticipantsAllowed(
 export function sortedParticipantKey(participantIds: string[]): string[] {
   return [...new Set(participantIds)].sort();
 }
+
+export function billsSharedBetween(userId: string, friendUserId: string) {
+  return {
+    deletedAt: null,
+    shares: { some: { userId } },
+    AND: [{ shares: { some: { userId: friendUserId } } }],
+  };
+}

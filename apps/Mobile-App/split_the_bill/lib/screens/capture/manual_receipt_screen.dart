@@ -4,17 +4,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../api/api_exception.dart';
 import '../../models/models.dart';
+import '../../models/receipt.dart';
 import '../../models/user.dart';
 import '../../providers/providers.dart';
 import '../../theme/app_colors.dart';
+import '../../utils/capture_bill_split.dart';
+import '../../utils/even_split.dart';
 import '../../utils/format.dart';
+import '../../utils/manual_receipt_prefill.dart';
 import '../../widgets/common_widgets.dart';
+import '../../widgets/segmented_toggle.dart';
 
 class ManualSplitEntry {
-  const ManualSplitEntry({
-    required this.user,
-    required this.shareCents,
-  });
+  const ManualSplitEntry({required this.user, required this.shareCents});
 
   final User user;
   final int shareCents;
@@ -22,14 +24,16 @@ class ManualSplitEntry {
 
 enum _AdjustmentInputMode { percent, amount }
 
+enum _SplitMode { splitTotal, splitByLineItem }
+
 class _ManualLineItemRow {
   _ManualLineItemRow({
     String quantity = '1',
     String title = '',
     String price = '',
-  })  : quantityController = TextEditingController(text: quantity),
-        titleController = TextEditingController(text: title),
-        priceController = TextEditingController(text: price);
+  }) : quantityController = TextEditingController(text: quantity),
+       titleController = TextEditingController(text: title),
+       priceController = TextEditingController(text: price);
 
   final TextEditingController quantityController;
   final TextEditingController titleController;
@@ -43,7 +47,8 @@ class _ManualLineItemRow {
 
   int get lineTotalCents {
     final qty = double.tryParse(quantityController.text.trim()) ?? 0;
-    final price = double.tryParse(priceController.text.trim().replaceAll(',', '')) ?? 0;
+    final price =
+        double.tryParse(priceController.text.trim().replaceAll(',', '')) ?? 0;
     if (qty <= 0 || price < 0) return 0;
     return (qty * price * 100).round();
   }
@@ -54,13 +59,27 @@ class _ManualLineItemRow {
       quantityController.text.trim() != '1';
 }
 
+class _LineItemSelectionOption {
+  const _LineItemSelectionOption({
+    required this.sourceIndex,
+    required this.title,
+    required this.totalCents,
+  });
+
+  final int sourceIndex;
+  final String title;
+  final int totalCents;
+}
+
 class ManualReceiptScreen extends ConsumerStatefulWidget {
-  const ManualReceiptScreen({super.key, this.initialBill});
+  const ManualReceiptScreen({super.key, this.initialBill, this.imageBytes});
 
   final Bill? initialBill;
+  final List<int>? imageBytes;
 
   @override
-  ConsumerState<ManualReceiptScreen> createState() => _ManualReceiptScreenState();
+  ConsumerState<ManualReceiptScreen> createState() =>
+      _ManualReceiptScreenState();
 }
 
 class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
@@ -68,6 +87,13 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
   final _amountController = TextEditingController();
   final _taxController = TextEditingController(text: '13');
   final _tipController = TextEditingController(text: '0');
+  final _storeNameController = TextEditingController();
+  final _storeAddressController = TextEditingController();
+  final _receiptNumberController = TextEditingController();
+  final _receiptDateController = TextEditingController();
+  final _receiptTimeController = TextEditingController();
+  final _paymentMethodController = TextEditingController();
+  final _cardLast4Controller = TextEditingController();
   final _splitAmountControllers = <String, TextEditingController>{};
   final _titleFocusNode = FocusNode();
   final _amountFocusNode = FocusNode();
@@ -79,10 +105,17 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
   String? _selectedPayerId;
   bool _amountSectionExpanded = false;
   bool _lineItemsEnabled = false;
+  _SplitMode _splitMode = _SplitMode.splitTotal;
+  bool _additionalDetailsExpanded = false;
   bool _loadingFriends = true;
   bool _saving = false;
   _AdjustmentInputMode _taxInputMode = _AdjustmentInputMode.percent;
   _AdjustmentInputMode _tipInputMode = _AdjustmentInputMode.percent;
+  Map<int, Set<String>> _lineItemAssignments = <int, Set<String>>{};
+  BillSource _billSource = BillSource.manual;
+  int _otherFeesCents = 0;
+  DateTime? _incurredAt;
+  bool _parsing = false;
   String? _error;
   String? _titleError;
   String? _amountError;
@@ -93,46 +126,97 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
     final currentUser = ref.read(authProvider).user;
     final bill = widget.initialBill;
     if (bill != null) {
-      _titleController.text = bill.description;
-      _amountController.text = (bill.totalCents / 100).toStringAsFixed(2);
-      _selectedPayerId = bill.payerId;
-      _selectedFriendIds = bill.shares
-          .map((share) => share.user.id)
-          .where((id) => id != currentUser?.id)
-          .toSet();
-      _splitEntries = bill.shares
-          .where((share) => share.user.id != bill.payerId)
-          .map(
-            (share) => ManualSplitEntry(
-              user: share.user,
-              shareCents: share.shareCents,
-            ),
-          )
-          .toList()
-        ..sort((a, b) => displayName(a.user).compareTo(displayName(b.user)));
-
-      if (bill.lineItems.isNotEmpty) {
-        _amountSectionExpanded = true;
-        _lineItemsEnabled = true;
-        final sortedItems = [...bill.lineItems]..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
-        _lineItemRows = sortedItems
-            .map(
-              (item) => _ManualLineItemRow(
-                quantity: _formatQuantity(item.quantity),
-                title: item.name,
-                price: (item.unitPriceCents / 100).toStringAsFixed(2),
-              ),
-            )
-            .toList();
-        _initializeTaxAndTipFromBill(bill);
-      }
+      _applyPrefill(prefillFromBill(bill, currentUser!));
     } else {
       _selectedPayerId = currentUser?.id;
+      if (widget.imageBytes != null) {
+        _parsing = true;
+        _parseReceipt();
+      }
     }
     if (_lineItemRows.isEmpty && _lineItemsEnabled) {
       _lineItemRows = [_ManualLineItemRow()];
     }
     _loadFriends();
+  }
+
+  void _applyPrefill(ManualReceiptPrefill prefill) {
+    _titleController.text = prefill.title;
+    _amountController.text = prefill.amount;
+    _storeNameController.text = prefill.storeName;
+    _storeAddressController.text = prefill.storeAddress;
+    _receiptNumberController.text = prefill.receiptNumber;
+    _receiptDateController.text = prefill.receiptDate;
+    _receiptTimeController.text = prefill.receiptTime;
+    _paymentMethodController.text = prefill.paymentMethod;
+    _cardLast4Controller.text = prefill.cardLast4;
+    _taxController.text = prefill.taxValue;
+    _tipController.text = prefill.tipValue;
+    _taxInputMode = prefill.taxInputMode == ManualReceiptAdjustmentMode.percent
+        ? _AdjustmentInputMode.percent
+        : _AdjustmentInputMode.amount;
+    _tipInputMode = prefill.tipInputMode == ManualReceiptAdjustmentMode.percent
+        ? _AdjustmentInputMode.percent
+        : _AdjustmentInputMode.amount;
+    _selectedPayerId = prefill.payerId;
+    _selectedFriendIds = Set<String>.from(prefill.selectedFriendIds);
+    _splitEntries = prefill.splitEntries
+        .map(
+          (entry) => ManualSplitEntry(
+            user: entry.user,
+            shareCents: entry.shareCents,
+          ),
+        )
+        .toList();
+    _lineItemsEnabled = prefill.lineItemsEnabled;
+    _splitMode = prefill.splitMode == ManualReceiptSplitMode.splitByLineItem
+        ? _SplitMode.splitByLineItem
+        : _SplitMode.splitTotal;
+    _lineItemRows = prefill.lineItems
+        .map(
+          (item) => _ManualLineItemRow(
+            quantity: item.quantity,
+            title: item.title,
+            price: item.price,
+          ),
+        )
+        .toList();
+    _lineItemAssignments = {
+      for (final entry in prefill.lineItemAssignments.entries)
+        entry.key: Set<String>.from(entry.value),
+    };
+    _otherFeesCents = prefill.otherFeesCents;
+    _incurredAt = prefill.incurredAt;
+    _billSource = prefill.billSource;
+  }
+
+  Future<void> _parseReceipt() async {
+    final bytes = widget.imageBytes;
+    if (bytes == null) return;
+
+    setState(() {
+      _parsing = true;
+      _error = null;
+    });
+
+    try {
+      final receipt = await ref
+          .read(receiptsApiProvider)
+          .parseReceipt(Uint8List.fromList(bytes), 'receipt.jpg');
+      if (!mounted) return;
+      setState(() {
+        _applyPrefill(prefillFromParsedReceipt(receipt));
+        _selectedPayerId ??= ref.read(authProvider).user?.id;
+        _parsing = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = apiErrorMessage(e, 'Unable to parse receipt.');
+        _selectedPayerId ??= ref.read(authProvider).user?.id;
+        _parsing = false;
+      });
+    }
   }
 
   User get _currentUser {
@@ -144,7 +228,9 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
   }
 
   List<User> get _selectedFriendUsers {
-    final selected = _friends.where((friend) => _selectedFriendIds.contains(friend.id)).toList();
+    final selected = _friends
+        .where((friend) => _selectedFriendIds.contains(friend.id))
+        .toList();
     selected.sort((a, b) => displayName(a).compareTo(displayName(b)));
     return selected;
   }
@@ -153,35 +239,86 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
     return [_currentUser, ..._selectedFriendUsers];
   }
 
-  String _formatQuantity(double quantity) {
-    if (quantity == quantity.roundToDouble()) {
-      return quantity.round().toString();
-    }
-    return quantity.toString();
+  String? _nullableTrim(TextEditingController controller) {
+    final value = controller.text.trim();
+    return value.isEmpty ? null : value;
   }
 
-  void _initializeTaxAndTipFromBill(Bill bill) {
-    final subtotal = bill.subtotalCents;
-    if (bill.taxCents != null) {
-      if (subtotal != null && subtotal > 0) {
-        final percent = (bill.taxCents! / subtotal) * 100;
-        _taxController.text = percent.toStringAsFixed(percent == percent.roundToDouble() ? 0 : 2);
-        _taxInputMode = _AdjustmentInputMode.percent;
-      } else {
-        _taxController.text = (bill.taxCents! / 100).toStringAsFixed(2);
-        _taxInputMode = _AdjustmentInputMode.amount;
-      }
+  Set<String> get _activeParticipantIds {
+    return {_currentUser.id, ..._selectedFriendIds};
+  }
+
+  bool get _isSplitByLineItemMode {
+    return _lineItemsEnabled && _splitMode == _SplitMode.splitByLineItem;
+  }
+
+  List<({int sourceIndex, _ManualLineItemRow row})>
+  get _splittableLineItemEntries {
+    return _lineItemRows
+        .asMap()
+        .entries
+        .where((entry) => entry.value.lineTotalCents > 0)
+        .map((entry) {
+          return (sourceIndex: entry.key, row: entry.value);
+        })
+        .toList();
+  }
+
+  void _normalizeLineItemAssignments() {
+    final validIndices = _lineItemRows.asMap().keys.toSet();
+    final validUserIds = _activeParticipantIds;
+    _lineItemAssignments = {
+      for (final entry in _lineItemAssignments.entries)
+        if (validIndices.contains(entry.key))
+          entry.key: entry.value.where(validUserIds.contains).toSet(),
+    };
+  }
+
+  void _reindexLineItemAssignmentsAfterRemoval(int removedIndex) {
+    final updated = <int, Set<String>>{};
+    for (final entry in _lineItemAssignments.entries) {
+      if (entry.key == removedIndex) continue;
+      final nextIndex = entry.key > removedIndex ? entry.key - 1 : entry.key;
+      updated[nextIndex] = {...entry.value};
     }
-    if (bill.tipCents != null) {
-      if (subtotal != null && subtotal > 0 && bill.tipCents! > 0) {
-        final percent = (bill.tipCents! / subtotal) * 100;
-        _tipController.text = percent.toStringAsFixed(percent == percent.roundToDouble() ? 0 : 2);
-        _tipInputMode = _AdjustmentInputMode.percent;
-      } else {
-        _tipController.text = (bill.tipCents! / 100).toStringAsFixed(2);
-        _tipInputMode = _AdjustmentInputMode.amount;
-      }
+    _lineItemAssignments = updated;
+  }
+
+  bool get _lineItemAssignmentsComplete {
+    final validUserIds = _activeParticipantIds;
+    final splittableEntries = _splittableLineItemEntries;
+    if (splittableEntries.isEmpty) return false;
+    for (final entry in splittableEntries) {
+      final assigned =
+          _lineItemAssignments[entry.sourceIndex]
+              ?.where(validUserIds.contains)
+              .toSet() ??
+          <String>{};
+      if (assigned.isEmpty) return false;
     }
+    return true;
+  }
+
+  String _lineItemDisplayName(_ManualLineItemRow row, int sourceIndex) {
+    final title = row.titleController.text.trim();
+    if (title.isNotEmpty) return title;
+    return 'Item ${sourceIndex + 1}';
+  }
+
+  DateTime _resolvedIncurredAt() {
+    if (_incurredAt != null) return _incurredAt!;
+    final date = _receiptDateController.text.trim();
+    if (date.isNotEmpty) {
+      final time = _receiptTimeController.text.trim();
+      final parsed = DateTime.tryParse(time.isEmpty ? date : '$date $time');
+      if (parsed != null) return parsed;
+    }
+    return DateTime.now();
+  }
+
+  String _resolvedIncurredAtIso() {
+    final date = _resolvedIncurredAt();
+    return incurredAtIso(date);
   }
 
   @override
@@ -190,6 +327,13 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
     _amountController.dispose();
     _taxController.dispose();
     _tipController.dispose();
+    _storeNameController.dispose();
+    _storeAddressController.dispose();
+    _receiptNumberController.dispose();
+    _receiptDateController.dispose();
+    _receiptTimeController.dispose();
+    _paymentMethodController.dispose();
+    _cardLast4Controller.dispose();
     _titleFocusNode.dispose();
     _amountFocusNode.dispose();
     for (final row in _lineItemRows) {
@@ -279,7 +423,7 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
 
   int? get _lineItemsFinalTotalCents {
     if (!_lineItemsEnabled) return null;
-    final total = _subtotalCents + _taxCents + _tipCents;
+    final total = _subtotalCents + _taxCents + _tipCents + _otherFeesCents;
     if (total <= 0) return null;
     return total;
   }
@@ -310,15 +454,21 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
     setState(() {
       _lineItemsEnabled = enabled;
       _amountError = null;
+      if (!enabled) {
+        _amountSectionExpanded = false;
+        _splitMode = _SplitMode.splitTotal;
+      }
       if (enabled && _lineItemRows.isEmpty) {
         _lineItemRows = [_ManualLineItemRow()];
       }
+      _normalizeLineItemAssignments();
     });
   }
 
   void _addLineItemRow() {
     setState(() {
       _lineItemRows = [..._lineItemRows, _ManualLineItemRow()];
+      _normalizeLineItemAssignments();
     });
   }
 
@@ -334,6 +484,7 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
     setState(() {
       final row = _lineItemRows.removeAt(index);
       row.dispose();
+      _reindexLineItemAssignmentsAfterRemoval(index);
     });
   }
 
@@ -367,6 +518,9 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
     final total = _totalCents;
     if (title.isEmpty || total == null) return false;
     if (_selectedFriendIds.isNotEmpty) {
+      if (_isSplitByLineItemMode) {
+        return _lineItemAssignmentsComplete;
+      }
       final payerShare = _payerShareCents;
       if (payerShare == null || payerShare < 0) return false;
       if (_friendSplitTotalCents > total) return false;
@@ -411,8 +565,13 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
     final amountError = _validateAmount();
     String? splitError;
 
-    if (titleError == null && amountError == null && !_canSavePayload && _selectedFriendIds.isNotEmpty) {
-      splitError = 'Adjust friend amounts so they add up to the total.';
+    if (titleError == null &&
+        amountError == null &&
+        !_canSavePayload &&
+        _selectedFriendIds.isNotEmpty) {
+      splitError = _isSplitByLineItemMode
+          ? 'Assign each line item to at least one participant.'
+          : 'Adjust friend amounts so they add up to the total.';
     }
 
     setState(() {
@@ -460,8 +619,12 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
   void _syncSplitEntry(String userId, String rawValue) {
     final parsed = double.tryParse(rawValue.replaceAll(',', '').trim());
     final cents = parsed == null ? 0 : (parsed * 100).round();
-    final user = _splitEntries.firstWhere((entry) => entry.user.id == userId).user;
-    final existingIndex = _splitEntries.indexWhere((entry) => entry.user.id == userId);
+    final user = _splitEntries
+        .firstWhere((entry) => entry.user.id == userId)
+        .user;
+    final existingIndex = _splitEntries.indexWhere(
+      (entry) => entry.user.id == userId,
+    );
 
     setState(() {
       final entry = ManualSplitEntry(user: user, shareCents: cents);
@@ -474,7 +637,8 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
 
   void _applySelectedFriends(List<User> selectedFriends) {
     final existingShares = {
-      for (final participant in _participants) participant.id: _shareForUser(participant.id),
+      for (final participant in _participants)
+        participant.id: _shareForUser(participant.id),
     };
 
     final selectedIds = selectedFriends.map((user) => user.id).toSet();
@@ -503,9 +667,14 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
           )
           .toList();
       for (final entry in _splitEntries) {
-        _controllerForUser(entry.user.id, initialCents: entry.shareCents).text =
-            entry.shareCents == 0 ? '' : (entry.shareCents / 100).toStringAsFixed(2);
+        _controllerForUser(
+          entry.user.id,
+          initialCents: entry.shareCents,
+        ).text = entry.shareCents == 0
+            ? ''
+            : (entry.shareCents / 100).toStringAsFixed(2);
       }
+      _normalizeLineItemAssignments();
     });
   }
 
@@ -520,18 +689,9 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
   }
 
   bool get _areFriendAmountsEven {
-    final payerId = _selectedPayerId ?? _currentUser.id;
-    // Only compare editable friend rows (exclude the current payer).
-    final friendAmounts = [
-      for (final friend in _selectedFriendUsers)
-        if (friend.id != payerId) _shareForUser(friend.id),
-    ];
-    // Need at least two friends with amounts; a single row is never "even".
-    if (friendAmounts.length < 2) return false;
-    final first = friendAmounts.first;
-    // Initial all-zero state (and any zero) should not count as even.
-    if (first <= 0) return false;
-    return friendAmounts.every((amount) => amount == first);
+    return areShareAmountsEvenlySplit(
+      [for (final participant in _participants) _shareForUser(participant.id)],
+    );
   }
 
   void _splitEvenlyBetweenFriends() {
@@ -567,7 +727,8 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
   void _setPayer(String payerId) {
     if (payerId == _selectedPayerId) return;
     final sharesById = {
-      for (final participant in _participants) participant.id: _shareForUser(participant.id),
+      for (final participant in _participants)
+        participant.id: _shareForUser(participant.id),
     };
 
     setState(() {
@@ -582,8 +743,12 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
           )
           .toList();
       for (final entry in _splitEntries) {
-        _controllerForUser(entry.user.id, initialCents: entry.shareCents).text =
-            entry.shareCents == 0 ? '' : (entry.shareCents / 100).toStringAsFixed(2);
+        _controllerForUser(
+          entry.user.id,
+          initialCents: entry.shareCents,
+        ).text = entry.shareCents == 0
+            ? ''
+            : (entry.shareCents / 100).toStringAsFixed(2);
       }
     });
   }
@@ -627,10 +792,7 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
     );
   }
 
-  Widget _buildSectionCard({
-    required String title,
-    required Widget child,
-  }) {
+  Widget _buildSectionCard({required String title, required Widget child}) {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
@@ -650,9 +812,7 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
         children: [
           Container(
             padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
-            decoration: const BoxDecoration(
-              gradient: AppColors.brandGradient,
-            ),
+            decoration: const BoxDecoration(gradient: AppColors.brandGradient),
             child: Text(
               title,
               style: const TextStyle(
@@ -709,6 +869,8 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
         _buildFinalAmountCard(),
         const SizedBox(height: 16),
         _buildSplitWithFriendsCard(),
+        const SizedBox(height: 16),
+        _buildAdditionalDetailsCard(),
       ],
     );
   }
@@ -733,9 +895,7 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
         children: [
           Container(
             padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
-            decoration: const BoxDecoration(
-              gradient: AppColors.brandGradient,
-            ),
+            decoration: const BoxDecoration(gradient: AppColors.brandGradient),
             child: const Text(
               'Final Amount Paid',
               style: TextStyle(
@@ -752,19 +912,38 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: 8),
-                _lineItemsEnabled ? _buildComputedAmountDisplay() : _buildAmountField(),
+                _lineItemsEnabled
+                    ? _buildComputedAmountDisplay()
+                    : _buildAmountField(),
                 _buildFieldError(_amountError),
                 const SizedBox(height: 12),
-                _buildAmountSectionExpandTrigger(),
+                _buildLineItemModeSelector(),
                 AnimatedSize(
                   duration: const Duration(milliseconds: 280),
                   curve: Curves.easeOutCubic,
                   alignment: Alignment.topCenter,
                   clipBehavior: Clip.hardEdge,
-                  child: _amountSectionExpanded
+                  child: _lineItemsEnabled
                       ? Padding(
-                          padding: const EdgeInsets.only(top: 16),
-                          child: _buildExpandedAmountSection(),
+                          padding: const EdgeInsets.only(top: 12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _buildAmountSectionExpandTrigger(),
+                              AnimatedSize(
+                                duration: const Duration(milliseconds: 280),
+                                curve: Curves.easeOutCubic,
+                                alignment: Alignment.topCenter,
+                                clipBehavior: Clip.hardEdge,
+                                child: _amountSectionExpanded
+                                    ? Padding(
+                                        padding: const EdgeInsets.only(top: 16),
+                                        child: _buildLineItemsSection(),
+                                      )
+                                    : const SizedBox(width: double.infinity),
+                              ),
+                            ],
+                          ),
                         )
                       : const SizedBox(width: double.infinity),
                 ),
@@ -802,10 +981,10 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
                 ),
               ),
               const SizedBox(width: 4),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Line items - (optional)',
-                  style: TextStyle(
+                  'Line items - ${_lineItemRows.length}',
+                  style: const TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 14,
                     color: AppColors.textH,
@@ -819,66 +998,22 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
     );
   }
 
-  Widget _buildExpandedAmountSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _buildLineItemModeSelector(),
-        AnimatedSize(
-          duration: const Duration(milliseconds: 280),
-          curve: Curves.easeOutCubic,
-          alignment: Alignment.topCenter,
-          clipBehavior: Clip.hardEdge,
-          child: _lineItemsEnabled
-              ? Padding(
-                  padding: const EdgeInsets.only(top: 16),
-                  child: _buildLineItemsSection(),
-                )
-              : const SizedBox(width: double.infinity),
-        ),
-      ],
-    );
-  }
-
   Widget _buildLineItemModeSelector() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceMuted,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
+    const items = [
+      SegmentedToggleItem(
+        label: 'One main total',
+        icon: Icons.payments_outlined,
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              'One main total',
-              textAlign: TextAlign.left,
-              style: TextStyle(
-                fontWeight: !_lineItemsEnabled ? FontWeight.w800 : FontWeight.w500,
-                fontSize: 13,
-                color: !_lineItemsEnabled ? AppColors.textH : AppColors.text,
-              ),
-            ),
-          ),
-          Switch.adaptive(
-            value: _lineItemsEnabled,
-            activeTrackColor: AppColors.accent,
-            onChanged: _setLineItemsEnabled,
-          ),
-          Expanded(
-            child: Text(
-              'Line item details',
-              textAlign: TextAlign.right,
-              style: TextStyle(
-                fontWeight: _lineItemsEnabled ? FontWeight.w800 : FontWeight.w500,
-                fontSize: 13,
-                color: _lineItemsEnabled ? AppColors.textH : AppColors.text,
-              ),
-            ),
-          ),
-        ],
+      SegmentedToggleItem(
+        label: 'Line item details',
+        icon: Icons.receipt_long_outlined,
       ),
+    ];
+
+    return SegmentedToggle(
+      items: items,
+      selectedIndex: _lineItemsEnabled ? 1 : 0,
+      onSelected: (index) => _setLineItemsEnabled(index == 1),
     );
   }
 
@@ -924,11 +1059,11 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         ..._lineItemRows.asMap().entries.map(
-              (entry) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: _buildLineItemRow(entry.key),
-              ),
-            ),
+          (entry) => Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: _buildLineItemRow(entry.key),
+          ),
+        ),
         Align(
           alignment: Alignment.centerLeft,
           child: TextButton.icon(
@@ -978,6 +1113,7 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
 
   Widget _buildLineItemRow(int index) {
     final row = _lineItemRows[index];
+    final showRemove = _lineItemRows.length > 1 || row.hasContent;
 
     return Container(
       padding: const EdgeInsets.all(10),
@@ -986,71 +1122,98 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.border),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SizedBox(
-            width: 52,
-            child: TextField(
-              controller: row.quantityController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
-              ],
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontWeight: FontWeight.w700),
-              decoration: _compactInputDecoration(hintText: '1'),
-              onChanged: (_) {
-                _clearAmountError();
-                setState(() {});
-              },
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: TextField(
-              controller: row.titleController,
-              textCapitalization: TextCapitalization.sentences,
-              style: const TextStyle(fontWeight: FontWeight.w600),
-              decoration: _compactInputDecoration(hintText: 'Item name'),
-              onChanged: (_) {
-                _clearAmountError();
-                setState(() {});
-              },
-            ),
-          ),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: 92,
-            child: TextField(
-              controller: row.priceController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
-              ],
-              textAlign: TextAlign.right,
-              style: const TextStyle(fontWeight: FontWeight.w700),
-              decoration: _compactInputDecoration(hintText: '0.00', prefixText: r'$ '),
-              onChanged: (_) {
-                _clearAmountError();
-                setState(() {});
-              },
-            ),
-          ),
-          if (_lineItemRows.length > 1 || row.hasContent) ...[
-            const SizedBox(width: 4),
-            IconButton(
-              visualDensity: VisualDensity.compact,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-              onPressed: () => _removeLineItemRow(index),
-              icon: Icon(
-                Icons.close_rounded,
-                size: 18,
-                color: AppColors.text.withValues(alpha: 0.7),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: row.titleController,
+                  textCapitalization: TextCapitalization.sentences,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                  decoration: _compactInputDecoration(hintText: 'Item name'),
+                  onChanged: (_) {
+                    _clearAmountError();
+                    setState(() {});
+                  },
+                ),
               ),
-            ),
-          ],
+              if (showRemove) ...[
+                const SizedBox(width: 4),
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  onPressed: () => _removeLineItemRow(index),
+                  icon: Icon(
+                    Icons.close_rounded,
+                    size: 18,
+                    color: AppColors.text.withValues(alpha: 0.7),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              SizedBox(
+                width: 72,
+                child: TextField(
+                  controller: row.quantityController,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+                  ],
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                  decoration: _compactInputDecoration(hintText: '1'),
+                  onChanged: (_) {
+                    _clearAmountError();
+                    setState(() {});
+                  },
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Text(
+                  '×',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w600,
+                    height: 1,
+                    color: AppColors.text.withValues(alpha: 0.45),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: TextField(
+                  controller: row.priceController,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+                  ],
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                  decoration: _compactInputDecoration(
+                    hintText: '0.00',
+                    prefixText: r'$ ',
+                  ),
+                  onChanged: (_) {
+                    _clearAmountError();
+                    setState(() {});
+                  },
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -1200,10 +1363,7 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
     );
   }
 
-  Widget _buildModeToggleIcon({
-    required IconData icon,
-    required bool active,
-  }) {
+  Widget _buildModeToggleIcon({required IconData icon, required bool active}) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 180),
       curve: Curves.easeOutCubic,
@@ -1237,8 +1397,8 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
         final borderColor = hasError
             ? AppColors.error
             : focused
-                ? AppColors.accent
-                : AppColors.border;
+            ? AppColors.accent
+            : AppColors.border;
 
         return AnimatedContainer(
           duration: const Duration(milliseconds: 200),
@@ -1260,9 +1420,13 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
                 child: TextField(
                   controller: _amountController,
                   focusNode: _amountFocusNode,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+                    FilteringTextInputFormatter.allow(
+                      RegExp(r'^\d*\.?\d{0,2}'),
+                    ),
                   ],
                   style: amountStyle,
                   decoration: InputDecoration(
@@ -1339,29 +1503,472 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const SizedBox(height: 8),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            clipBehavior: Clip.hardEdge,
+            child: _lineItemsEnabled && _selectedFriendIds.isNotEmpty
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildSplitModeToggle(),
+                      const SizedBox(height: 12),
+                    ],
+                  )
+                : const SizedBox.shrink(),
+          ),
           if (_selectedFriendIds.isNotEmpty) ...[
-            _buildSplitEvenlyButton(),
-            const SizedBox(height: 10),
-            ...orderedParticipants.map(
-              (participant) => _buildSplitParticipantRow(
-                participant: participant,
-                isPayer: participant.id == payerId,
+            if (_isSplitByLineItemMode)
+              _buildSplitByLineItemSection(participants: orderedParticipants)
+            else
+              _buildSplitTotalSection(
+                participants: orderedParticipants,
+                payerId: payerId,
                 payerShareCents: payerShare,
               ),
-            ),
             const SizedBox(height: 8),
             SecondaryButton(
               label: 'Edit friends',
               onPressed: _openFriendPicker,
             ),
           ] else
-            SecondaryButton(
-              label: 'Add friends',
-              onPressed: _openFriendPicker,
-            ),
+            SecondaryButton(label: 'Add friends', onPressed: _openFriendPicker),
         ],
       ),
     );
+  }
+
+  Widget _buildAdditionalDetailsCard() {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: AppColors.border, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.textH.withValues(alpha: 0.07),
+            blurRadius: 28,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          20,
+          16,
+          20,
+          _additionalDetailsExpanded ? 20 : 16,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildAdditionalDetailsExpandTrigger(),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 260),
+              curve: Curves.easeOutCubic,
+              alignment: Alignment.topCenter,
+              clipBehavior: Clip.hardEdge,
+              child: _additionalDetailsExpanded
+                  ? Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: _buildAdditionalDetailsFields(),
+                    )
+                  : const SizedBox(width: double.infinity),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAdditionalDetailsExpandTrigger() {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          setState(
+            () => _additionalDetailsExpanded = !_additionalDetailsExpanded,
+          );
+        },
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          decoration: BoxDecoration(
+            border: Border.all(color: AppColors.border, width: 1),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              AnimatedRotation(
+                turns: _additionalDetailsExpanded ? 0.5 : 0,
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutCubic,
+                child: const Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: AppColors.text,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 4),
+              const Expanded(
+                child: Text(
+                  'Additional Details',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                    color: AppColors.textH,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAdditionalDetailsFields() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildAdditionalDetailsInput(
+          label: 'Store',
+          controller: _storeNameController,
+          hintText: 'Enter store name',
+        ),
+        const SizedBox(height: 10),
+        _buildAdditionalDetailsInput(
+          label: 'Address',
+          controller: _storeAddressController,
+          hintText: 'Enter store address',
+        ),
+        const SizedBox(height: 10),
+        _buildAdditionalDetailsInput(
+          label: 'Receipt #',
+          controller: _receiptNumberController,
+          hintText: 'Enter receipt number',
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: _buildAdditionalDetailsInput(
+                label: 'Date',
+                controller: _receiptDateController,
+                hintText: 'YYYY-MM-DD',
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _buildAdditionalDetailsInput(
+                label: 'Time',
+                controller: _receiptTimeController,
+                hintText: 'HH:MM',
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              flex: 3,
+              child: _buildAdditionalDetailsInput(
+                label: 'Payment',
+                controller: _paymentMethodController,
+                hintText: 'Enter payment method',
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              flex: 2,
+              child: _buildAdditionalDetailsInput(
+                label: 'Card Last 4',
+                controller: _cardLast4Controller,
+                hintText: 'Last 4 digits',
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAdditionalDetailsInput({
+    required String label,
+    required TextEditingController controller,
+    required String hintText,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            color: AppColors.text,
+            fontWeight: FontWeight.w600,
+            fontSize: 12,
+          ),
+        ),
+        const SizedBox(height: 6),
+        TextField(
+          controller: controller,
+          style: const TextStyle(
+            color: AppColors.textH,
+            fontWeight: FontWeight.w600,
+          ),
+          decoration: _boxedInputDecoration(hintText: hintText),
+          onChanged: (_) => setState(() {}),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSplitModeToggle() {
+    const items = [
+      SegmentedToggleItem(label: 'Split total', icon: Icons.functions_rounded),
+      SegmentedToggleItem(
+        label: 'Split by line item',
+        icon: Icons.receipt_long_outlined,
+      ),
+    ];
+
+    return SegmentedToggle(
+      items: items,
+      selectedIndex: _splitMode == _SplitMode.splitByLineItem ? 1 : 0,
+      onSelected: (index) {
+        setState(() {
+          _splitMode = index == 1
+              ? _SplitMode.splitByLineItem
+              : _SplitMode.splitTotal;
+          _error = null;
+        });
+      },
+    );
+  }
+
+  Widget _buildSplitTotalSection({
+    required List<User> participants,
+    required String payerId,
+    required int payerShareCents,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildSplitEvenlyButton(),
+        const SizedBox(height: 12),
+        const Divider(height: 1, color: AppColors.border),
+        const SizedBox(height: 12),
+        ...participants.map(
+          (participant) => _buildSplitParticipantRow(
+            participant: participant,
+            isPayer: participant.id == payerId,
+            payerShareCents: payerShareCents,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSplitByLineItemSection({required List<User> participants}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (_splittableLineItemEntries.isEmpty)
+          Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceMuted,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: const Text(
+              'Add line items in the section above.',
+              style: TextStyle(
+                color: AppColors.text,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          )
+        else ...[
+          const Padding(
+            padding: EdgeInsets.only(bottom: 10),
+            child: Text(
+              'Assign each line item to one or more participants.',
+              style: TextStyle(
+                color: AppColors.text,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          ...participants.map(_buildLineItemAssignmentParticipantRow),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildLineItemAssignmentParticipantRow(User participant) {
+    final payerId = _selectedPayerId ?? _currentUser.id;
+    final isPayer = participant.id == payerId;
+    final assignedEntries = _splittableLineItemEntries
+        .where(
+          (entry) =>
+              (_lineItemAssignments[entry.sourceIndex] ?? const <String>{})
+                  .contains(participant.id),
+        )
+        .toList();
+    final summary = assignedEntries.isEmpty
+        ? 'No line items assigned'
+        : '${assignedEntries.length} item${assignedEntries.length == 1 ? '' : 's'} assigned';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  participant.id == _currentUser.id
+                      ? 'You'
+                      : displayName(participant),
+                  style: const TextStyle(
+                    color: AppColors.textH,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  summary,
+                  style: const TextStyle(
+                    color: AppColors.text,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                  ),
+                ),
+                if (assignedEntries.isNotEmpty) ...[
+                  const SizedBox(height: 5),
+                  Text(
+                    assignedEntries
+                        .take(2)
+                        .map(
+                          (entry) => _lineItemDisplayName(
+                            entry.row,
+                            entry.sourceIndex,
+                          ),
+                        )
+                        .join(' • '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: AppColors.text, fontSize: 12),
+                  ),
+                ],
+                const SizedBox(height: 4),
+                if (isPayer)
+                  const Text(
+                    'Initial payer',
+                    style: TextStyle(
+                      color: AppColors.accent,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                    ),
+                  )
+                else
+                  TextButton(
+                    onPressed: () => _setPayer(participant.id),
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      minimumSize: const Size(0, 0),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      foregroundColor: AppColors.accent,
+                      textStyle: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                      ),
+                    ),
+                    child: const Text('Mark as initial payer'),
+                  ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: _splittableLineItemEntries.isEmpty
+                ? null
+                : () => _openLineItemPicker(participant),
+            style: IconButton.styleFrom(
+              backgroundColor: AppColors.surfaceMuted,
+              side: const BorderSide(color: AppColors.border),
+            ),
+            icon: const Icon(Icons.add_rounded, color: AppColors.accent),
+            tooltip: 'Assign line items',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openLineItemPicker(User participant) async {
+    final options = _splittableLineItemEntries
+        .map(
+          (entry) => _LineItemSelectionOption(
+            sourceIndex: entry.sourceIndex,
+            title: _lineItemDisplayName(entry.row, entry.sourceIndex),
+            totalCents: entry.row.lineTotalCents,
+          ),
+        )
+        .toList();
+    if (options.isEmpty) return;
+
+    final selectedByUser = {
+      for (final option in options)
+        if ((_lineItemAssignments[option.sourceIndex] ?? const <String>{})
+            .contains(participant.id))
+          option.sourceIndex,
+    };
+
+    final picked = await showModalBottomSheet<Set<int>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => _LineItemPickerSheet(
+        participantName: participant.id == _currentUser.id
+            ? 'You'
+            : displayName(participant),
+        options: options,
+        initiallySelected: selectedByUser,
+      ),
+    );
+    if (picked == null) return;
+
+    setState(() {
+      for (final option in options) {
+        final assigned = {
+          ...(_lineItemAssignments[option.sourceIndex] ?? <String>{}),
+        };
+        assigned.remove(participant.id);
+        if (picked.contains(option.sourceIndex)) {
+          assigned.add(participant.id);
+        }
+        _lineItemAssignments[option.sourceIndex] = assigned;
+      }
+      _error = null;
+      _normalizeLineItemAssignments();
+    });
   }
 
   Widget _buildSplitEvenlyButton() {
@@ -1397,7 +2004,11 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: const [
-                    Icon(Icons.balance_rounded, size: 16, color: AppColors.textH),
+                    Icon(
+                      Icons.balance_rounded,
+                      size: 16,
+                      color: AppColors.textH,
+                    ),
                     SizedBox(width: 6),
                     Text(
                       'Split evenly between friends',
@@ -1428,8 +2039,9 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
-          gradient: AppColors.brandGradient,
+          color: AppColors.surface,
           borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.accent, width: 2),
         ),
         child: Row(
           children: [
@@ -1440,7 +2052,7 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
                     const TextSpan(
                       text: 'Paid by: ',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: AppColors.textH,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -1449,8 +2061,8 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
                           ? 'You'
                           : displayName(participant),
                       style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
+                        color: AppColors.textH,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
                   ],
@@ -1458,9 +2070,14 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
               ),
             ),
             Text(
-              formatCad(payerShareCents.clamp(0, payerShareCents < 0 ? 0 : payerShareCents)),
+              formatCad(
+                payerShareCents.clamp(
+                  0,
+                  payerShareCents < 0 ? 0 : payerShareCents,
+                ),
+              ),
               style: const TextStyle(
-                color: Colors.white,
+                color: AppColors.textH,
                 fontWeight: FontWeight.w800,
                 fontSize: 18,
               ),
@@ -1470,11 +2087,16 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
       );
     }
 
-    final entryIndex = _splitEntries.indexWhere((entry) => entry.user.id == participant.id);
+    final entryIndex = _splitEntries.indexWhere(
+      (entry) => entry.user.id == participant.id,
+    );
     final entry = entryIndex >= 0
         ? _splitEntries[entryIndex]
         : ManualSplitEntry(user: participant, shareCents: 0);
-    final controller = _controllerForUser(participant.id, initialCents: entry.shareCents);
+    final controller = _controllerForUser(
+      participant.id,
+      initialCents: entry.shareCents,
+    );
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -1491,7 +2113,9 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  participant.id == _currentUser.id ? 'You' : displayName(participant),
+                  participant.id == _currentUser.id
+                      ? 'You'
+                      : displayName(participant),
                   style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 4),
@@ -1502,7 +2126,10 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
                     minimumSize: const Size(0, 0),
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     foregroundColor: AppColors.accent,
-                    textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+                    textStyle: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                    ),
                   ),
                   child: const Text('Mark as initial payer'),
                 ),
@@ -1513,7 +2140,9 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
             width: 110,
             child: TextField(
               controller: controller,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               inputFormatters: [
                 FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
               ],
@@ -1522,14 +2151,20 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
                 isDense: true,
                 prefixText: r'$ ',
                 hintText: '0.00',
-                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 10,
+                ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                   borderSide: const BorderSide(color: AppColors.border),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: AppColors.accent, width: 2),
+                  borderSide: const BorderSide(
+                    color: AppColors.accent,
+                    width: 2,
+                  ),
                 ),
               ),
               onChanged: (value) => _syncSplitEntry(participant.id, value),
@@ -1540,61 +2175,150 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
     );
   }
 
+  CaptureShareResult _buildLineItemShareResult(List<String> participantIds) {
+    final options = _splittableLineItemEntries;
+    final items = options
+        .map(
+          (entry) => ReceiptItem(
+            name: _lineItemDisplayName(entry.row, entry.sourceIndex),
+            quantity:
+                (double.tryParse(entry.row.quantityController.text.trim()) ?? 1)
+                    .round(),
+            unitPrice:
+                (double.tryParse(
+                          entry.row.priceController.text.trim().replaceAll(
+                            ',',
+                            '',
+                          ),
+                        ) ??
+                        0)
+                    .toDouble(),
+            totalPrice: entry.row.lineTotalCents / 100,
+          ),
+        )
+        .toList();
+    final assignments = <int, Set<String>>{};
+    final validIds = participantIds.toSet();
+    for (var i = 0; i < options.length; i++) {
+      final sourceIndex = options[i].sourceIndex;
+      assignments[i] = (_lineItemAssignments[sourceIndex] ?? const <String>{})
+          .where(validIds.contains)
+          .toSet();
+    }
+
+    final receipt = ParsedReceipt(
+      storeName: _nullableTrim(_storeNameController),
+      storeAddress: _nullableTrim(_storeAddressController),
+      receiptNumber: _nullableTrim(_receiptNumberController),
+      date: _nullableTrim(_receiptDateController),
+      time: _nullableTrim(_receiptTimeController),
+      items: items,
+      itemCount: items.length,
+      subtotal: _subtotalCents / 100,
+      otherFees: _otherFeesCents / 100,
+      tax: _taxCents / 100,
+      tip: _tipCents / 100,
+      total: _lineItemsFinalTotalCents != null
+          ? _lineItemsFinalTotalCents! / 100
+          : null,
+      paymentMethod: _nullableTrim(_paymentMethodController),
+      cardLast4: _nullableTrim(_cardLast4Controller),
+    );
+    return computeCaptureShares(
+      receipt: receipt,
+      items: items,
+      assignments: assignments,
+      participantIds: participantIds,
+    );
+  }
+
   Map<String, dynamic> _buildPayload() {
     final total = _totalCents!;
     final description = _titleController.text.trim();
-    final bill = widget.initialBill;
+    final isSplitWithFriends = _selectedFriendIds.isNotEmpty;
+    final isSplitByFinalAmounts =
+        !_isSplitByLineItemMode || !isSplitWithFriends;
 
     final basePayload = <String, dynamic>{
       'description': description,
+      'incurredAt': _resolvedIncurredAtIso(),
       'totalCents': total,
-      'source': bill?.source.name ?? 'manual',
+      'source': _billSource.name,
+      'isOneMainTotal': !_lineItemsEnabled,
+      'isSplitWithFriends': isSplitWithFriends,
+      'isSplitByFinalAmounts': isSplitByFinalAmounts,
+      'storeName': _nullableTrim(_storeNameController),
+      'storeAddress': _nullableTrim(_storeAddressController),
+      'receiptNumber': _nullableTrim(_receiptNumberController),
+      'receiptDate': _nullableTrim(_receiptDateController),
+      'receiptTime': _nullableTrim(_receiptTimeController),
+      'paymentMethod': _nullableTrim(_paymentMethodController),
+      'cardLast4': _nullableTrim(_cardLast4Controller),
     };
 
     if (_lineItemsEnabled) {
+      final lineItemEntries = _lineItemRows
+          .asMap()
+          .entries
+          .where((entry) => entry.value.lineTotalCents > 0)
+          .toList();
+      final validParticipantIds = _activeParticipantIds;
       basePayload.addAll({
         'subtotalCents': _subtotalCents,
         'taxCents': _taxCents,
         'tipCents': _tipCents,
-        'itemCount': _lineItemRows.where((row) => row.lineTotalCents > 0).length,
-        'lineItems': _lineItemRows
-            .where((row) => row.lineTotalCents > 0)
-            .toList()
-            .asMap()
-            .entries
-            .map((entry) {
-              final row = entry.value;
-              final quantity = double.tryParse(row.quantityController.text.trim()) ?? 1;
-              final unitPrice = double.tryParse(
-                    row.priceController.text.trim().replaceAll(',', ''),
-                  ) ??
-                  0;
-              final unitPriceCents = (unitPrice * 100).round();
-              return {
-                'name': row.titleController.text.trim().isEmpty
-                    ? 'Item ${entry.key + 1}'
-                    : row.titleController.text.trim(),
-                'quantity': quantity,
-                'unitPriceCents': unitPriceCents,
-                'totalPriceCents': row.lineTotalCents,
-                'assignedUserIds': const <String>[],
-              };
-            })
-            .toList(),
+        if (_otherFeesCents > 0) 'otherFeesCents': _otherFeesCents,
+        'itemCount': lineItemEntries.length,
+        'lineItems': lineItemEntries.map((entry) {
+          final sourceIndex = entry.key;
+          final row = entry.value;
+          final quantity =
+              double.tryParse(row.quantityController.text.trim()) ?? 1;
+          final unitPrice =
+              double.tryParse(
+                row.priceController.text.trim().replaceAll(',', ''),
+              ) ??
+              0;
+          final unitPriceCents = (unitPrice * 100).round();
+          return {
+            'name': row.titleController.text.trim().isEmpty
+                ? 'Item ${sourceIndex + 1}'
+                : row.titleController.text.trim(),
+            'quantity': quantity,
+            'unitPriceCents': unitPriceCents,
+            'totalPriceCents': row.lineTotalCents,
+            'assignedUserIds': isSplitByFinalAmounts
+                ? const <String>[]
+                : (_lineItemAssignments[sourceIndex] ?? const <String>{})
+                      .where(validParticipantIds.contains)
+                      .toList(),
+          };
+        }).toList(),
       });
     }
 
-    if (_selectedFriendIds.isEmpty) {
+    if (!isSplitWithFriends) {
       return basePayload;
     }
 
     final currentUser = _currentUser;
     final payerId = _selectedPayerId ?? currentUser.id;
-    final participantIds = [currentUser.id, ..._selectedFriendUsers.map((friend) => friend.id)];
-    final payerShare = _payerShareCents!;
-    final sharesByUserId = {
-      for (final participantId in participantIds) participantId: _shareForUser(participantId),
-    };
+    final participantIds = [
+      currentUser.id,
+      ..._selectedFriendUsers.map((friend) => friend.id),
+    ];
+    final sharesByUserId = _isSplitByLineItemMode
+        ? {
+            for (final share in _buildLineItemShareResult(
+              participantIds,
+            ).shares)
+              share.userId: share.shareCents,
+          }
+        : {
+            for (final participantId in participantIds)
+              participantId: _shareForUser(participantId),
+          };
+    final payerShare = sharesByUserId[payerId] ?? 0;
 
     return {
       ...basePayload,
@@ -1604,7 +2328,9 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
           .map(
             (userId) => {
               'userId': userId,
-              'shareCents': userId == payerId ? payerShare : (sharesByUserId[userId] ?? 0),
+              'shareCents': userId == payerId
+                  ? payerShare
+                  : (sharesByUserId[userId] ?? 0),
             },
           )
           .toList(),
@@ -1624,13 +2350,17 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
       final billId = widget.initialBill?.id;
       final bill = billId == null
           ? await ref.read(billsApiProvider).createBill(_buildPayload())
-          : await ref.read(billsApiProvider).updateBill(billId, _buildPayload());
+          : await ref
+                .read(billsApiProvider)
+                .updateBill(billId, _buildPayload());
       notifyDataChanged(ref);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            billId == null ? 'Bill saved successfully.' : 'Bill updated successfully.',
+            billId == null
+                ? 'Bill saved successfully.'
+                : 'Bill updated successfully.',
           ),
         ),
       );
@@ -1644,14 +2374,88 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
     }
   }
 
+  Widget _buildSaveButton(bool isEditing) {
+    final label = isEditing ? 'Save changes' : 'Save bill';
+
+    return SizedBox(
+      width: double.infinity,
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF102F2D),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: AppColors.brandSoft.withValues(alpha: 0.45),
+            width: 1.5,
+          ),
+        ),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: _saving ? null : _save,
+            borderRadius: BorderRadius.circular(16),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (_saving)
+                    const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  else
+                    const Icon(
+                      Icons.check_rounded,
+                      color: Colors.white,
+                      size: 22,
+                    ),
+                  const SizedBox(width: 10),
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isEditing = widget.initialBill != null;
+    final isFromPhoto = widget.imageBytes != null && !isEditing;
+    final title = isEditing
+        ? 'Edit bill'
+        : isFromPhoto
+        ? 'Add bill from receipt'
+        : 'Add bill manually';
 
     return Scaffold(
-      appBar: AppBar(title: Text(isEditing ? 'Edit bill' : 'Add bill manually')),
-      body: _loadingFriends
-          ? const LoadingView(message: 'Loading...')
+      appBar: AppBar(title: Text(title)),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+          child: _buildSaveButton(isEditing),
+        ),
+      ),
+      body: _parsing || _loadingFriends
+          ? LoadingView(
+              message: _parsing ? 'Parsing receipt...' : 'Loading...',
+            )
           : GestureDetector(
               onTap: _dismissKeyboard,
               behavior: HitTestBehavior.opaque,
@@ -1663,17 +2467,136 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
                     const SizedBox(height: 16),
                   ],
                   _buildBillDetailsCard(),
-                  const SizedBox(height: 24),
-                  const Divider(height: 1, color: AppColors.border),
-                  const SizedBox(height: 24),
-                  PrimaryButton(
-                    label: isEditing ? 'Save changes' : 'Save bill',
-                    isLoading: _saving,
-                    onPressed: _saving ? null : _save,
-                  ),
                 ],
               ),
             ),
+    );
+  }
+}
+
+class _LineItemPickerSheet extends StatefulWidget {
+  const _LineItemPickerSheet({
+    required this.participantName,
+    required this.options,
+    required this.initiallySelected,
+  });
+
+  final String participantName;
+  final List<_LineItemSelectionOption> options;
+  final Set<int> initiallySelected;
+
+  @override
+  State<_LineItemPickerSheet> createState() => _LineItemPickerSheetState();
+}
+
+class _LineItemPickerSheetState extends State<_LineItemPickerSheet> {
+  late final Set<int> _selected;
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = {...widget.initiallySelected};
+  }
+
+  void _toggle(int sourceIndex) {
+    setState(() {
+      if (_selected.contains(sourceIndex)) {
+        _selected.remove(sourceIndex);
+      } else {
+        _selected.add(sourceIndex);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.border,
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'Assign line items to ${widget.participantName}',
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 16,
+              color: AppColors.textH,
+            ),
+          ),
+          const SizedBox(height: 10),
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.45,
+            ),
+            child: ListView.separated(
+              shrinkWrap: true,
+              itemCount: widget.options.length,
+              separatorBuilder: (context, _) =>
+                  const Divider(height: 1, color: AppColors.border),
+              itemBuilder: (context, index) {
+                final option = widget.options[index];
+                final checked = _selected.contains(option.sourceIndex);
+                return InkWell(
+                  onTap: () => _toggle(option.sourceIndex),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Row(
+                      children: [
+                        Checkbox(
+                          value: checked,
+                          activeColor: AppColors.accent,
+                          onChanged: (_) => _toggle(option.sourceIndex),
+                        ),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                option.title,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.textH,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                formatCad(option.totalCents),
+                                style: const TextStyle(color: AppColors.text),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 14),
+          PrimaryButton(
+            label: 'Apply',
+            onPressed: () => Navigator.pop(context, _selected),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1766,7 +2689,10 @@ class _FriendPickerSheetState extends State<_FriendPickerSheet> {
                 borderRadius: BorderRadius.circular(14),
                 borderSide: BorderSide.none,
               ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 12,
+              ),
             ),
             onChanged: (value) => setState(() => _query = value.trim()),
           ),
@@ -1774,9 +2700,9 @@ class _FriendPickerSheetState extends State<_FriendPickerSheet> {
           Text(
             'Choose friends',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textH,
-                ),
+              fontWeight: FontWeight.w700,
+              color: AppColors.textH,
+            ),
           ),
           const SizedBox(height: 8),
           ConstrainedBox(
@@ -1815,7 +2741,9 @@ class _FriendPickerSheetState extends State<_FriendPickerSheet> {
                               Expanded(
                                 child: Text(
                                   displayName(friend),
-                                  style: const TextStyle(fontWeight: FontWeight.w600),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ),
                             ],

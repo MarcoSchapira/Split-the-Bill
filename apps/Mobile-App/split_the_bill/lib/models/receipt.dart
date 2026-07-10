@@ -1,5 +1,3 @@
-import 'user.dart';
-
 class ReceiptItem {
   const ReceiptItem({
     required this.name,
@@ -103,76 +101,4 @@ class ParsedReceipt {
         'payment_method': paymentMethod,
         'card_last_4': cardLast4,
       };
-}
-
-enum CaptureContactKind { friend }
-
-class CaptureSelectableContact {
-  const CaptureSelectableContact.friend({
-    required this.id,
-    required this.label,
-    required this.user,
-  }) : kind = CaptureContactKind.friend;
-
-  final CaptureContactKind kind;
-  final String id;
-  final String label;
-  final User? user;
-}
-
-class BillFlowState {
-  BillFlowState({
-    this.billId,
-    this.imageBytes,
-    required this.currentUser,
-    this.receipt,
-    this.parseError,
-    this.participants = const [],
-    this.payerId,
-    this.assignments = const {},
-    this.description,
-    this.incurredAt,
-  });
-
-  final String? billId;
-  final List<int>? imageBytes;
-  final User currentUser;
-  final ParsedReceipt? receipt;
-  final String? parseError;
-  final List<User> participants;
-  final String? payerId;
-  final Map<int, Set<String>> assignments;
-  final String? description;
-  final DateTime? incurredAt;
-
-  bool get isEditing => billId != null;
-
-  BillFlowState copyWith({
-    String? billId,
-    bool clearBillId = false,
-    List<int>? imageBytes,
-    ParsedReceipt? receipt,
-    String? parseError,
-    bool clearParseError = false,
-    List<User>? participants,
-    String? payerId,
-    Map<int, Set<String>>? assignments,
-    String? description,
-    bool clearDescription = false,
-    DateTime? incurredAt,
-    bool clearIncurredAt = false,
-  }) {
-    return BillFlowState(
-      billId: clearBillId ? null : (billId ?? this.billId),
-      imageBytes: imageBytes ?? this.imageBytes,
-      currentUser: currentUser,
-      receipt: receipt ?? this.receipt,
-      parseError: clearParseError ? null : (parseError ?? this.parseError),
-      participants: participants ?? this.participants,
-      payerId: payerId ?? this.payerId,
-      assignments: assignments ?? this.assignments,
-      description: clearDescription ? null : (description ?? this.description),
-      incurredAt: clearIncurredAt ? null : (incurredAt ?? this.incurredAt),
-    );
-  }
 }

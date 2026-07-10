@@ -1,7 +1,5 @@
 import 'user.dart';
 
-enum TargetType { friendship }
-
 enum InvitationStatus { pending, accepted, declined }
 
 class FriendshipSummary {
@@ -175,9 +173,7 @@ class Bill {
     required this.description,
     required this.incurredAt,
     required this.totalCents,
-    required this.targetType,
     required this.source,
-    required this.friendshipId,
     required this.storeName,
     required this.storeAddress,
     required this.receiptNumber,
@@ -196,13 +192,15 @@ class Bill {
     required this.lastEditedAt,
     required this.payer,
     required this.creator,
-    required this.friendship,
     required this.shares,
     required this.canEdit,
     required this.canDelete,
     required this.canRetarget,
     required this.userSummary,
     required this.lineItems,
+    required this.isOneMainTotal,
+    required this.isSplitWithFriends,
+    required this.isSplitByFinalAmounts,
     this.pairwise,
   });
 
@@ -210,9 +208,7 @@ class Bill {
   final String description;
   final String incurredAt;
   final int totalCents;
-  final TargetType? targetType;
   final BillSource source;
-  final String? friendshipId;
   final String? storeName;
   final String? storeAddress;
   final String? receiptNumber;
@@ -231,29 +227,36 @@ class Bill {
   final String lastEditedAt;
   final User payer;
   final User creator;
-  final Map<String, dynamic>? friendship;
   final List<BillShare> shares;
   final bool canEdit;
   final bool canDelete;
   final bool canRetarget;
   final BillUserSummary userSummary;
   final List<BillLineItem> lineItems;
+  final bool isOneMainTotal;
+  final bool isSplitWithFriends;
+  final bool isSplitByFinalAmounts;
   final PairwiseSummary? pairwise;
 
   factory Bill.fromJson(Map<String, dynamic> json) {
+    final shares = (json['shares'] as List<dynamic>)
+        .map((e) => BillShare.fromJson(e as Map<String, dynamic>))
+        .toList();
+    final lineItems = (json['lineItems'] as List<dynamic>? ?? const [])
+        .map((e) => BillLineItem.fromJson(e as Map<String, dynamic>))
+        .toList();
+    final hasLineItemAssignments = lineItems.any(
+      (item) => item.assignments.isNotEmpty,
+    );
+
     return Bill(
       id: json['id'] as String,
       description: json['description'] as String,
       incurredAt: json['incurredAt'] as String,
       totalCents: json['totalCents'] as int,
-      targetType: switch (json['targetType']) {
-        'friendship' => TargetType.friendship,
-        _ => null,
-      },
       source: json['source'] == 'capture'
           ? BillSource.capture
           : BillSource.manual,
-      friendshipId: json['friendshipId'] as String?,
       storeName: json['storeName'] as String?,
       storeAddress: json['storeAddress'] as String?,
       receiptNumber: json['receiptNumber'] as String?,
@@ -272,19 +275,19 @@ class Bill {
       lastEditedAt: json['lastEditedAt'] as String,
       payer: User.fromJson(json['payer'] as Map<String, dynamic>),
       creator: User.fromJson(json['creator'] as Map<String, dynamic>),
-      friendship: json['friendship'] as Map<String, dynamic>?,
-      shares: (json['shares'] as List<dynamic>)
-          .map((e) => BillShare.fromJson(e as Map<String, dynamic>))
-          .toList(),
+      shares: shares,
       canEdit: json['canEdit'] as bool,
       canDelete: json['canDelete'] as bool,
       canRetarget: json['canRetarget'] as bool,
       userSummary: BillUserSummary.fromJson(
         json['userSummary'] as Map<String, dynamic>,
       ),
-      lineItems: (json['lineItems'] as List<dynamic>? ?? const [])
-          .map((e) => BillLineItem.fromJson(e as Map<String, dynamic>))
-          .toList(),
+      lineItems: lineItems,
+      isOneMainTotal: json['isOneMainTotal'] as bool? ?? lineItems.isEmpty,
+      isSplitWithFriends:
+          json['isSplitWithFriends'] as bool? ?? shares.length > 1,
+      isSplitByFinalAmounts:
+          json['isSplitByFinalAmounts'] as bool? ?? !hasLineItemAssignments,
       pairwise: json['pairwise'] != null
           ? PairwiseSummary.fromJson(json['pairwise'] as Map<String, dynamic>)
           : null,

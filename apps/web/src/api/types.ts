@@ -59,9 +59,7 @@ export type Bill = {
   description: string;
   incurredAt: string;
   totalCents: number;
-  targetType: 'friendship' | null;
   source: 'manual' | 'capture';
-  friendshipId: string | null;
   storeName: string | null;
   storeAddress: string | null;
   receiptNumber: string | null;
@@ -80,11 +78,6 @@ export type Bill = {
   lastEditedAt: string;
   payer: User;
   creator: User;
-  friendship: {
-    id: string;
-    userA: User;
-    userB: User;
-  } | null;
   shares: BillShare[];
   canEdit: boolean;
   canDelete: boolean;

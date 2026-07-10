@@ -29,13 +29,18 @@ class PrimaryButton extends StatelessWidget {
             vertical: compact ? 11 : 15,
             horizontal: compact ? 19 : 25,
           ),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(13),
+          ),
         ),
         child: isLoading
             ? const SizedBox(
                 height: 20,
                 width: 20,
-                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
               )
             : Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
       ),
@@ -64,7 +69,9 @@ class SecondaryButton extends StatelessWidget {
           backgroundColor: AppColors.surface,
           side: const BorderSide(color: AppColors.border),
           padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 25),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(13),
+          ),
         ),
         child: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
       ),
@@ -173,12 +180,14 @@ class SummaryCard extends StatelessWidget {
     required this.amount,
     this.positive = false,
     this.negative = false,
+    this.onTap,
   });
 
   final String label;
   final String amount;
   final bool positive;
   final bool negative;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -187,22 +196,29 @@ class SummaryCard extends StatelessWidget {
     if (negative) amountColor = AppColors.error;
 
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: const TextStyle(color: AppColors.text, fontSize: 14)),
-            const SizedBox(height: 8),
-            Text(
-              amount,
-              style: TextStyle(
-                color: amountColor,
-                fontSize: 22,
-                fontWeight: FontWeight.w700,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(color: AppColors.text, fontSize: 14),
               ),
-            ),
-          ],
+              const SizedBox(height: 8),
+              Text(
+                amount,
+                style: TextStyle(
+                  color: amountColor,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -249,8 +265,8 @@ class BalanceChip extends StatelessWidget {
         color: positive
             ? AppColors.accent
             : negative
-                ? AppColors.error
-                : AppColors.text,
+            ? AppColors.error
+            : AppColors.text,
         fontWeight: FontWeight.w700,
       ),
     );
@@ -269,7 +285,10 @@ Future<bool?> showConfirmDialog(
       title: Text(title),
       content: Text(message),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Cancel'),
+        ),
         TextButton(
           onPressed: () => Navigator.pop(context, true),
           style: TextButton.styleFrom(foregroundColor: AppColors.error),

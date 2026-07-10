@@ -107,7 +107,7 @@ export function FriendDetailPage() {
           {showBillForm ? (
             <Modal onClose={() => setShowBillForm(false)} title={`Add bill with ${displayName(friendship.friend)}`}>
               <BillForm
-                fixedTarget={{ targetType: 'friendship', targetId: friendship.id }}
+                fixedFriend={friendship}
                 friends={friends}
                 onCancel={() => setShowBillForm(false)}
                 onSaved={() => {

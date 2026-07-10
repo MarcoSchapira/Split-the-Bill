@@ -16,34 +16,33 @@ import { displayName } from '../utils/format'
 import { BillSplitMemberList } from './BillSplitMemberList'
 import { SplitControls } from './SplitControls'
 
-type Target = {
-  targetType: 'friendship';
-  targetId: string;
-}
-
 type BillFormProps = {
   bill?: Bill;
   friends: FriendshipSummary[];
-  fixedTarget?: Target;
+  fixedFriend?: FriendshipSummary;
   onCancel: () => void;
   onSaved: (bill: Bill) => void;
 }
 
-function targetValue(target: Target): string {
-  return `${target.targetType}:${target.targetId}`
-}
+function friendshipIdForBill(
+  bill: Bill,
+  friends: FriendshipSummary[],
+  currentUserId: string,
+): string | null {
+  const otherParticipantIds = bill.shares
+    .map((share) => share.user.id)
+    .filter((id) => id !== currentUserId)
 
-function parseTarget(value: string): Target {
-  const [targetType, targetId] = value.split(':')
-  return {
-    targetType: targetType as 'friendship',
-    targetId,
+  if (otherParticipantIds.length !== 1) {
+    return null
   }
+
+  return friends.find((friendship) => friendship.friend.id === otherParticipantIds[0])?.id ?? null
 }
 
 export function BillForm({
   bill,
-  fixedTarget,
+  fixedFriend,
   friends,
   onCancel,
   onSaved,
@@ -53,24 +52,19 @@ export function BillForm({
     () =>
       friends.map((friendship) => ({
         ...friendship,
-        kind: 'friendship' as const,
         label: displayName(friendship.friend),
       })),
     [friends],
   )
 
-  const initialTarget =
-    fixedTarget ??
-    (bill && bill.targetType === 'friendship' && bill.friendshipId
-      ? { targetType: 'friendship' as const, targetId: bill.friendshipId }
-      : choices[0]
-        ? { targetType: choices[0].kind, targetId: choices[0].id }
-        : null)
+  const initialFriendshipId =
+    fixedFriend?.id ??
+    (bill && auth.user
+      ? friendshipIdForBill(bill, friends, auth.user.id) ?? choices[0]?.id ?? null
+      : choices[0]?.id ?? null)
   const initialPayerId = bill?.payer.id ?? auth.user?.id ?? ''
 
-  const [selectedTarget, setSelectedTarget] = useState(
-    initialTarget ? targetValue(initialTarget) : '',
-  )
+  const [selectedFriendshipId, setSelectedFriendshipId] = useState(initialFriendshipId ?? '')
   const [description, setDescription] = useState(bill?.description ?? '')
   const [date, setDate] = useState(
     bill?.incurredAt.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
@@ -84,17 +78,14 @@ export function BillForm({
   const [members, setMembers] = useState<MemberSplitState[]>([])
   const [error, setError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
-  const activeTarget =
-    selectedTarget ||
-    (choices[0] ? targetValue({ targetType: choices[0].kind, targetId: choices[0].id }) : '')
-  const target = activeTarget ? parseTarget(activeTarget) : null
+  const activeFriendshipId = selectedFriendshipId || choices[0]?.id || ''
 
   const participants =
-    target?.targetType === 'friendship' && auth.user
+    activeFriendshipId && auth.user
       ? [
           auth.user,
           ...friends
-            .filter((friendship) => friendship.id === target.targetId)
+            .filter((friendship) => friendship.id === activeFriendshipId)
             .map((friendship) => friendship.friend),
         ]
       : []
@@ -107,7 +98,6 @@ export function BillForm({
   const showMemberPanel = participants.length > 0
 
   const participantKey = participants.map((participant) => participant.id).join(',')
-  const targetKey = target ? `${target.targetType}:${target.targetId}` : ''
 
   useEffect(() => {
     if (participants.length === 0) {
@@ -141,7 +131,7 @@ export function BillForm({
         ? syncEqualMemberAmounts(initialized.members, totalCents)
         : initialized.members,
     )
-  }, [participantKey, targetKey, bill?.id])
+  }, [participantKey, activeFriendshipId, bill?.id])
 
   useEffect(() => {
     if (splitKind !== 'equal' || totalCents <= 0 || members.length === 0) {
@@ -174,8 +164,8 @@ export function BillForm({
     event.preventDefault()
     setError(null)
 
-    if (!activeTarget || !Number.isInteger(totalCents) || totalCents <= 0) {
-      setError('Enter a bill target and a positive amount.')
+    if (!activeFriendshipId || !Number.isInteger(totalCents) || totalCents <= 0) {
+      setError('Select a friend and enter a positive amount.')
       return
     }
 
@@ -221,11 +211,11 @@ export function BillForm({
     }
   }
 
-  if (!activeTarget) {
+  if (!activeFriendshipId) {
     return <p className="empty-state">Accept a friend before adding a bill.</p>
   }
 
-  const targetLocked = Boolean(fixedTarget && !bill) || Boolean(bill && !bill.canRetarget)
+  const friendLocked = Boolean(fixedFriend && !bill) || Boolean(bill && !bill.canRetarget)
   const readOnlyValues = splitKind === 'equal'
 
   return (
@@ -233,12 +223,12 @@ export function BillForm({
       <label>
         Split with
         <select
-          disabled={targetLocked}
-          value={activeTarget}
-          onChange={(event) => setSelectedTarget(event.target.value)}
+          disabled={friendLocked}
+          value={activeFriendshipId}
+          onChange={(event) => setSelectedFriendshipId(event.target.value)}
         >
           {choices.map((choice) => (
-            <option key={`${choice.kind}:${choice.id}`} value={`${choice.kind}:${choice.id}`}>
+            <option key={choice.id} value={choice.id}>
               Friend: {choice.label}
             </option>
           ))}

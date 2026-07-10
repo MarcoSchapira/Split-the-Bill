@@ -10,7 +10,6 @@ type ActivityInput = {
   recipientIds: string[];
   billId?: string;
   friendInvitationId?: string;
-  friendshipId?: string;
 };
 
 type ActivityBillLike = {
@@ -88,7 +87,6 @@ export async function createActivity(
       ...(input.friendInvitationId
         ? { friendInvitationId: input.friendInvitationId }
         : {}),
-      ...(input.friendshipId ? { friendshipId: input.friendshipId } : {}),
       recipients: {
         create: recipientIds.map((userId) => ({ userId })),
       },
@@ -125,7 +123,6 @@ export async function listActivity(tx: PrismaTransaction, userId: string) {
       createdAt: true,
       billId: true,
       friendInvitationId: true,
-      friendshipId: true,
       actor: { select: safeUserSelect },
       bill: {
         select: {
@@ -143,9 +140,9 @@ export async function listActivity(tx: PrismaTransaction, userId: string) {
 
   return Promise.all(
     events.map(async (event) => {
-      let friendshipId = event.friendshipId;
+      let friendshipId: string | null = null;
 
-      if (!friendshipId && event.type === "FRIEND_SETTLED") {
+      if (event.type === "FRIEND_SETTLED") {
         const otherUserId = event.recipients.find(
           (recipient) => recipient.userId !== userId,
         )?.userId;

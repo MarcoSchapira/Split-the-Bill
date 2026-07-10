@@ -2,14 +2,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:split_the_bill/models/models.dart';
 
 void main() {
-  test('Bill.fromJson accepts friendship target', () {
+  test('Bill.fromJson parses participant-based bills', () {
     final bill = Bill.fromJson({
       'id': '1',
       'description': 'test',
       'incurredAt': '2026-06-11T00:00:00.000Z',
       'totalCents': 1000,
-      'targetType': 'friendship',
-      'friendshipId': 'f1',
       'payerId': 'u1',
       'creatorId': 'u1',
       'source': 'manual',
@@ -27,7 +25,6 @@ void main() {
         'name': null,
         'createdAt': '2026-06-11T00:00:00.000Z',
       },
-      'friendship': null,
       'shares': [],
       'userSummary': {'amountCents': 0, 'direction': 'none', 'settled': false},
       'lineItems': [],
@@ -36,8 +33,8 @@ void main() {
       'canRetarget': false,
     });
 
-    expect(bill.targetType, TargetType.friendship);
-    expect(bill.friendshipId, 'f1');
+    expect(bill.description, 'test');
+    expect(bill.source, BillSource.manual);
   });
 
   test('Invitations.fromJson accepts friend invitation lists', () {

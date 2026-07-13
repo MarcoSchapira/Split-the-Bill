@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import '../../api/api_exception.dart';
 import '../../providers/providers.dart';
 import '../common_widgets.dart';
@@ -34,7 +33,6 @@ class _AddFriendSheetState extends ConsumerState<AddFriendSheet> {
       notifyDataChanged(ref);
       if (mounted) {
         Navigator.pop(context);
-        context.go('/friends');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Friend invitation sent.')),
         );

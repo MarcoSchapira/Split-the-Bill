@@ -50,32 +50,23 @@ class BillShare {
     required this.id,
     required this.shareCents,
     required this.user,
-    required this.settlementStatus,
-    this.settledAt,
+    required this.payerMarkedAsPaid,
+    required this.lenderConfirmedPaid,
   });
 
   final String id;
   final int shareCents;
   final User user;
-  final String? settledAt;
-  final String settlementStatus;
+  final bool payerMarkedAsPaid;
+  final bool lenderConfirmedPaid;
 
   factory BillShare.fromJson(Map<String, dynamic> json) {
-    final settledAt = json['settledAt'] as String?;
-    final rawStatus = json['settlementStatus'] as String?;
-    final settlementStatus = switch (rawStatus) {
-      'PAID' => 'PAID',
-      'PENDING' => 'PENDING',
-      'NOT_PAID' => 'NOT_PAID',
-      _ => settledAt == null ? 'NOT_PAID' : 'PAID',
-    };
-
     return BillShare(
       id: json['id'] as String,
       shareCents: json['shareCents'] as int,
       user: User.fromJson(json['user'] as Map<String, dynamic>),
-      settledAt: settledAt,
-      settlementStatus: settlementStatus,
+      payerMarkedAsPaid: json['payerMarkedAsPaid'] as bool? ?? false,
+      lenderConfirmedPaid: json['lenderConfirmedPaid'] as bool? ?? false,
     );
   }
 }
@@ -201,6 +192,9 @@ class Bill {
     required this.isOneMainTotal,
     required this.isSplitWithFriends,
     required this.isSplitByFinalAmounts,
+    required this.isSplitWithGroup,
+    this.groupId,
+    this.group,
     this.pairwise,
   });
 
@@ -236,6 +230,9 @@ class Bill {
   final bool isOneMainTotal;
   final bool isSplitWithFriends;
   final bool isSplitByFinalAmounts;
+  final bool isSplitWithGroup;
+  final String? groupId;
+  final BillGroupSummary? group;
   final PairwiseSummary? pairwise;
 
   factory Bill.fromJson(Map<String, dynamic> json) {
@@ -288,9 +285,171 @@ class Bill {
           json['isSplitWithFriends'] as bool? ?? shares.length > 1,
       isSplitByFinalAmounts:
           json['isSplitByFinalAmounts'] as bool? ?? !hasLineItemAssignments,
+      isSplitWithGroup: json['isSplitWithGroup'] as bool? ?? false,
+      groupId: json['groupId'] as String?,
+      group: json['group'] != null
+          ? BillGroupSummary.fromJson(json['group'] as Map<String, dynamic>)
+          : null,
       pairwise: json['pairwise'] != null
           ? PairwiseSummary.fromJson(json['pairwise'] as Map<String, dynamic>)
           : null,
+    );
+  }
+}
+
+class BillGroupSummary {
+  const BillGroupSummary({
+    required this.id,
+    required this.name,
+    required this.iconKey,
+  });
+
+  final String id;
+  final String name;
+  final String iconKey;
+
+  factory BillGroupSummary.fromJson(Map<String, dynamic> json) {
+    return BillGroupSummary(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      iconKey: json['iconKey'] as String,
+    );
+  }
+}
+
+class GroupSummary {
+  const GroupSummary({
+    required this.id,
+    required this.name,
+    required this.iconKey,
+    required this.creatorId,
+    required this.createdAt,
+    required this.updatedAt,
+    required this.memberCount,
+    required this.memberPreview,
+    required this.netBalanceCents,
+  });
+
+  final String id;
+  final String name;
+  final String iconKey;
+  final String creatorId;
+  final String createdAt;
+  final String updatedAt;
+  final int memberCount;
+  final List<User> memberPreview;
+  final int netBalanceCents;
+
+  factory GroupSummary.fromJson(Map<String, dynamic> json) {
+    return GroupSummary(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      iconKey: json['iconKey'] as String,
+      creatorId: json['creatorId'] as String,
+      createdAt: json['createdAt'] as String,
+      updatedAt: json['updatedAt'] as String,
+      memberCount: json['memberCount'] as int,
+      memberPreview: (json['memberPreview'] as List<dynamic>? ?? const [])
+          .map((e) => User.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      netBalanceCents: json['netBalanceCents'] as int? ?? 0,
+    );
+  }
+}
+
+class GroupMemberDetail {
+  const GroupMemberDetail({
+    required this.id,
+    required this.joinedAt,
+    required this.user,
+    required this.isCreator,
+  });
+
+  final String id;
+  final String joinedAt;
+  final User user;
+  final bool isCreator;
+
+  factory GroupMemberDetail.fromJson(Map<String, dynamic> json) {
+    return GroupMemberDetail(
+      id: json['id'] as String,
+      joinedAt: json['joinedAt'] as String,
+      user: User.fromJson(json['user'] as Map<String, dynamic>),
+      isCreator: json['isCreator'] as bool? ?? false,
+    );
+  }
+}
+
+class GroupDetail {
+  const GroupDetail({
+    required this.id,
+    required this.name,
+    required this.iconKey,
+    required this.creatorId,
+    required this.createdAt,
+    required this.updatedAt,
+    required this.creator,
+    required this.members,
+    required this.bills,
+    required this.billCount,
+    required this.hasExistingBills,
+    required this.unsettledBillCount,
+    required this.netBalanceCents,
+    required this.totalGroupSpendCents,
+  });
+
+  final String id;
+  final String name;
+  final String iconKey;
+  final String creatorId;
+  final String createdAt;
+  final String updatedAt;
+  final User creator;
+  final List<GroupMemberDetail> members;
+  final List<Bill> bills;
+  final int billCount;
+  final bool hasExistingBills;
+  final int unsettledBillCount;
+  final int netBalanceCents;
+  final int totalGroupSpendCents;
+
+  factory GroupDetail.fromJson(Map<String, dynamic> json) {
+    return GroupDetail(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      iconKey: json['iconKey'] as String,
+      creatorId: json['creatorId'] as String,
+      createdAt: json['createdAt'] as String,
+      updatedAt: json['updatedAt'] as String,
+      creator: User.fromJson(json['creator'] as Map<String, dynamic>),
+      members: (json['members'] as List<dynamic>)
+          .map((e) => GroupMemberDetail.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      bills: (json['bills'] as List<dynamic>)
+          .map((e) => Bill.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      billCount: json['billCount'] as int? ?? 0,
+      hasExistingBills: json['hasExistingBills'] as bool? ?? false,
+      unsettledBillCount: json['unsettledBillCount'] as int? ?? 0,
+      netBalanceCents: json['netBalanceCents'] as int? ?? 0,
+      totalGroupSpendCents: json['totalGroupSpendCents'] as int? ?? 0,
+    );
+  }
+}
+
+class GroupBalanceSummary {
+  const GroupBalanceSummary({
+    required this.group,
+    required this.balanceCents,
+  });
+
+  final BillGroupSummary group;
+  final int balanceCents;
+
+  factory GroupBalanceSummary.fromJson(Map<String, dynamic> json) {
+    return GroupBalanceSummary(
+      group: BillGroupSummary.fromJson(json['group'] as Map<String, dynamic>),
+      balanceCents: json['balanceCents'] as int,
     );
   }
 }
@@ -346,12 +505,14 @@ class Dashboard {
     required this.totalYouOweCents,
     required this.netBalanceCents,
     required this.balances,
+    required this.groupBalances,
   });
 
   final int totalOwedToYouCents;
   final int totalYouOweCents;
   final int netBalanceCents;
   final List<BalanceContact> balances;
+  final List<GroupBalanceSummary> groupBalances;
 
   factory Dashboard.fromJson(Map<String, dynamic> json) {
     return Dashboard(
@@ -360,6 +521,9 @@ class Dashboard {
       netBalanceCents: json['netBalanceCents'] as int,
       balances: (json['balances'] as List<dynamic>)
           .map((e) => BalanceContact.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      groupBalances: (json['groupBalances'] as List<dynamic>? ?? const [])
+          .map((e) => GroupBalanceSummary.fromJson(e as Map<String, dynamic>))
           .toList(),
     );
   }

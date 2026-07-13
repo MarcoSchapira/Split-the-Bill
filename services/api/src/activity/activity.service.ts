@@ -10,6 +10,7 @@ type ActivityInput = {
   recipientIds: string[];
   billId?: string;
   friendInvitationId?: string;
+  groupId?: string;
 };
 
 type ActivityBillLike = {
@@ -87,6 +88,7 @@ export async function createActivity(
       ...(input.friendInvitationId
         ? { friendInvitationId: input.friendInvitationId }
         : {}),
+      ...(input.groupId ? { groupId: input.groupId } : {}),
       recipients: {
         create: recipientIds.map((userId) => ({ userId })),
       },

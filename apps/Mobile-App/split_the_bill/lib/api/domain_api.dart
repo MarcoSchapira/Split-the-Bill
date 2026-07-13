@@ -81,13 +81,18 @@ class BillsApi {
   BillsApi(this._client);
   final ApiClient _client;
 
-  Future<List<Bill>> listBills({String? participantId}) async {
+  Future<List<Bill>> listBills({String? participantId, String? groupId}) async {
     try {
+      final queryParameters = <String, dynamic>{};
+      if (participantId != null) {
+        queryParameters['participantId'] = participantId;
+      }
+      if (groupId != null) {
+        queryParameters['groupId'] = groupId;
+      }
       final response = await _client.dio.get<Map<String, dynamic>>(
         '/bills',
-        queryParameters: participantId == null
-            ? null
-            : {'participantId': participantId},
+        queryParameters: queryParameters.isEmpty ? null : queryParameters,
       );
       return (response.data!['bills'] as List<dynamic>)
           .map((e) => Bill.fromJson(e as Map<String, dynamic>))
@@ -242,6 +247,148 @@ class InvitationsApi {
       );
     } on DioException catch (e) {
       _client.throwApiError(e, 'Unable to update invitation.');
+    }
+  }
+
+  Future<void> cancelFriendInvitation(String invitationId) async {
+    try {
+      await _client.dio.delete<void>('/friend-invitations/$invitationId');
+    } on DioException catch (e) {
+      _client.throwApiError(e, 'Unable to cancel invitation.');
+    }
+  }
+}
+
+class GroupsApi {
+  GroupsApi(this._client);
+  final ApiClient _client;
+
+  Future<List<GroupSummary>> listGroups() async {
+    try {
+      final response = await _client.dio.get<Map<String, dynamic>>('/groups');
+      return (response.data!['groups'] as List<dynamic>)
+          .map((e) => GroupSummary.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } on DioException catch (e) {
+      _client.throwApiError(e, 'Unable to load groups.');
+    }
+  }
+
+  Future<GroupDetail> getGroup(String groupId) async {
+    try {
+      final response = await _client.dio.get<Map<String, dynamic>>(
+        '/groups/$groupId',
+      );
+      return GroupDetail.fromJson(
+        response.data!['group'] as Map<String, dynamic>,
+      );
+    } on DioException catch (e) {
+      _client.throwApiError(e, 'Unable to load group details.');
+    }
+  }
+
+  Future<GroupSummary> createGroup({
+    required String name,
+    required String iconKey,
+  }) async {
+    try {
+      final response = await _client.dio.post<Map<String, dynamic>>(
+        '/groups',
+        data: {'name': name, 'iconKey': iconKey},
+      );
+      return GroupSummary.fromJson(
+        response.data!['group'] as Map<String, dynamic>,
+      );
+    } on DioException catch (e) {
+      _client.throwApiError(e, 'Unable to create group.');
+    }
+  }
+
+  Future<GroupSummary> updateGroup(
+    String groupId, {
+    String? name,
+    String? iconKey,
+  }) async {
+    try {
+      final response = await _client.dio.patch<Map<String, dynamic>>(
+        '/groups/$groupId',
+        data: {
+          if (name != null) 'name': name,
+          if (iconKey != null) 'iconKey': iconKey,
+        },
+      );
+      return GroupSummary.fromJson(
+        response.data!['group'] as Map<String, dynamic>,
+      );
+    } on DioException catch (e) {
+      _client.throwApiError(e, 'Unable to update group.');
+    }
+  }
+
+  Future<void> deleteGroup(String groupId) async {
+    try {
+      await _client.dio.delete<void>('/groups/$groupId');
+    } on DioException catch (e) {
+      _client.throwApiError(e, 'Unable to delete group.');
+    }
+  }
+
+  Future<GroupDetail> addMember(
+    String groupId,
+    String userId, {
+    String retroactiveScope = 'new_only',
+  }) async {
+    try {
+      final response = await _client.dio.post<Map<String, dynamic>>(
+        '/groups/$groupId/members',
+        data: {'userId': userId, 'retroactiveScope': retroactiveScope},
+      );
+      return GroupDetail.fromJson(
+        response.data!['group'] as Map<String, dynamic>,
+      );
+    } on DioException catch (e) {
+      _client.throwApiError(e, 'Unable to add group member.');
+    }
+  }
+
+  Future<GroupDetail?> removeMember(
+    String groupId,
+    String userId, {
+    String retroactiveScope = 'new_only',
+  }) async {
+    try {
+      final response = await _client.dio.delete<Map<String, dynamic>>(
+        '/groups/$groupId/members/$userId',
+        data: {'retroactiveScope': retroactiveScope},
+      );
+      if (response.statusCode == 204 || response.data == null) {
+        return null;
+      }
+      return GroupDetail.fromJson(
+        response.data!['group'] as Map<String, dynamic>,
+      );
+    } on DioException catch (e) {
+      _client.throwApiError(e, 'Unable to remove group member.');
+    }
+  }
+
+  Future<GroupDetail?> leaveGroup(
+    String groupId, {
+    String retroactiveScope = 'new_only',
+  }) async {
+    try {
+      final response = await _client.dio.post<Map<String, dynamic>>(
+        '/groups/$groupId/leave',
+        data: {'retroactiveScope': retroactiveScope},
+      );
+      if (response.statusCode == 204 || response.data == null) {
+        return null;
+      }
+      return GroupDetail.fromJson(
+        response.data!['group'] as Map<String, dynamic>,
+      );
+    } on DioException catch (e) {
+      _client.throwApiError(e, 'Unable to leave group.');
     }
   }
 }

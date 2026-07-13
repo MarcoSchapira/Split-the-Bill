@@ -26,6 +26,8 @@ enum _AdjustmentInputMode { percent, amount }
 
 enum _SplitMode { splitTotal, splitByLineItem }
 
+enum _SplitTarget { solo, friends, group }
+
 class _ManualLineItemRow {
   _ManualLineItemRow({
     String quantity = '1',
@@ -72,10 +74,16 @@ class _LineItemSelectionOption {
 }
 
 class ManualReceiptScreen extends ConsumerStatefulWidget {
-  const ManualReceiptScreen({super.key, this.initialBill, this.imageBytes});
+  const ManualReceiptScreen({
+    super.key,
+    this.initialBill,
+    this.imageBytes,
+    this.initialGroupId,
+  });
 
   final Bill? initialBill;
   final List<int>? imageBytes;
+  final String? initialGroupId;
 
   @override
   ConsumerState<ManualReceiptScreen> createState() =>
@@ -99,9 +107,13 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
   final _amountFocusNode = FocusNode();
 
   List<User> _friends = [];
+  List<GroupSummary> _groups = [];
   List<ManualSplitEntry> _splitEntries = [];
   List<_ManualLineItemRow> _lineItemRows = [];
   Set<String> _selectedFriendIds = <String>{};
+  String? _selectedGroupId;
+  GroupDetail? _selectedGroupDetail;
+  _SplitTarget _splitTarget = _SplitTarget.solo;
   String? _selectedPayerId;
   bool _amountSectionExpanded = false;
   bool _lineItemsEnabled = false;
@@ -127,8 +139,20 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
     final bill = widget.initialBill;
     if (bill != null) {
       _applyPrefill(prefillFromBill(bill, currentUser!));
+      if (bill.isSplitWithGroup && bill.groupId != null) {
+        _splitTarget = _SplitTarget.group;
+        _selectedGroupId = bill.groupId;
+      } else if (bill.isSplitWithFriends) {
+        _splitTarget = _SplitTarget.friends;
+      } else {
+        _splitTarget = _SplitTarget.solo;
+      }
     } else {
       _selectedPayerId = currentUser?.id;
+      if (widget.initialGroupId != null) {
+        _splitTarget = _SplitTarget.group;
+        _selectedGroupId = widget.initialGroupId;
+      }
       if (widget.imageBytes != null) {
         _parsing = true;
         _parseReceipt();
@@ -138,6 +162,55 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
       _lineItemRows = [_ManualLineItemRow()];
     }
     _loadFriends();
+    _loadGroups();
+  }
+
+  Future<void> _loadGroups() async {
+    try {
+      final groups = await ref.read(groupsApiProvider).listGroups();
+      if (!mounted) return;
+      setState(() => _groups = groups);
+      if (_selectedGroupId != null) {
+        await _loadSelectedGroupDetail(_selectedGroupId!);
+      }
+    } catch (_) {
+      // Groups are optional for manual bill entry.
+    }
+  }
+
+  Future<void> _loadSelectedGroupDetail(String groupId) async {
+    try {
+      final detail = await ref.read(groupsApiProvider).getGroup(groupId);
+      if (!mounted) return;
+      setState(() => _selectedGroupDetail = detail);
+    } catch (_) {
+      if (mounted) setState(() => _selectedGroupDetail = null);
+    }
+  }
+
+  void _setSplitTarget(_SplitTarget target) {
+    setState(() {
+      _splitTarget = target;
+      _error = null;
+      if (target == _SplitTarget.solo) {
+        _selectedFriendIds = {};
+        _selectedGroupId = null;
+        _selectedGroupDetail = null;
+        _splitMode = _SplitMode.splitTotal;
+      } else if (target == _SplitTarget.friends) {
+        _selectedGroupId = null;
+        _selectedGroupDetail = null;
+      } else {
+        _selectedFriendIds = {};
+        _lineItemAssignments = {};
+        _splitMode = _SplitMode.splitTotal;
+        _selectedPayerId = _currentUser.id;
+        if (_selectedGroupId == null && _groups.isNotEmpty) {
+          _selectedGroupId = _groups.first.id;
+          _loadSelectedGroupDetail(_groups.first.id);
+        }
+      }
+    });
   }
 
   void _applyPrefill(ManualReceiptPrefill prefill) {
@@ -236,8 +309,18 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
   }
 
   List<User> get _participants {
+    if (_splitTarget == _SplitTarget.group) {
+      final members = _selectedGroupDetail?.members ?? const [];
+      return members.map((member) => member.user).toList();
+    }
     return [_currentUser, ..._selectedFriendUsers];
   }
+
+  bool get _isGroupSplit => _splitTarget == _SplitTarget.group && _selectedGroupId != null;
+
+  bool get _isSplitWithAnyone =>
+      _splitTarget == _SplitTarget.friends && _selectedFriendIds.isNotEmpty ||
+      _isGroupSplit;
 
   String? _nullableTrim(TextEditingController controller) {
     final value = controller.text.trim();
@@ -245,11 +328,16 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
   }
 
   Set<String> get _activeParticipantIds {
+    if (_isGroupSplit) {
+      return _participants.map((participant) => participant.id).toSet();
+    }
     return {_currentUser.id, ..._selectedFriendIds};
   }
 
   bool get _isSplitByLineItemMode {
-    return _lineItemsEnabled && _splitMode == _SplitMode.splitByLineItem;
+    return !_isGroupSplit &&
+        _lineItemsEnabled &&
+        _splitMode == _SplitMode.splitByLineItem;
   }
 
   List<({int sourceIndex, _ManualLineItemRow row})>
@@ -517,6 +605,10 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
     final title = _titleController.text.trim();
     final total = _totalCents;
     if (title.isEmpty || total == null) return false;
+    if (_isGroupSplit) {
+      return _selectedGroupId != null &&
+          (_selectedGroupDetail?.members.length ?? 0) >= 2;
+    }
     if (_selectedFriendIds.isNotEmpty) {
       if (_isSplitByLineItemMode) {
         return _lineItemAssignmentsComplete;
@@ -568,10 +660,18 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
     if (titleError == null &&
         amountError == null &&
         !_canSavePayload &&
+        _splitTarget == _SplitTarget.friends &&
         _selectedFriendIds.isNotEmpty) {
       splitError = _isSplitByLineItemMode
           ? 'Assign each line item to at least one participant.'
           : 'Adjust friend amounts so they add up to the total.';
+    }
+
+    if (titleError == null &&
+        amountError == null &&
+        !_canSavePayload &&
+        _isGroupSplit) {
+      splitError = 'Group bills require at least two members.';
     }
 
     setState(() {
@@ -726,6 +826,12 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
 
   void _setPayer(String payerId) {
     if (payerId == _selectedPayerId) return;
+
+    if (_splitTarget == _SplitTarget.group) {
+      setState(() => _selectedPayerId = payerId);
+      return;
+    }
+
     final sharesById = {
       for (final participant in _participants)
         participant.id: _shareForUser(participant.id),
@@ -868,7 +974,7 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
         const SizedBox(height: 16),
         _buildFinalAmountCard(),
         const SizedBox(height: 16),
-        _buildSplitWithFriendsCard(),
+        _buildSplitTargetCard(),
         const SizedBox(height: 16),
         _buildAdditionalDetailsCard(),
       ],
@@ -1489,7 +1595,115 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
     );
   }
 
-  Widget _buildSplitWithFriendsCard() {
+  Widget _buildSplitTargetCard() {
+    return _buildSectionCard(
+      title: 'Split with',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: 8),
+          SegmentedToggle(
+            items: const [
+              SegmentedToggleItem(label: 'Just me'),
+              SegmentedToggleItem(label: 'Friends'),
+              SegmentedToggleItem(label: 'Group'),
+            ],
+            selectedIndex: _splitTarget.index,
+            onSelected: (index) => _setSplitTarget(_SplitTarget.values[index]),
+          ),
+          const SizedBox(height: 16),
+          if (_splitTarget == _SplitTarget.friends) _buildFriendsSplitSection(),
+          if (_splitTarget == _SplitTarget.group) _buildGroupSplitSection(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGroupSplitSection() {
+    if (_groups.isEmpty) {
+      return const Text(
+        'Create a group first to split with one.',
+        style: TextStyle(color: AppColors.text),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        DropdownButtonFormField<String>(
+          initialValue: _selectedGroupId,
+          decoration: _boxedInputDecoration(hintText: 'Select group'),
+          items: _groups
+              .map(
+                (group) => DropdownMenuItem(
+                  value: group.id,
+                  child: Text(group.name),
+                ),
+              )
+              .toList(),
+          onChanged: (groupId) {
+            if (groupId == null) return;
+            setState(() {
+              _selectedGroupId = groupId;
+              _selectedPayerId = _currentUser.id;
+            });
+            _loadSelectedGroupDetail(groupId);
+          },
+        ),
+        if (_selectedGroupDetail != null) ...[
+          const SizedBox(height: 12),
+          Text(
+            'Split evenly among ${_selectedGroupDetail!.members.length} members',
+            style: const TextStyle(
+              color: AppColors.text,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Tap who paid for this expense',
+            style: TextStyle(color: AppColors.text, fontSize: 13),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _selectedGroupDetail!.members
+                .map(_buildGroupMemberPayerChip)
+                .toList(),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildGroupMemberPayerChip(GroupMemberDetail member) {
+    final payerId = _selectedPayerId ?? _currentUser.id;
+    final isPayer = member.user.id == payerId;
+    final label = member.user.id == _currentUser.id
+        ? 'You'
+        : displayName(member.user);
+
+    return FilterChip(
+      label: Text(isPayer ? '$label · paid' : label),
+      selected: isPayer,
+      showCheckmark: false,
+      onSelected: (_) => _setPayer(member.user.id),
+      selectedColor: AppColors.accentSoft,
+      backgroundColor: AppColors.surface,
+      labelStyle: TextStyle(
+        color: isPayer ? AppColors.accent : AppColors.textH,
+        fontWeight: isPayer ? FontWeight.w700 : FontWeight.w600,
+      ),
+      side: BorderSide(
+        color: isPayer ? AppColors.accent : AppColors.border,
+        width: isPayer ? 2 : 1,
+      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    );
+  }
+
+  Widget _buildFriendsSplitSection() {
     final payerId = _selectedPayerId ?? _currentUser.id;
     final payerShare = _payerShareCents ?? 0;
     final orderedParticipants = [
@@ -1497,45 +1711,41 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
       ..._participants.where((participant) => participant.id != payerId),
     ];
 
-    return _buildSectionCard(
-      title: 'Split with Friends - (optional)',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SizedBox(height: 8),
-          AnimatedSize(
-            duration: const Duration(milliseconds: 220),
-            curve: Curves.easeOutCubic,
-            alignment: Alignment.topCenter,
-            clipBehavior: Clip.hardEdge,
-            child: _lineItemsEnabled && _selectedFriendIds.isNotEmpty
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _buildSplitModeToggle(),
-                      const SizedBox(height: 12),
-                    ],
-                  )
-                : const SizedBox.shrink(),
-          ),
-          if (_selectedFriendIds.isNotEmpty) ...[
-            if (_isSplitByLineItemMode)
-              _buildSplitByLineItemSection(participants: orderedParticipants)
-            else
-              _buildSplitTotalSection(
-                participants: orderedParticipants,
-                payerId: payerId,
-                payerShareCents: payerShare,
-              ),
-            const SizedBox(height: 8),
-            SecondaryButton(
-              label: 'Edit friends',
-              onPressed: _openFriendPicker,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AnimatedSize(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topCenter,
+          clipBehavior: Clip.hardEdge,
+          child: _lineItemsEnabled && _selectedFriendIds.isNotEmpty
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildSplitModeToggle(),
+                    const SizedBox(height: 12),
+                  ],
+                )
+              : const SizedBox.shrink(),
+        ),
+        if (_selectedFriendIds.isNotEmpty) ...[
+          if (_isSplitByLineItemMode)
+            _buildSplitByLineItemSection(participants: orderedParticipants)
+          else
+            _buildSplitTotalSection(
+              participants: orderedParticipants,
+              payerId: payerId,
+              payerShareCents: payerShare,
             ),
-          ] else
-            SecondaryButton(label: 'Add friends', onPressed: _openFriendPicker),
-        ],
-      ),
+          const SizedBox(height: 8),
+          SecondaryButton(
+            label: 'Edit friends',
+            onPressed: _openFriendPicker,
+          ),
+        ] else
+          SecondaryButton(label: 'Add friends', onPressed: _openFriendPicker),
+      ],
     );
   }
 
@@ -2235,9 +2445,10 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
   Map<String, dynamic> _buildPayload() {
     final total = _totalCents!;
     final description = _titleController.text.trim();
-    final isSplitWithFriends = _selectedFriendIds.isNotEmpty;
+    final isSplitWithGroup = _isGroupSplit;
+    final isSplitWithFriends = _isSplitWithAnyone;
     final isSplitByFinalAmounts =
-        !_isSplitByLineItemMode || !isSplitWithFriends;
+        isSplitWithGroup || !_isSplitByLineItemMode || !isSplitWithFriends;
 
     final basePayload = <String, dynamic>{
       'description': description,
@@ -2246,7 +2457,10 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
       'source': _billSource.name,
       'isOneMainTotal': !_lineItemsEnabled,
       'isSplitWithFriends': isSplitWithFriends,
+      'isSplitWithGroup': isSplitWithGroup,
       'isSplitByFinalAmounts': isSplitByFinalAmounts,
+      if (isSplitWithGroup) 'groupId': _selectedGroupId,
+      if (!isSplitWithGroup) 'groupId': null,
       'storeName': _nullableTrim(_storeNameController),
       'storeAddress': _nullableTrim(_storeAddressController),
       'receiptNumber': _nullableTrim(_receiptNumberController),
@@ -2299,6 +2513,14 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
 
     if (!isSplitWithFriends) {
       return basePayload;
+    }
+
+    if (isSplitWithGroup) {
+      final payerId = _selectedPayerId ?? _currentUser.id;
+      return {
+        ...basePayload,
+        'payerId': payerId,
+      };
     }
 
     final currentUser = _currentUser;

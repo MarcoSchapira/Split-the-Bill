@@ -33,6 +33,10 @@ final invitationsApiProvider = Provider<InvitationsApi>((ref) {
   return InvitationsApi(ref.watch(apiClientProvider));
 });
 
+final groupsApiProvider = Provider<GroupsApi>((ref) {
+  return GroupsApi(ref.watch(apiClientProvider));
+});
+
 final activityApiProvider = Provider<ActivityApi>((ref) {
   return ActivityApi(ref.watch(apiClientProvider));
 });

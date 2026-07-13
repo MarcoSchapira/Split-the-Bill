@@ -17,3 +17,7 @@ export async function answerFriendInvitation(
   return response.data.invitation
 }
 
+export async function cancelFriendInvitation(invitationId: string): Promise<void> {
+  await apiClient.delete(`/friend-invitations/${invitationId}`)
+}
+

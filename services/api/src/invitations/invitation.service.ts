@@ -260,3 +260,28 @@ export async function respondToFriendInvitation(
   }
 }
 
+export async function cancelFriendInvitation(
+  tx: PrismaTransaction,
+  userId: string,
+  invitationId: string,
+) {
+  const invitation = await tx.friendInvitation.findUnique({
+    where: { id: invitationId },
+    select: { id: true, senderId: true, status: true },
+  });
+
+  if (!invitation || invitation.senderId !== userId) {
+    throw new ApiError(404, "INVITATION_NOT_FOUND", "Invitation not found");
+  }
+
+  if (invitation.status !== "pending") {
+    throw new ApiError(
+      409,
+      "INVITATION_ALREADY_RESPONDED",
+      "Invitation can no longer be cancelled",
+    );
+  }
+
+  await tx.friendInvitation.delete({ where: { id: invitationId } });
+}
+

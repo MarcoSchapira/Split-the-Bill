@@ -1,7 +1,10 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:split_the_bill/models/models.dart';
 import 'package:split_the_bill/models/user.dart';
+import 'package:split_the_bill/theme/app_colors.dart';
 import 'package:split_the_bill/utils/request_items.dart';
+import 'package:split_the_bill/utils/settlement_status.dart';
 
 User _user(String id, {String? name, String email = 'user@example.com'}) {
   return User(
@@ -16,14 +19,14 @@ BillShare _share({
   required String id,
   required User user,
   required int shareCents,
-  String? settledAt,
-  String? settlementStatus,
+  bool payerMarkedAsPaid = false,
+  bool lenderConfirmedPaid = false,
 }) {
   return BillShare.fromJson({
     'id': id,
     'shareCents': shareCents,
-    'settledAt': settledAt,
-    if (settlementStatus != null) 'settlementStatus': settlementStatus,
+    'payerMarkedAsPaid': payerMarkedAsPaid,
+    'lenderConfirmedPaid': lenderConfirmedPaid,
     'user': user.toJson(),
   });
 }
@@ -51,8 +54,8 @@ Bill _bill({
       return {
         'id': share.id,
         'shareCents': share.shareCents,
-        'settledAt': share.settledAt,
-        'settlementStatus': share.settlementStatus,
+        'payerMarkedAsPaid': share.payerMarkedAsPaid,
+        'lenderConfirmedPaid': share.lenderConfirmedPaid,
         'user': share.user.toJson(),
       };
     }).toList(),
@@ -68,6 +71,101 @@ void main() {
   final payer = _user('u1', name: 'Alex');
   final friendA = _user('u2', name: 'Blake');
   final friendB = _user('u3', name: 'Casey');
+
+  test('requestRelationshipTitle formats both directions', () {
+    expect(
+      requestRelationshipTitle(
+        direction: RequestDirection.owedToYou,
+        counterpartyName: 'Blake',
+      ),
+      'Blake owes you',
+    );
+    expect(
+      requestRelationshipTitle(
+        direction: RequestDirection.youOwe,
+        counterpartyName: 'Alex',
+      ),
+      'You owe Alex',
+    );
+  });
+
+  test('requestAmountDirectionLabel formats both directions', () {
+    expect(
+      requestAmountDirectionLabel(RequestDirection.owedToYou),
+      'you are owed',
+    );
+    expect(requestAmountDirectionLabel(RequestDirection.youOwe), 'you owe');
+  });
+
+  test('settlementStatusDetailLabel covers all statuses', () {
+    expect(
+      settlementStatusDetailLabel(
+        payerMarkedAsPaid: false,
+        lenderConfirmedPaid: false,
+        counterpartyName: 'Blake',
+        direction: RequestDirection.owedToYou,
+      ),
+      'Not paid',
+    );
+    expect(
+      settlementStatusDetailLabel(
+        payerMarkedAsPaid: true,
+        lenderConfirmedPaid: false,
+        counterpartyName: 'Blake',
+        direction: RequestDirection.owedToYou,
+      ),
+      'Blake marked as paid',
+    );
+    expect(
+      settlementStatusDetailLabel(
+        payerMarkedAsPaid: true,
+        lenderConfirmedPaid: false,
+        counterpartyName: 'Alex',
+        direction: RequestDirection.youOwe,
+      ),
+      'You marked as paid',
+    );
+    expect(
+      settlementStatusDetailLabel(
+        payerMarkedAsPaid: false,
+        lenderConfirmedPaid: true,
+        counterpartyName: 'Blake',
+        direction: RequestDirection.owedToYou,
+      ),
+      'Paid and confirmed',
+    );
+  });
+
+  test('settlementStatusColor is universal and not tab-dependent', () {
+    expect(
+      settlementStatusColor(
+        payerMarkedAsPaid: false,
+        lenderConfirmedPaid: false,
+      ),
+      AppColors.error,
+    );
+    expect(
+      settlementStatusColor(
+        payerMarkedAsPaid: true,
+        lenderConfirmedPaid: false,
+      ),
+      AppColors.pendingText,
+    );
+    expect(
+      settlementStatusColor(
+        payerMarkedAsPaid: false,
+        lenderConfirmedPaid: true,
+      ),
+      AppColors.accent,
+    );
+    expect(
+      settlementStatusColor(
+        payerMarkedAsPaid: false,
+        lenderConfirmedPaid: false,
+      ),
+      isNot(AppColors.brandSoft),
+    );
+  });
 
   test('payer sees one row per debtor on a group bill', () {
     final bills = [
@@ -157,8 +255,7 @@ void main() {
             id: 's2',
             user: friendA,
             shareCents: 600,
-            settledAt: '2026-06-12T00:00:00.000Z',
-            settlementStatus: 'PAID',
+            lenderConfirmedPaid: true,
           ),
         ],
       ),
@@ -171,8 +268,14 @@ void main() {
     );
 
     expect(items.length, 1);
-    expect(items.first.settlementStatus, 'PAID');
-    expect(settlementProgress(items.first.settlementStatus), 1.0);
+    expect(items.first.lenderConfirmedPaid, isTrue);
+    expect(
+      settlementProgress(
+        payerMarkedAsPaid: items.first.payerMarkedAsPaid,
+        lenderConfirmedPaid: items.first.lenderConfirmedPaid,
+      ),
+      1.0,
+    );
   });
 
   test('sorts unpaid before paid then by newest bill first', () {
@@ -188,8 +291,7 @@ void main() {
             id: 's2',
             user: friendA,
             shareCents: 500,
-            settlementStatus: 'PAID',
-            settledAt: '2026-06-02T00:00:00.000Z',
+            lenderConfirmedPaid: true,
           ),
         ],
       ),
@@ -214,7 +316,7 @@ void main() {
             id: 's6',
             user: friendA,
             shareCents: 300,
-            settlementStatus: 'PENDING',
+            payerMarkedAsPaid: true,
           ),
         ],
       ),

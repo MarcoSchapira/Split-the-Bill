@@ -9,6 +9,9 @@ import '../../theme/app_colors.dart';
 import '../../utils/format.dart';
 import '../common_widgets.dart';
 
+/// Set to true to restore the expandable split breakdown footer on bill tiles.
+const _showSplitBreakdown = false;
+
 class BillList extends ConsumerWidget {
   const BillList({
     super.key,
@@ -71,23 +74,76 @@ List<BillShare> _sortedShares(Bill bill) {
 
 bool _isShareSettled(BillShare share, String payerId) {
   if (share.user.id == payerId) return true;
-  return share.settlementStatus == 'PAID' || share.settledAt != null;
+  return share.lenderConfirmedPaid;
 }
 
-int _settledShareCount(Bill bill) {
-  return bill.shares
+List<BillShare> _debtorShares(Bill bill) {
+  return bill.shares.where((share) => share.user.id != bill.payerId).toList();
+}
+
+int _settledDebtorCount(Bill bill) {
+  return _debtorShares(bill)
       .where((share) => _isShareSettled(share, bill.payerId))
       .length;
 }
 
-bool _isBillFullySettled(Bill bill) {
-  return bill.shares.every((share) => _isShareSettled(share, bill.payerId));
+bool _allDebtorsSettled(Bill bill) {
+  final debtors = _debtorShares(bill);
+  if (debtors.isEmpty) return true;
+  return debtors.every((share) => _isShareSettled(share, bill.payerId));
+}
+
+int _amountOwedToPayer(Bill bill) {
+  return _debtorShares(bill)
+      .where((share) => !_isShareSettled(share, bill.payerId))
+      .fold<int>(0, (sum, share) => sum + share.shareCents);
+}
+
+BillShare? _shareForUser(Bill bill, String? userId) {
+  if (userId == null) return null;
+  for (final share in bill.shares) {
+    if (share.user.id == userId) {
+      return share;
+    }
+  }
+  return null;
 }
 
 String _nameInitial(String value) {
   final trimmed = value.trim();
   if (trimmed.isEmpty) return '?';
   return trimmed[0].toUpperCase();
+}
+
+int? _yourShareCents(Bill bill, String? currentUserId) {
+  return _shareForUser(bill, currentUserId)?.shareCents;
+}
+
+enum _BillTileStatus {
+  solo,
+  payerCollecting,
+  payerComplete,
+  debtorOwes,
+  debtorSettled,
+}
+
+_BillTileStatus _billTileStatus({
+  required Bill bill,
+  required bool isPayer,
+  required bool isSoloBill,
+  required bool userShareSettled,
+  required bool allDebtorsSettled,
+  required int debtorCount,
+}) {
+  if (isSoloBill) return _BillTileStatus.solo;
+  if (isPayer) {
+    return allDebtorsSettled || debtorCount == 0
+        ? _BillTileStatus.payerComplete
+        : _BillTileStatus.payerCollecting;
+  }
+  return userShareSettled
+      ? _BillTileStatus.debtorSettled
+      : _BillTileStatus.debtorOwes;
 }
 
 class _BillListItem extends ConsumerStatefulWidget {
@@ -137,22 +193,31 @@ class _BillListItemState extends ConsumerState<_BillListItem> {
     final summary = bill.userSummary;
     final showBalance = summary.direction != 'none' && summary.amountCents > 0;
     final isSettled = summary.settled;
-    final balanceLabel = summary.direction == 'owed_to_you'
-        ? 'Owes you'
-        : summary.direction == 'you_owe'
-            ? 'You owe'
-            : null;
-    final balanceColor = summary.direction == 'owed_to_you'
-        ? AppColors.accent
-        : summary.direction == 'you_owe'
-            ? AppColors.error
-            : AppColors.text;
-    final isCapture = bill.source == BillSource.capture;
+    final currentUserId = ref.watch(authProvider).user?.id;
+    final yourShareCents = _yourShareCents(bill, currentUserId);
+    final isPayer =
+        currentUserId != null && currentUserId == bill.payerId;
+    final isSoloBill = !bill.isSplitWithFriends || shares.length <= 1;
     final multiParticipant = shares.length > 1;
-    final fullySettled = _isBillFullySettled(bill);
-    final settledCount = _settledShareCount(bill);
-    final settlementProgress =
-        shares.isEmpty ? 0.0 : settledCount / shares.length;
+    final debtorShares = _debtorShares(bill);
+    final debtorCount = debtorShares.length;
+    final settledDebtorCount = _settledDebtorCount(bill);
+    final allDebtorsSettled = _allDebtorsSettled(bill);
+    final amountOwedToPayer = _amountOwedToPayer(bill);
+    final debtorProgress =
+        debtorCount == 0 ? 1.0 : settledDebtorCount / debtorCount;
+    final userShare = _shareForUser(bill, currentUserId);
+    final userShareSettled = userShare != null &&
+        _isShareSettled(userShare, bill.payerId);
+    final userOwesAmount = userShare?.shareCents ?? 0;
+    final tileStatus = _billTileStatus(
+      bill: bill,
+      isPayer: isPayer,
+      isSoloBill: isSoloBill,
+      userShareSettled: userShareSettled,
+      allDebtorsSettled: allDebtorsSettled,
+      debtorCount: debtorCount,
+    );
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -161,9 +226,7 @@ class _BillListItemState extends ConsumerState<_BillListItem> {
       color: AppColors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(
-          color: fullySettled ? AppColors.border : AppColors.border,
-        ),
+        side: const BorderSide(color: AppColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -179,46 +242,73 @@ class _BillListItemState extends ConsumerState<_BillListItem> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
-                        child: Text(
-                          bill.description,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 16,
-                            height: 1.25,
-                            color: AppColors.textH,
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              bill.description,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 16,
+                                height: 1.25,
+                                color: AppColors.textH,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                _BillMetaChip(
+                                  icon: Icons.calendar_today_outlined,
+                                  label: formatDateUtc(bill.incurredAt),
+                                ),
+                                if (bill.isSplitWithGroup && bill.group != null)
+                                  _BillMetaChip(
+                                    icon: Icons.groups_outlined,
+                                    label: bill.group!.name,
+                                  )
+                                else if (multiParticipant)
+                                  _BillMetaChip(
+                                    icon: Icons.group_outlined,
+                                    label: '${shares.length} people',
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              'Paid by ${displayName(bill.payer)}',
+                              style: const TextStyle(
+                                color: AppColors.text,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      if (widget.showBalanceSummary && showBalance)
+                      if (yourShareCents != null)
                         Padding(
                           padding: const EdgeInsets.only(left: 12),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
-                              if (balanceLabel != null)
-                                Text(
-                                  balanceLabel,
-                                  style: TextStyle(
-                                    color: isSettled
-                                        ? AppColors.text
-                                        : balanceColor,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              Text(
-                                formatCad(summary.amountCents),
+                              const Text(
+                                'You pay',
                                 style: TextStyle(
+                                  color: AppColors.text,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              Text(
+                                formatCad(yourShareCents),
+                                style: const TextStyle(
                                   fontWeight: FontWeight.w700,
                                   fontSize: 17,
-                                  color: isSettled
-                                      ? AppColors.text
-                                      : balanceColor,
-                                  decoration: isSettled
-                                      ? TextDecoration.lineThrough
-                                      : null,
+                                  color: AppColors.textH,
                                 ),
                               ),
                             ],
@@ -226,91 +316,27 @@ class _BillListItemState extends ConsumerState<_BillListItem> {
                         ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      _BillMetaChip(
-                        icon: isCapture
-                            ? Icons.receipt_long_outlined
-                            : Icons.edit_note_outlined,
-                        label: isCapture ? 'Captured' : 'Manual',
-                        foreground: isCapture
-                            ? AppColors.accent
-                            : AppColors.text,
-                        background: isCapture
-                            ? AppColors.accentSoft
-                            : AppColors.surfaceMuted,
-                      ),
-                      _BillMetaChip(
-                        icon: Icons.calendar_today_outlined,
-                        label: formatDateUtc(bill.incurredAt),
-                      ),
-                      if (multiParticipant)
-                        _BillMetaChip(
-                          icon: Icons.group_outlined,
-                          label: '${shares.length} people',
-                        ),
-                    ],
+                  const SizedBox(height: 12),
+                  _BillStatusPanel(
+                    status: tileStatus,
+                    amountCents: switch (tileStatus) {
+                      _BillTileStatus.solo => bill.totalCents,
+                      _BillTileStatus.payerCollecting => amountOwedToPayer,
+                      _BillTileStatus.payerComplete => bill.totalCents,
+                      _BillTileStatus.debtorOwes => userOwesAmount,
+                      _BillTileStatus.debtorSettled => userOwesAmount,
+                    },
+                    payerName: displayName(bill.payer),
+                    settledDebtorCount: settledDebtorCount,
+                    debtorCount: debtorCount,
+                    debtorProgress: debtorProgress,
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Paid by ${displayName(bill.payer)}',
-                    style: const TextStyle(
-                      color: AppColors.text,
-                      fontSize: 13,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        formatCad(bill.totalCents),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.textH,
-                          fontSize: 22,
-                          height: 1,
-                        ),
-                      ),
-                      const Spacer(),
-                      if (multiParticipant)
-                        _SettlementSummaryBadge(
-                          settledCount: settledCount,
-                          totalCount: shares.length,
-                          fullySettled: fullySettled,
-                        )
-                      else if (fullySettled)
-                        const _SettlementSummaryBadge(
-                          settledCount: 1,
-                          totalCount: 1,
-                          fullySettled: true,
-                        ),
-                    ],
-                  ),
-                  if (multiParticipant) ...[
-                    const SizedBox(height: 10),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(999),
-                      child: LinearProgressIndicator(
-                        value: settlementProgress,
-                        minHeight: 5,
-                        backgroundColor: AppColors.surfaceMuted,
-                        color: fullySettled
-                            ? AppColors.accent
-                            : AppColors.brandSoft,
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ),
           ),
           if ((showBalance && !isSettled && widget.showSettleAction) ||
-              multiParticipant)
+              (_showSplitBreakdown && multiParticipant))
             Container(
               decoration: const BoxDecoration(
                 border: Border(top: BorderSide(color: AppColors.border)),
@@ -319,7 +345,7 @@ class _BillListItemState extends ConsumerState<_BillListItem> {
               padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
               child: Row(
                 children: [
-                  if (multiParticipant)
+                  if (_showSplitBreakdown && multiParticipant)
                     Expanded(
                       child: Material(
                         color: Colors.transparent,
@@ -355,9 +381,9 @@ class _BillListItemState extends ConsumerState<_BillListItem> {
                                   ),
                                 ),
                                 const Spacer(),
-                                if (!_expanded)
+                                if (!_expanded && isPayer && debtorCount > 0)
                                   Text(
-                                    '$settledCount/${shares.length} settled',
+                                    '$settledDebtorCount/$debtorCount settled',
                                     style: const TextStyle(
                                       color: AppColors.text,
                                       fontSize: 12,
@@ -388,28 +414,229 @@ class _BillListItemState extends ConsumerState<_BillListItem> {
                 ],
               ),
             ),
-          AnimatedSize(
-            duration: const Duration(milliseconds: 250),
-            curve: Curves.easeInOut,
-            alignment: Alignment.topCenter,
-            clipBehavior: Clip.hardEdge,
-            child: _expanded
-                ? Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 14),
-                    child: Column(
-                      children: [
-                        for (var i = 0; i < shares.length; i++) ...[
-                          if (i > 0) const SizedBox(height: 6),
-                          _ShareBreakdownRow(
-                            share: shares[i],
-                            payerId: bill.payerId,
-                          ),
+          if (_showSplitBreakdown)
+            AnimatedSize(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeInOut,
+              alignment: Alignment.topCenter,
+              clipBehavior: Clip.hardEdge,
+              child: _expanded
+                  ? Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 4, 12, 14),
+                      child: Column(
+                        children: [
+                          for (var i = 0; i < shares.length; i++) ...[
+                            if (i > 0) const SizedBox(height: 6),
+                            _ShareBreakdownRow(
+                              share: shares[i],
+                              payerId: bill.payerId,
+                            ),
+                          ],
                         ],
+                      ),
+                    )
+                  : const SizedBox(width: double.infinity),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BillStatusPanel extends StatelessWidget {
+  const _BillStatusPanel({
+    required this.status,
+    required this.amountCents,
+    required this.payerName,
+    required this.settledDebtorCount,
+    required this.debtorCount,
+    required this.debtorProgress,
+  });
+
+  final _BillTileStatus status;
+  final int amountCents;
+  final String payerName;
+  final int settledDebtorCount;
+  final int debtorCount;
+  final double debtorProgress;
+
+  @override
+  Widget build(BuildContext context) {
+    final remainingDebtorCount =
+        (debtorCount - settledDebtorCount).clamp(0, debtorCount);
+
+    final config = switch (status) {
+      _BillTileStatus.solo => (
+          background: AppColors.surfaceMuted,
+          border: AppColors.border,
+          iconBg: AppColors.surface,
+          iconColor: AppColors.text,
+          icon: Icons.receipt_outlined,
+          eyebrow: 'Personal expense',
+          title: formatCad(amountCents),
+          subtitle: 'Not split with anyone',
+          titleColor: AppColors.textH,
+          showProgress: false,
+          trailing: null,
+        ),
+      _BillTileStatus.payerCollecting => (
+          background: AppColors.accentSoft.withValues(alpha: 0.55),
+          border: AppColors.accent.withValues(alpha: 0.18),
+          iconBg: AppColors.accentSoft,
+          iconColor: AppColors.accent,
+          icon: Icons.payments_outlined,
+          eyebrow: "You're owed",
+          title: formatCad(amountCents),
+          subtitle: remainingDebtorCount == 1
+              ? 'Waiting on 1 person to pay you back'
+              : 'Waiting on $remainingDebtorCount people to pay you back',
+          titleColor: AppColors.textH,
+          showProgress: true,
+          trailing: '$settledDebtorCount/$debtorCount paid',
+        ),
+      _BillTileStatus.payerComplete => (
+          background: AppColors.accentSoft,
+          border: AppColors.accent.withValues(alpha: 0.2),
+          iconBg: AppColors.surface,
+          iconColor: AppColors.accent,
+          icon: Icons.check_circle_rounded,
+          eyebrow: 'Fully collected',
+          title: 'All paid up',
+          subtitle: 'Everyone paid you back',
+          titleColor: AppColors.accent,
+          showProgress: false,
+          trailing: null,
+        ),
+      _BillTileStatus.debtorOwes => (
+          background: AppColors.errorBg,
+          border: AppColors.errorBorder,
+          iconBg: AppColors.surface,
+          iconColor: AppColors.error,
+          icon: Icons.arrow_outward_rounded,
+          eyebrow: 'You owe',
+          title: formatCad(amountCents),
+          subtitle: 'Pay back to $payerName',
+          titleColor: AppColors.textH,
+          showProgress: false,
+          trailing: null,
+        ),
+      _BillTileStatus.debtorSettled => (
+          background: AppColors.accentSoft,
+          border: AppColors.accent.withValues(alpha: 0.2),
+          iconBg: AppColors.surface,
+          iconColor: AppColors.accent,
+          icon: Icons.check_circle_rounded,
+          eyebrow: 'Your share',
+          title: 'Paid up',
+          subtitle: 'You settled with $payerName',
+          titleColor: AppColors.accent,
+          showProgress: false,
+          trailing: null,
+        ),
+    };
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: config.background,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: config.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: config.iconBg,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(config.icon, color: config.iconColor, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            config.eyebrow.toUpperCase(),
+                            style: TextStyle(
+                              color: config.iconColor,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.06,
+                            ),
+                          ),
+                        ),
+                        if (config.trailing != null)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.surface.withValues(alpha: 0.72),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              config.trailing!,
+                              style: const TextStyle(
+                                color: AppColors.pendingText,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
                       ],
                     ),
-                  )
-                : const SizedBox(width: double.infinity),
+                    const SizedBox(height: 4),
+                    Text(
+                      config.title,
+                      style: TextStyle(
+                        color: config.titleColor,
+                        fontSize: status == _BillTileStatus.solo ||
+                                status == _BillTileStatus.debtorOwes ||
+                                status == _BillTileStatus.payerCollecting
+                            ? 24
+                            : 20,
+                        fontWeight: FontWeight.w800,
+                        height: 1.1,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      config.subtitle,
+                      style: const TextStyle(
+                        color: AppColors.text,
+                        fontSize: 13,
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
+          if (config.showProgress) ...[
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: LinearProgressIndicator(
+                value: debtorProgress,
+                minHeight: 6,
+                backgroundColor: AppColors.surface.withValues(alpha: 0.65),
+                color: AppColors.accent,
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -420,86 +647,30 @@ class _BillMetaChip extends StatelessWidget {
   const _BillMetaChip({
     required this.icon,
     required this.label,
-    this.foreground = AppColors.text,
-    this.background = AppColors.surfaceMuted,
   });
 
   final IconData icon;
   final String label;
-  final Color foreground;
-  final Color background;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: background,
+        color: AppColors.surfaceMuted,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 12, color: foreground),
+          Icon(icon, size: 12, color: AppColors.text),
           const SizedBox(width: 4),
           Text(
             label,
-            style: TextStyle(
-              color: foreground,
+            style: const TextStyle(
+              color: AppColors.text,
               fontSize: 11,
               fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SettlementSummaryBadge extends StatelessWidget {
-  const _SettlementSummaryBadge({
-    required this.settledCount,
-    required this.totalCount,
-    required this.fullySettled,
-  });
-
-  final int settledCount;
-  final int totalCount;
-  final bool fullySettled;
-
-  @override
-  Widget build(BuildContext context) {
-    final (background, foreground, icon, label) = fullySettled
-        ? (
-            AppColors.accentSoft,
-            AppColors.accent,
-            Icons.check_circle_rounded,
-            totalCount == 1 ? 'Settled' : 'All settled',
-          )
-        : (
-            AppColors.pendingBg,
-            AppColors.pendingText,
-            Icons.hourglass_top_rounded,
-            '$settledCount of $totalCount settled',
-          );
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: foreground),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: TextStyle(
-              color: foreground,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
             ),
           ),
         ],
@@ -598,12 +769,10 @@ class _ShareSettlementBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (background, foreground, label) = switch ((isPayer, share.settlementStatus)) {
-      (true, _) => (AppColors.accentSoft, AppColors.accent, 'Payer'),
-      (_, 'PAID') => (AppColors.accentSoft, AppColors.accent, 'Paid'),
-      (_, 'PENDING') => (AppColors.pendingBg, AppColors.pendingText, 'Pending'),
-      _ when share.settledAt != null =>
-        (AppColors.accentSoft, AppColors.accent, 'Paid'),
+    final (background, foreground, label) = switch ((isPayer, share.lenderConfirmedPaid, share.payerMarkedAsPaid)) {
+      (true, _, _) => (AppColors.accentSoft, AppColors.accent, 'Payer'),
+      (_, true, _) => (AppColors.accentSoft, AppColors.accent, 'Paid'),
+      (_, false, true) => (AppColors.pendingBg, AppColors.pendingText, 'Pending'),
       _ => (AppColors.errorBg, AppColors.error, 'Unpaid'),
     };
 

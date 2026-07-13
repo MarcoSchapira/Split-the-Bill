@@ -29,7 +29,8 @@ export type FriendshipDetail = FriendshipSummary & {
 export type BillShare = {
   id: string;
   shareCents: number;
-  settledAt: string | null;
+  payerMarkedAsPaid: boolean;
+  lenderConfirmedPaid: boolean;
   user: User;
 };
 
@@ -84,12 +85,91 @@ export type Bill = {
   canRetarget: boolean;
   userSummary: BillUserSummary;
   lineItems: BillLineItem[];
+  isOneMainTotal?: boolean;
+  isSplitWithFriends?: boolean;
+  isSplitByFinalAmounts?: boolean;
+  isSplitWithGroup?: boolean;
+  groupId?: string | null;
+  group?: BillGroupSummary | null;
+  pairwise?: PairwiseSummary;
 };
+
+export type GroupIconKey =
+  | 'home'
+  | 'trip'
+  | 'food'
+  | 'groceries'
+  | 'rent'
+  | 'utilities'
+  | 'entertainment'
+  | 'sports'
+  | 'pets'
+  | 'family'
+  | 'work'
+  | 'other';
+
+export const GROUP_ICON_KEYS: GroupIconKey[] = [
+  'home',
+  'trip',
+  'food',
+  'groceries',
+  'rent',
+  'utilities',
+  'entertainment',
+  'sports',
+  'pets',
+  'family',
+  'work',
+  'other',
+];
+
+export type BillGroupSummary = {
+  id: string;
+  name: string;
+  iconKey: GroupIconKey;
+};
+
+export type GroupSummary = {
+  id: string;
+  name: string;
+  iconKey: GroupIconKey;
+  creatorId: string;
+  createdAt: string;
+  updatedAt: string;
+  memberCount: number;
+  memberPreview: User[];
+  netBalanceCents: number;
+};
+
+export type GroupMemberDetail = {
+  id: string;
+  joinedAt: string;
+  user: User;
+  isCreator: boolean;
+};
+
+export type GroupDetail = GroupSummary & {
+  creator: User;
+  members: GroupMemberDetail[];
+  bills: Bill[];
+  billCount: number;
+  hasExistingBills: boolean;
+  unsettledBillCount: number;
+  totalGroupSpendCents: number;
+};
+
+export type GroupBalanceSummary = {
+  group: BillGroupSummary;
+  balanceCents: number;
+};
+
+export type RetroactiveScope = 'new_only' | 'unsettled_bills';
 
 export type BalanceContact = {
   user: User;
-  relationship: 'friend';
+  relationship: 'friend' | 'group';
   friendshipId?: string;
+  groupId?: string;
   balanceCents: number;
 };
 
@@ -98,6 +178,7 @@ export type Dashboard = {
   totalYouOweCents: number;
   netBalanceCents: number;
   balances: BalanceContact[];
+  groupBalances: GroupBalanceSummary[];
 };
 
 export type InvitationStatus = 'pending' | 'accepted' | 'declined';

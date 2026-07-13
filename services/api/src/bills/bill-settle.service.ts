@@ -9,6 +9,38 @@ import {
 } from "./bill.service";
 import { billsSharedBetween } from "./participants";
 
+function mapSharesForBalance(
+  bill: Awaited<ReturnType<typeof findVisibleBill>>,
+) {
+  return bill.shares.map((share) => ({
+    id: share.id,
+    userId: share.user.id,
+    shareCents: share.shareCents,
+    payerMarkedAsPaid: share.payerMarkedAsPaid,
+    lenderConfirmedPaid: share.lenderConfirmedPaid,
+  }));
+}
+
+function settleDataForActor(
+  billPayerId: string,
+  actingUserId: string,
+): { payerMarkedAsPaid?: boolean; lenderConfirmedPaid?: boolean } {
+  if (actingUserId === billPayerId) {
+    return { lenderConfirmedPaid: true };
+  }
+  return { payerMarkedAsPaid: true };
+}
+
+function unsettleDataForActor(
+  billPayerId: string,
+  actingUserId: string,
+): { payerMarkedAsPaid?: boolean; lenderConfirmedPaid?: boolean } {
+  if (actingUserId === billPayerId) {
+    return { lenderConfirmedPaid: false };
+  }
+  return { payerMarkedAsPaid: false };
+}
+
 export async function settleBill(
   tx: PrismaTransaction,
   actingUserId: string,
@@ -27,13 +59,7 @@ export async function settleBill(
   const shareIds = sharesToSettle(
     {
       payerId: bill.payerId,
-      shares: bill.shares.map((share) => ({
-        id: share.id,
-        userId: share.user.id,
-        shareCents: share.shareCents,
-        settledAt: share.settledAt,
-        settlementStatus: share.settlementStatus,
-      })),
+      shares: mapSharesForBalance(bill),
     },
     actingUserId,
     friendUserId,
@@ -44,10 +70,10 @@ export async function settleBill(
     throw new ApiError(400, "NOTHING_TO_SETTLE", "Nothing to settle on this bill");
   }
 
-  const settledAt = new Date();
+  const data = settleDataForActor(bill.payerId, actingUserId);
   await tx.billShare.updateMany({
     where: { id: { in: shareIds } },
-    data: { settledAt, settlementStatus: "PAID" },
+    data,
   });
 
   const updated = await findVisibleBill(tx, actingUserId, billId);
@@ -80,13 +106,7 @@ export async function unsettleBill(
   const shareIds = sharesToUnsettle(
     {
       payerId: bill.payerId,
-      shares: bill.shares.map((share) => ({
-        id: share.id,
-        userId: share.user.id,
-        shareCents: share.shareCents,
-        settledAt: share.settledAt,
-        settlementStatus: share.settlementStatus,
-      })),
+      shares: mapSharesForBalance(bill),
     },
     actingUserId,
     friendUserId,
@@ -97,9 +117,10 @@ export async function unsettleBill(
     throw new ApiError(400, "NOTHING_TO_UNSETTLE", "Nothing to undo on this bill");
   }
 
+  const data = unsettleDataForActor(bill.payerId, actingUserId);
   await tx.billShare.updateMany({
     where: { id: { in: shareIds } },
-    data: { settledAt: null, settlementStatus: "NOT_PAID" },
+    data,
   });
 
   const updated = await findVisibleBill(tx, actingUserId, billId);
@@ -132,7 +153,6 @@ export async function settleFriend(
 
   const friendUserId =
     friendship.userAId === actingUserId ? friendship.userBId : friendship.userAId;
-  const settledAt = new Date();
   let settledCount = 0;
 
   const billsWithFriend = await tx.bill.findMany({
@@ -148,8 +168,8 @@ export async function settleFriend(
           id: share.id,
           userId: share.user.id,
           shareCents: share.shareCents,
-          settledAt: share.settledAt,
-          settlementStatus: share.settlementStatus,
+          payerMarkedAsPaid: share.payerMarkedAsPaid,
+          lenderConfirmedPaid: share.lenderConfirmedPaid,
         })),
       },
       actingUserId,
@@ -160,9 +180,10 @@ export async function settleFriend(
       continue;
     }
 
+    const data = settleDataForActor(bill.payerId, actingUserId);
     await tx.billShare.updateMany({
       where: { id: { in: shareIds } },
-      data: { settledAt, settlementStatus: "PAID" },
+      data,
     });
     settledCount += shareIds.length;
   }

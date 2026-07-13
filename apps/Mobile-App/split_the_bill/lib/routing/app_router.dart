@@ -10,6 +10,8 @@ import '../screens/bills/edit_bill_screen.dart';
 import '../screens/capture/manual_receipt_screen.dart';
 import '../screens/activity/activity_screen.dart';
 import '../screens/dashboard/dashboard_screen.dart';
+import '../screens/groups/groups_screen.dart';
+import '../screens/groups/group_detail_screen.dart';
 import '../screens/friends/friends_screen.dart';
 import '../screens/invitations/invitations_screen.dart';
 import '../screens/settings/settings_screen.dart';
@@ -38,6 +40,16 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
       GoRoute(path: '/register', builder: (_, __) => const RegisterScreen()),
       GoRoute(path: '/settings', builder: (_, __) => const SettingsScreen()),
+      GoRoute(
+        path: '/friends/:friendshipId',
+        builder: (_, state) => FriendDetailScreen(
+          friendshipId: state.pathParameters['friendshipId']!,
+        ),
+      ),
+      GoRoute(
+        path: '/friends/invites',
+        builder: (_, __) => const InvitationsScreen(),
+      ),
       StatefulShellRoute.indexedStack(
         builder: (_, __, navigationShell) =>
             AppScaffold(navigationShell: navigationShell),
@@ -61,9 +73,24 @@ final routerProvider = Provider<GoRouter>((ref) {
                     routes: [
                       GoRoute(
                         path: 'manual',
-                        builder: (_, state) => ManualReceiptScreen(
-                          imageBytes: state.extra as List<int>?,
-                        ),
+                        builder: (_, state) {
+                          final extra = state.extra;
+                          String? initialGroupId;
+                          List<int>? imageBytes;
+                          if (extra is Map<String, dynamic>) {
+                            initialGroupId = extra['groupId'] as String?;
+                            final rawImage = extra['imageBytes'];
+                            if (rawImage is List<int>) {
+                              imageBytes = rawImage;
+                            }
+                          } else if (extra is List<int>) {
+                            imageBytes = extra;
+                          }
+                          return ManualReceiptScreen(
+                            imageBytes: imageBytes,
+                            initialGroupId: initialGroupId,
+                          );
+                        },
                       ),
                     ],
                   ),
@@ -108,17 +135,13 @@ final routerProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/friends',
-                builder: (_, __) => const FriendsScreen(),
+                path: '/groups',
+                builder: (_, __) => const GroupsScreen(),
                 routes: [
                   GoRoute(
-                    path: 'invites',
-                    builder: (_, __) => const InvitationsScreen(),
-                  ),
-                  GoRoute(
-                    path: ':friendshipId',
-                    builder: (_, state) => FriendDetailScreen(
-                      friendshipId: state.pathParameters['friendshipId']!,
+                    path: ':groupId',
+                    builder: (_, state) => GroupDetailScreen(
+                      groupId: state.pathParameters['groupId']!,
                     ),
                   ),
                 ],

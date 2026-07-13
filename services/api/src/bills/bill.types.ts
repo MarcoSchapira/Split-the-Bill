@@ -46,6 +46,8 @@ export const billInputSchema = z
     source: z.enum(["manual", "capture"]).optional().default("manual"),
     isOneMainTotal: z.boolean().optional(),
     isSplitWithFriends: z.boolean().optional(),
+    isSplitWithGroup: z.boolean().optional(),
+    groupId: z.string().uuid().nullable().optional(),
     isSplitByFinalAmounts: z.boolean().optional(),
     participantIds: z.array(z.string().uuid()).min(1).optional(),
     storeName: nullableStringSchema,
@@ -63,11 +65,31 @@ export const billInputSchema = z
     lineItems: z.array(billLineItemInputSchema).optional().default([]),
     shares: z.array(billShareInputSchema).min(1).optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, ctx) => {
+    const isSplitWithGroup = value.isSplitWithGroup ?? false;
+
+    if (isSplitWithGroup && !value.groupId) {
+      ctx.addIssue({
+        code: "custom",
+        message: "groupId is required when isSplitWithGroup is true",
+        path: ["groupId"],
+      });
+    }
+
+    if (!isSplitWithGroup && value.groupId) {
+      ctx.addIssue({
+        code: "custom",
+        message: "groupId must be null when isSplitWithGroup is false",
+        path: ["groupId"],
+      });
+    }
+  });
 
 export const billListQuerySchema = z.object({
   participantId: z.string().uuid().optional(),
   friendUserId: z.string().uuid().optional(),
+  groupId: z.string().uuid().optional(),
 });
 
 export const billSettleQuerySchema = z

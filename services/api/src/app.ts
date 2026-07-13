@@ -3,6 +3,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
+import groupRoutes from "./groups/group.routes";
 import authRoutes from "./auth/auth.routes";
 import friendRoutes from "./friends/friend.routes";
 import invitationRoutes from "./invitations/invitation.routes";
@@ -88,6 +89,7 @@ app.get("/health", (_req, res) => {
 
 app.use("/auth", authRoutes);
 app.use("/friends", friendRoutes);
+app.use("/groups", groupRoutes);
 app.use("/", invitationRoutes);
 app.use("/bills", billRoutes);
 app.use("/dashboard", dashboardRoutes);

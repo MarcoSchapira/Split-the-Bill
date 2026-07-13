@@ -29,6 +29,8 @@ model User {
   activityEvents            ActivityEvent[]     @relation("ActivityActor")
   activityRecipients        ActivityRecipient[]
   sessions                  Session[]
+  createdGroups             Group[]             @relation("GroupCreator")
+  groupMemberships          GroupMember[]
 
   @@map("users")
 }
@@ -97,13 +99,47 @@ model FriendInvitation {
   @@map("friend_invitations")
 }
 
+model Group {
+  id        String   @id @default(uuid())
+  name      String
+  iconKey   String   @map("icon_key")
+  creatorId String   @map("creator_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  creator  User          @relation("GroupCreator", fields: [creatorId], references: [id], onDelete: Restrict)
+  members  GroupMember[]
+  bills    Bill[]
+  activities ActivityEvent[]
+
+  @@index([creatorId])
+  @@map("groups")
+}
+
+model GroupMember {
+  id       String   @id @default(uuid())
+  groupId  String   @map("group_id")
+  userId   String   @map("user_id")
+  joinedAt DateTime @default(now()) @map("joined_at")
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+  @@index([groupId])
+  @@index([userId])
+  @@map("group_members")
+}
+
 model Bill {
   id            String    @id @default(uuid())
   description   String
   source        String    @default("manual")
   isOneMainTotal      Boolean   @default(true) @map("is_one_main_total")
   isSplitWithFriends  Boolean   @default(false) @map("is_split_with_friends")
+  isSplitWithGroup    Boolean   @default(false) @map("is_split_with_group")
   isSplitByFinalAmounts Boolean @default(true) @map("is_split_by_final_amounts")
+  groupId             String?   @map("group_id")
   incurredAt    DateTime  @map("incurred_at")
   totalCents    Int       @map("total_cents")
   storeName     String?   @map("store_name")
@@ -126,24 +162,26 @@ model Bill {
 
   payer      User            @relation("BillPayer", fields: [payerId], references: [id], onDelete: Restrict)
   creator    User            @relation("BillCreator", fields: [creatorId], references: [id], onDelete: Restrict)
+  group      Group?          @relation(fields: [groupId], references: [id], onDelete: SetNull)
   shares     BillShare[]
   lineItems  BillLineItem[]
   activities ActivityEvent[]
 
   @@index([payerId])
   @@index([creatorId])
+  @@index([groupId])
   @@index([deletedAt])
   @@index([source])
   @@map("bills")
 }
 
 model BillShare {
-  id         String    @id @default(uuid())
-  billId     String    @map("bill_id")
-  userId     String    @map("user_id")
-  shareCents Int       @map("share_cents")
-  settledAt  DateTime? @map("settled_at")
-  settlementStatus BillShareSettlementStatus @default(NOT_PAID) @map("settlement_status")
+  id                  String  @id @default(uuid())
+  billId              String  @map("bill_id")
+  userId              String  @map("user_id")
+  shareCents          Int     @map("share_cents")
+  payerMarkedAsPaid   Boolean @default(false) @map("payer_marked_as_paid")
+  lenderConfirmedPaid Boolean @default(false) @map("lender_confirmed_paid")
 
   bill Bill @relation(fields: [billId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id], onDelete: Restrict)
@@ -151,12 +189,6 @@ model BillShare {
   @@unique([billId, userId])
   @@index([userId])
   @@map("bill_shares")
-}
-
-enum BillShareSettlementStatus {
-  NOT_PAID
-  PENDING
-  PAID
 }
 
 model BillLineItem {
@@ -196,14 +228,17 @@ model ActivityEvent {
   actorId            String   @map("actor_id")
   billId             String?  @map("bill_id")
   friendInvitationId String?  @map("friend_invitation_id")
+  groupId            String?  @map("group_id")
   createdAt          DateTime @default(now()) @map("created_at")
 
   actor            User                @relation("ActivityActor", fields: [actorId], references: [id], onDelete: Cascade)
   bill             Bill?               @relation(fields: [billId], references: [id], onDelete: Cascade)
   friendInvitation FriendInvitation?   @relation(fields: [friendInvitationId], references: [id], onDelete: Cascade)
+  group            Group?              @relation(fields: [groupId], references: [id], onDelete: Cascade)
   recipients       ActivityRecipient[]
 
   @@index([actorId])
+  @@index([groupId])
   @@index([createdAt])
   @@map("activity_events")
 }

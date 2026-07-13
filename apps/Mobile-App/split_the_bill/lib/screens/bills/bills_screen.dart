@@ -140,8 +140,8 @@ class _BillDetailScreenState extends ConsumerState<BillDetailScreen> {
         user: share.user,
         shareCents: share.shareCents,
         isPayer: share.user.id == bill.payerId,
-        settledAt: share.settledAt,
-        settlementStatus: share.settlementStatus,
+        payerMarkedAsPaid: share.payerMarkedAsPaid,
+        lenderConfirmedPaid: share.lenderConfirmedPaid,
         items: const [],
       );
     }
@@ -181,7 +181,7 @@ class _BillDetailScreenState extends ConsumerState<BillDetailScreen> {
   }
 
   bool _isParticipantPaid(_ParticipantGroup group) {
-    return group.settlementStatus == 'PAID' || group.settledAt != null;
+    return group.lenderConfirmedPaid;
   }
 
   bool _canConfirmParticipantPaid(Bill bill, _ParticipantGroup group) {
@@ -411,6 +411,16 @@ class _BillDetailScreenState extends ConsumerState<BillDetailScreen> {
                       color: AppColors.textH,
                     ),
                   ),
+                  if (bill.isSplitWithGroup && bill.group != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'Group · ${bill.group!.name}',
+                      style: const TextStyle(
+                        color: AppColors.accent,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   Card(
                     shape: RoundedRectangleBorder(
@@ -718,8 +728,8 @@ class _ParticipantGroup {
     required this.user,
     required this.shareCents,
     required this.isPayer,
-    required this.settledAt,
-    required this.settlementStatus,
+    required this.payerMarkedAsPaid,
+    required this.lenderConfirmedPaid,
     required this.items,
   });
 
@@ -727,8 +737,8 @@ class _ParticipantGroup {
   final User user;
   final int shareCents;
   final bool isPayer;
-  final String? settledAt;
-  final String settlementStatus;
+  final bool payerMarkedAsPaid;
+  final bool lenderConfirmedPaid;
   final List<BillLineItem> items;
 
   _ParticipantGroup copyWith({List<BillLineItem>? items}) {
@@ -737,8 +747,8 @@ class _ParticipantGroup {
       user: user,
       shareCents: shareCents,
       isPayer: isPayer,
-      settledAt: settledAt,
-      settlementStatus: settlementStatus,
+      payerMarkedAsPaid: payerMarkedAsPaid,
+      lenderConfirmedPaid: lenderConfirmedPaid,
       items: items ?? this.items,
     );
   }

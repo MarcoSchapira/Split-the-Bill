@@ -6,18 +6,30 @@ import { buildSharesFromInput } from "./bill-split";
 import { toBillShareBalanceLike, userSummaryForBill } from "./bill-balance";
 import { pairwiseSummaryForBill } from "./bill-pairwise";
 import type { BillInput, BillListQuery } from "./bill.types";
-import { assertParticipantsAllowed, billsSharedBetween, sortedParticipantKey } from "./participants";
+import {
+  assertGroupBillAllowed,
+  assertParticipantsAllowed,
+  billsSharedBetween,
+  sortedParticipantKey,
+} from "./participants";
+
+const groupSelect = {
+  id: true,
+  name: true,
+  iconKey: true,
+} as const;
 
 export const billInclude = {
   payer: { select: safeUserSelect },
   creator: { select: safeUserSelect },
+  group: { select: groupSelect },
   shares: {
     orderBy: { userId: "asc" as const },
     select: {
       id: true,
       shareCents: true,
-      settledAt: true,
-      settlementStatus: true,
+      payerMarkedAsPaid: true,
+      lenderConfirmedPaid: true,
       user: { select: safeUserSelect },
     },
   },
@@ -56,8 +68,8 @@ type BillWithShares = {
   shares: Array<{
     id: string;
     shareCents: number;
-    settledAt: Date | null;
-    settlementStatus: "NOT_PAID" | "PENDING" | "PAID";
+    payerMarkedAsPaid: boolean;
+    lenderConfirmedPaid: boolean;
     user: { id: string; email: string; name: string | null; createdAt: Date };
   }>;
 };
@@ -130,17 +142,108 @@ function resolvePayerId(input: BillInput, actingUserId: string, participantIds: 
 type ResolvedBillModeFlags = {
   isOneMainTotal: boolean;
   isSplitWithFriends: boolean;
+  isSplitWithGroup: boolean;
   isSplitByFinalAmounts: boolean;
+  groupId: string | null;
 };
 
-function resolveBillModeFlags(input: BillInput, participantIds: string[]): ResolvedBillModeFlags {
+type ResolvedBillContext = {
+  participantIds: string[];
+  payerId: string;
+  modeFlags: ResolvedBillModeFlags;
+  sharesInput: BillInput["shares"];
+  lineItemsInput: BillInput["lineItems"];
+};
+
+function stripLineItemAssignments(input: BillInput): BillInput["lineItems"] {
+  return input.lineItems.map((item) => ({
+    ...item,
+    assignedUserIds: [],
+  }));
+}
+
+async function resolveBillContext(
+  tx: PrismaTransaction,
+  actingUserId: string,
+  input: BillInput,
+  existingParticipantIds?: string[],
+): Promise<ResolvedBillContext> {
+  const isSplitWithGroup = input.isSplitWithGroup ?? false;
+  const normalizedInput = isSplitWithGroup
+    ? {
+        ...input,
+        lineItems: stripLineItemAssignments(input),
+        shares: undefined,
+        isSplitByFinalAmounts: true,
+        isSplitWithFriends: true,
+      }
+    : input;
+
+  let participantIds: string[];
+  let groupId: string | null = null;
+
+  if (isSplitWithGroup) {
+    if (!input.groupId) {
+      throw new ApiError(400, "INVALID_GROUP", "groupId is required for group bills");
+    }
+
+    groupId = input.groupId;
+    participantIds = await assertGroupBillAllowed(tx, actingUserId, groupId);
+
+    if (input.participantIds && input.participantIds.length > 0) {
+      const requested = sortedParticipantKey(input.participantIds);
+      if (requested.join(",") !== participantIds.join(",")) {
+        throw new ApiError(
+          400,
+          "INVALID_PARTICIPANTS",
+          "Group bills must include all current group members",
+        );
+      }
+    }
+  } else {
+    participantIds = resolveParticipantIds(actingUserId, normalizedInput, existingParticipantIds);
+    await assertParticipantsAllowed(tx, actingUserId, participantIds, {
+      isSplitWithGroup: false,
+    });
+  }
+
+  const payerId = resolvePayerId(normalizedInput, actingUserId, participantIds);
+  const modeFlags = resolveBillModeFlags(normalizedInput, participantIds, isSplitWithGroup, groupId);
+
+  return {
+    participantIds,
+    payerId,
+    modeFlags,
+    sharesInput: isSplitWithGroup ? undefined : normalizedInput.shares,
+    lineItemsInput: normalizedInput.lineItems,
+  };
+}
+
+function resolveBillModeFlags(
+  input: BillInput,
+  participantIds: string[],
+  isSplitWithGroup: boolean,
+  groupId: string | null,
+): ResolvedBillModeFlags {
   const hasLineItems = input.lineItems.length > 0;
   const hasLineItemAssignments = input.lineItems.some(
     (item) => item.assignedUserIds.length > 0,
   );
   const isOneMainTotal = input.isOneMainTotal ?? !hasLineItems;
-  const isSplitWithFriends = input.isSplitWithFriends ?? participantIds.length > 1;
-  const isSplitByFinalAmounts = input.isSplitByFinalAmounts ?? !hasLineItemAssignments;
+  const isSplitWithFriends = isSplitWithGroup
+    ? true
+    : (input.isSplitWithFriends ?? participantIds.length > 1);
+  const isSplitByFinalAmounts = isSplitWithGroup
+    ? true
+    : (input.isSplitByFinalAmounts ?? !hasLineItemAssignments);
+
+  if (isSplitWithGroup && hasLineItemAssignments) {
+    throw new ApiError(
+      400,
+      "INVALID_SPLIT_MODE",
+      "Group bills cannot include line-item assignments",
+    );
+  }
 
   if (isSplitWithFriends && participantIds.length <= 1) {
     throw new ApiError(
@@ -182,21 +285,31 @@ function resolveBillModeFlags(input: BillInput, participantIds: string[]): Resol
     );
   }
 
+  if (isSplitWithGroup && input.shares) {
+    throw new ApiError(
+      400,
+      "INVALID_SHARES",
+      "Group bills must use an even split across all group members",
+    );
+  }
+
   return {
     isOneMainTotal,
     isSplitWithFriends,
+    isSplitWithGroup,
     isSplitByFinalAmounts,
+    groupId,
   };
 }
 
 function normalizeLineItems(
-  input: BillInput,
+  lineItems: BillInput["lineItems"],
   participantIds: string[],
   modeFlags: ResolvedBillModeFlags,
 ) {
   const allowedParticipantIds = new Set(participantIds);
 
-  return input.lineItems.map((item, index) => {
+  return lineItems.map((item, index) => {
     const assignedUserIds = sortedParticipantKey(item.assignedUserIds);
 
     if (modeFlags.isOneMainTotal && assignedUserIds.length > 0) {
@@ -252,14 +365,12 @@ export async function findVisibleBill(tx: PrismaTransaction, userId: string, bil
 }
 
 export async function createBill(tx: PrismaTransaction, actingUserId: string, input: BillInput) {
-  const participantIds = resolveParticipantIds(actingUserId, input);
-  await assertParticipantsAllowed(tx, actingUserId, participantIds);
-  const payerId = resolvePayerId(input, actingUserId, participantIds);
-  const modeFlags = resolveBillModeFlags(input, participantIds);
+  const { participantIds, payerId, modeFlags, sharesInput, lineItemsInput } =
+    await resolveBillContext(tx, actingUserId, input);
   const incurredAt = defaultIncurredAt(input);
-  const shares = buildSharesFromInput(input.totalCents, participantIds, input.shares);
+  const shares = buildSharesFromInput(input.totalCents, participantIds, sharesInput);
   const recipientIds = shares.map((share) => share.userId);
-  const lineItems = normalizeLineItems(input, participantIds, modeFlags);
+  const lineItems = normalizeLineItems(lineItemsInput, participantIds, modeFlags);
 
   const bill = await tx.bill.create({
     data: {
@@ -269,7 +380,9 @@ export async function createBill(tx: PrismaTransaction, actingUserId: string, in
       source: input.source,
       isOneMainTotal: modeFlags.isOneMainTotal,
       isSplitWithFriends: modeFlags.isSplitWithFriends,
+      isSplitWithGroup: modeFlags.isSplitWithGroup,
       isSplitByFinalAmounts: modeFlags.isSplitByFinalAmounts,
+      groupId: modeFlags.groupId,
       storeName: input.storeName,
       storeAddress: input.storeAddress,
       receiptNumber: input.receiptNumber,
@@ -308,9 +421,16 @@ export async function listBills(
     ? { shares: { some: { userId: query.participantId } } }
     : {};
 
-  const whereFriend = query.friendUserId
-    ? billsSharedBetween(userId, query.friendUserId)
-    : { deletedAt: null, shares: { some: { userId } } };
+  const whereFriend = query.groupId
+    ? {
+        deletedAt: null,
+        groupId: query.groupId,
+        isSplitWithGroup: true,
+        shares: { some: { userId } },
+      }
+    : query.friendUserId
+      ? billsSharedBetween(userId, query.friendUserId)
+      : { deletedAt: null, shares: { some: { userId } } };
 
   const bills = await tx.bill.findMany({
     where: {
@@ -337,17 +457,11 @@ export async function updateBill(
 ) {
   const bill = await findVisibleBill(tx, actingUserId, billId);
   const existingParticipantIds = bill.shares.map((share) => share.user.id);
-  const participantIds = resolveParticipantIds(actingUserId, input, existingParticipantIds);
-  await assertParticipantsAllowed(tx, actingUserId, participantIds);
-  const payerId = resolvePayerId(input, actingUserId, participantIds);
-  const modeFlags = resolveBillModeFlags(input, participantIds);
+  const { participantIds, payerId, modeFlags, sharesInput, lineItemsInput } =
+    await resolveBillContext(tx, actingUserId, input, existingParticipantIds);
   const incurredAt = defaultIncurredAt(input);
-  const shares = buildSharesFromInput(
-    input.totalCents,
-    participantIds,
-    input.shares,
-  );
-  const lineItems = normalizeLineItems(input, participantIds, modeFlags);
+  const shares = buildSharesFromInput(input.totalCents, participantIds, sharesInput);
+  const lineItems = normalizeLineItems(lineItemsInput, participantIds, modeFlags);
   const recipientIds = [
     ...new Set([...bill.shares.map((share) => share.user.id), ...shares.map((share) => share.userId)]),
   ];
@@ -357,7 +471,7 @@ export async function updateBill(
       (share) =>
         [
           share.user.id,
-          { settledAt: share.settledAt, settlementStatus: share.settlementStatus },
+          { payerMarkedAsPaid: share.payerMarkedAsPaid, lenderConfirmedPaid: share.lenderConfirmedPaid },
         ] as const,
     ),
   );
@@ -371,7 +485,9 @@ export async function updateBill(
       source: input.source,
       isOneMainTotal: modeFlags.isOneMainTotal,
       isSplitWithFriends: modeFlags.isSplitWithFriends,
+      isSplitWithGroup: modeFlags.isSplitWithGroup,
       isSplitByFinalAmounts: modeFlags.isSplitByFinalAmounts,
+      groupId: modeFlags.groupId,
       storeName: input.storeName,
       storeAddress: input.storeAddress,
       receiptNumber: input.receiptNumber,

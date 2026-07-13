@@ -115,7 +115,8 @@ void main() {
         {
           'id': 's1',
           'shareCents': 2100,
-          'settledAt': null,
+          'payerMarkedAsPaid': false,
+          'lenderConfirmedPaid': false,
           'user': {
             'id': 'u1',
             'email': 'a@b.com',
@@ -126,7 +127,8 @@ void main() {
         {
           'id': 's2',
           'shareCents': 2100,
-          'settledAt': null,
+          'payerMarkedAsPaid': false,
+          'lenderConfirmedPaid': false,
           'user': {
             'id': 'u2',
             'email': 'b@c.com',
@@ -220,7 +222,8 @@ void main() {
         {
           'id': 's1',
           'shareCents': 500,
-          'settledAt': null,
+          'payerMarkedAsPaid': false,
+          'lenderConfirmedPaid': false,
           'user': {
             'id': 'u1',
             'email': 'a@b.com',

@@ -7,6 +7,7 @@ import {
   invitationIdSchema,
 } from "./invitation.types";
 import {
+  cancelFriendInvitation,
   listInvitations,
   respondToFriendInvitation,
   sendFriendInvitation,
@@ -37,5 +38,13 @@ export const respondFriend: RequestHandler = async (req, res) => {
     ),
   );
   res.json({ invitation });
+};
+
+export const cancelFriend: RequestHandler = async (req, res) => {
+  const userId = currentUser(req).id;
+  await withUserContext(userId, (tx) =>
+    cancelFriendInvitation(tx, userId, invitationIdSchema.parse(req.params.invitationId)),
+  );
+  res.status(204).send();
 };
 

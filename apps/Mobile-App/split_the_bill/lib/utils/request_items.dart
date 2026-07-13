@@ -1,8 +1,6 @@
-import 'package:flutter/material.dart';
-
 import '../models/models.dart';
 import '../models/user.dart';
-import '../theme/app_colors.dart';
+import 'settlement_status.dart';
 
 enum RequestDirection { owedToYou, youOwe }
 
@@ -13,7 +11,8 @@ class RequestItem {
     required this.incurredAt,
     required this.counterparty,
     required this.amountCents,
-    required this.settlementStatus,
+    required this.payerMarkedAsPaid,
+    required this.lenderConfirmedPaid,
     required this.direction,
   });
 
@@ -22,16 +21,25 @@ class RequestItem {
   final String incurredAt;
   final User counterparty;
   final int amountCents;
-  final String settlementStatus;
+  final bool payerMarkedAsPaid;
+  final bool lenderConfirmedPaid;
   final RequestDirection direction;
 }
 
-int _settlementSortOrder(String status) {
-  return switch (status) {
-    'NOT_PAID' => 0,
-    'PENDING' => 1,
-    'PAID' => 2,
-    _ => 0,
+String requestRelationshipTitle({
+  required RequestDirection direction,
+  required String counterpartyName,
+}) {
+  return switch (direction) {
+    RequestDirection.owedToYou => '$counterpartyName owes you',
+    RequestDirection.youOwe => 'You owe $counterpartyName',
+  };
+}
+
+String requestAmountDirectionLabel(RequestDirection direction) {
+  return switch (direction) {
+    RequestDirection.owedToYou => 'you are owed',
+    RequestDirection.youOwe => 'you owe',
   };
 }
 
@@ -43,15 +51,6 @@ String _billLabel(Bill bill) {
   if (storeName != null && storeName.isNotEmpty) return storeName;
 
   return 'Bill';
-}
-
-bool _isSharePaid(BillShare share) {
-  return share.settlementStatus == 'PAID' || share.settledAt != null;
-}
-
-String _effectiveSettlementStatus(BillShare share) {
-  if (_isSharePaid(share)) return 'PAID';
-  return share.settlementStatus;
 }
 
 List<RequestItem> requestItemsFromBills({
@@ -79,7 +78,8 @@ List<RequestItem> requestItemsFromBills({
             incurredAt: bill.incurredAt,
             counterparty: share.user,
             amountCents: share.shareCents,
-            settlementStatus: _effectiveSettlementStatus(share),
+            payerMarkedAsPaid: share.payerMarkedAsPaid,
+            lenderConfirmedPaid: share.lenderConfirmedPaid,
             direction: direction,
           ),
         );
@@ -106,49 +106,27 @@ List<RequestItem> requestItemsFromBills({
         incurredAt: bill.incurredAt,
         counterparty: bill.payer,
         amountCents: ownShare.shareCents,
-        settlementStatus: _effectiveSettlementStatus(ownShare),
+        payerMarkedAsPaid: ownShare.payerMarkedAsPaid,
+        lenderConfirmedPaid: ownShare.lenderConfirmedPaid,
         direction: direction,
       ),
     );
   }
 
   items.sort((left, right) {
-    final statusCompare = _settlementSortOrder(
-      left.settlementStatus,
-    ).compareTo(_settlementSortOrder(right.settlementStatus));
+    final statusCompare = settlementSortOrder(
+      payerMarkedAsPaid: left.payerMarkedAsPaid,
+      lenderConfirmedPaid: left.lenderConfirmedPaid,
+    ).compareTo(
+      settlementSortOrder(
+        payerMarkedAsPaid: right.payerMarkedAsPaid,
+        lenderConfirmedPaid: right.lenderConfirmedPaid,
+      ),
+    );
     if (statusCompare != 0) return statusCompare;
 
     return right.incurredAt.compareTo(left.incurredAt);
   });
 
   return items;
-}
-
-double settlementProgress(String settlementStatus) {
-  return switch (settlementStatus) {
-    'PAID' => 1.0,
-    'PENDING' => 0.5,
-    _ => 0.0,
-  };
-}
-
-String settlementStatusLabel(String settlementStatus) {
-  return switch (settlementStatus) {
-    'PAID' => 'Paid',
-    'PENDING' => 'Pending',
-    _ => 'Unpaid',
-  };
-}
-
-Color settlementProgressColor({
-  required String settlementStatus,
-  required RequestDirection direction,
-}) {
-  return switch (settlementStatus) {
-    'PAID' => AppColors.accent,
-    'PENDING' => AppColors.pendingText,
-    _ => direction == RequestDirection.owedToYou
-        ? AppColors.brandSoft
-        : AppColors.error,
-  };
 }

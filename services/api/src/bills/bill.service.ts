@@ -2,7 +2,7 @@ import type { PrismaTransaction } from "../db/userContext";
 import { safeUserSelect } from "../auth/auth.types";
 import { ApiError } from "../http/errors";
 import { createActivity } from "../activity/activity.service";
-import { buildSharesFromInput } from "./bill-split";
+import { buildSharesFromInput, sharesWithLenderId } from "./bill-split";
 import { toBillShareBalanceLike, userSummaryForBill } from "./bill-balance";
 import { pairwiseSummaryForBill } from "./bill-pairwise";
 import type { BillInput, BillListQuery } from "./bill.types";
@@ -28,6 +28,7 @@ export const billInclude = {
     select: {
       id: true,
       shareCents: true,
+      lenderId: true,
       payerMarkedAsPaid: true,
       lenderConfirmedPaid: true,
       user: { select: safeUserSelect },
@@ -68,6 +69,7 @@ type BillWithShares = {
   shares: Array<{
     id: string;
     shareCents: number;
+    lenderId: string;
     payerMarkedAsPaid: boolean;
     lenderConfirmedPaid: boolean;
     user: { id: string; email: string; name: string | null; createdAt: Date };
@@ -397,7 +399,7 @@ export async function createBill(tx: PrismaTransaction, actingUserId: string, in
       tipCents: input.tipCents,
       payerId,
       creatorId: actingUserId,
-      shares: { create: shares },
+      shares: { create: sharesWithLenderId(shares, payerId) },
       lineItems: { create: lineItems },
     },
     include: billInclude,
@@ -506,6 +508,7 @@ export async function updateBill(
         create: shares.map((share) => ({
           userId: share.userId,
           shareCents: share.shareCents,
+          lenderId: payerId,
           ...(settledByUserId.get(share.userId) ?? {}),
         })),
       },

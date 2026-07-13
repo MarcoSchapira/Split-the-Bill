@@ -178,6 +178,7 @@ class SummaryCard extends StatelessWidget {
     super.key,
     required this.label,
     required this.amount,
+    this.pendingConfirmationPercent,
     this.positive = false,
     this.negative = false,
     this.onTap,
@@ -185,6 +186,7 @@ class SummaryCard extends StatelessWidget {
 
   final String label;
   final String amount;
+  final int? pendingConfirmationPercent;
   final bool positive;
   final bool negative;
   final VoidCallback? onTap;
@@ -217,6 +219,49 @@ class SummaryCard extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
               ),
+              if (pendingConfirmationPercent != null) ...[
+                const SizedBox(height: 16),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Text(
+                      '$pendingConfirmationPercent%',
+                      style: TextStyle(
+                        color: amountColor,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        height: 1,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'awaiting',
+                          style: TextStyle(
+                            color: amountColor.withValues(alpha: 0.72),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            height: 1.2,
+                            letterSpacing: 0.01,
+                          ),
+                        ),
+                        Text(
+                          'confirmation',
+                          style: TextStyle(
+                            color: amountColor.withValues(alpha: 0.72),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            height: 1.2,
+                            letterSpacing: 0.01,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),

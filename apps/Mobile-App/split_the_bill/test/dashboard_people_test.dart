@@ -35,6 +35,8 @@ void main() {
         totalOwedToYouCents: 0,
         totalYouOweCents: 0,
         netBalanceCents: 0,
+        owedToYouPendingConfirmationPercent: null,
+        youOwePendingConfirmationPercent: null,
         balances: const [],
         groupBalances: const [],
       );
@@ -56,6 +58,8 @@ void main() {
         totalOwedToYouCents: 0,
         totalYouOweCents: 0,
         netBalanceCents: 0,
+        owedToYouPendingConfirmationPercent: null,
+        youOwePendingConfirmationPercent: null,
         balances: [
           BalanceContact(
             user: _user('user-a', 'alice@example.com', name: 'Alice'),

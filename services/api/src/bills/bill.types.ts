@@ -10,6 +10,7 @@ export const billIdSchema = z.string().uuid();
 export const billShareInputSchema = z.object({
   userId: z.string().uuid(),
   shareCents: z.number().int().nonnegative(),
+  lenderId: z.string().uuid().optional(),
 });
 
 const nullableStringSchema = z

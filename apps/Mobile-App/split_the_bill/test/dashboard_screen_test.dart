@@ -73,6 +73,8 @@ void main() {
       totalOwedToYouCents: 400,
       totalYouOweCents: 200,
       netBalanceCents: 200,
+      owedToYouPendingConfirmationPercent: 50,
+      youOwePendingConfirmationPercent: 25,
       balances: [
         BalanceContact(
           user: _user('user-b', 'bob@example.com', name: 'Bob'),
@@ -121,6 +123,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Manage friends'), findsOneWidget);
+    expect(find.text('50%'), findsOneWidget);
+    expect(find.text('25%'), findsOneWidget);
+    expect(find.text('awaiting'), findsNWidgets(2));
+    expect(find.text('confirmation'), findsNWidgets(2));
     expect(find.text('alice@example.com'), findsOneWidget);
     expect(find.text('bob@example.com'), findsOneWidget);
 

@@ -2553,6 +2553,7 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
               'shareCents': userId == payerId
                   ? payerShare
                   : (sharesByUserId[userId] ?? 0),
+              'lenderId': payerId,
             },
           )
           .toList(),

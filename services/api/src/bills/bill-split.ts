@@ -3,7 +3,15 @@ import { ApiError } from "../http/errors";
 export type BillShareInput = {
   userId: string;
   shareCents: number;
+  lenderId?: string;
 };
+
+export function sharesWithLenderId(
+  shares: BillShareInput[],
+  payerId: string,
+): Array<{ userId: string; shareCents: number; lenderId: string }> {
+  return shares.map((share) => ({ ...share, lenderId: payerId }));
+}
 
 export function equalShares(totalCents: number, participantIds: string[]): BillShareInput[] {
   const ordered = [...new Set(participantIds)].sort();

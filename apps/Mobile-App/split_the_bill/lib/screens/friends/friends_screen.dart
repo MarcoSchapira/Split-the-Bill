@@ -101,10 +101,7 @@ class _FriendDetailScreenState extends ConsumerState<FriendDetailScreen> {
                 ],
               ),
               const SizedBox(height: 12),
-              BillList(
-                bills: friendship.bills,
-                onChanged: _load,
-              ),
+              BillList(bills: friendship.bills),
             ],
           ],
         ),

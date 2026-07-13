@@ -25,6 +25,7 @@ model User {
   createdBills              Bill[]              @relation("BillCreator")
   paidBills                 Bill[]              @relation("BillPayer")
   billShares                BillShare[]
+  billSharesAsLender        BillShare[] @relation("BillShareLender")
   lineItemAssignments       BillLineItemAssignment[]
   activityEvents            ActivityEvent[]     @relation("ActivityActor")
   activityRecipients        ActivityRecipient[]
@@ -179,15 +180,18 @@ model BillShare {
   id                  String  @id @default(uuid())
   billId              String  @map("bill_id")
   userId              String  @map("user_id")
+  lenderId            String  @map("lender_id")
   shareCents          Int     @map("share_cents")
   payerMarkedAsPaid   Boolean @default(false) @map("payer_marked_as_paid")
   lenderConfirmedPaid Boolean @default(false) @map("lender_confirmed_paid")
 
-  bill Bill @relation(fields: [billId], references: [id], onDelete: Cascade)
-  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  bill   Bill @relation(fields: [billId], references: [id], onDelete: Cascade)
+  user   User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  lender User @relation("BillShareLender", fields: [lenderId], references: [id], onDelete: Restrict)
 
   @@unique([billId, userId])
   @@index([userId])
+  @@index([lenderId])
   @@map("bill_shares")
 }
 

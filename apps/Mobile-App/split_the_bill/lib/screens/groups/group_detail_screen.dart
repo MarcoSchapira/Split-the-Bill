@@ -287,7 +287,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                 ],
               ),
               const SizedBox(height: 12),
-              BillList(bills: group.bills, onChanged: _load),
+              BillList(bills: group.bills),
               const SizedBox(height: 24),
               SecondaryButton(label: 'Leave group', onPressed: _leaveGroup),
             ] else if (_error == null)

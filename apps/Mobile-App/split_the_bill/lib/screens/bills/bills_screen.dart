@@ -72,12 +72,7 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
             ErrorBanner(message: _error!),
             const SizedBox(height: 12),
           ],
-          BillList(
-            bills: _bills,
-            onChanged: _load,
-            showSettleAction: false,
-            showBalanceSummary: false,
-          ),
+          BillList(bills: _bills),
         ],
       ),
     );

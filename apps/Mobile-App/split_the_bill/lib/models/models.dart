@@ -49,6 +49,7 @@ class BillShare {
   const BillShare({
     required this.id,
     required this.shareCents,
+    required this.lenderId,
     required this.user,
     required this.payerMarkedAsPaid,
     required this.lenderConfirmedPaid,
@@ -56,6 +57,7 @@ class BillShare {
 
   final String id;
   final int shareCents;
+  final String lenderId;
   final User user;
   final bool payerMarkedAsPaid;
   final bool lenderConfirmedPaid;
@@ -64,6 +66,7 @@ class BillShare {
     return BillShare(
       id: json['id'] as String,
       shareCents: json['shareCents'] as int,
+      lenderId: json['lenderId'] as String,
       user: User.fromJson(json['user'] as Map<String, dynamic>),
       payerMarkedAsPaid: json['payerMarkedAsPaid'] as bool? ?? false,
       lenderConfirmedPaid: json['lenderConfirmedPaid'] as bool? ?? false,
@@ -504,6 +507,8 @@ class Dashboard {
     required this.totalOwedToYouCents,
     required this.totalYouOweCents,
     required this.netBalanceCents,
+    required this.owedToYouPendingConfirmationPercent,
+    required this.youOwePendingConfirmationPercent,
     required this.balances,
     required this.groupBalances,
   });
@@ -511,6 +516,8 @@ class Dashboard {
   final int totalOwedToYouCents;
   final int totalYouOweCents;
   final int netBalanceCents;
+  final int? owedToYouPendingConfirmationPercent;
+  final int? youOwePendingConfirmationPercent;
   final List<BalanceContact> balances;
   final List<GroupBalanceSummary> groupBalances;
 
@@ -519,6 +526,10 @@ class Dashboard {
       totalOwedToYouCents: json['totalOwedToYouCents'] as int,
       totalYouOweCents: json['totalYouOweCents'] as int,
       netBalanceCents: json['netBalanceCents'] as int,
+      owedToYouPendingConfirmationPercent:
+          json['owedToYouPendingConfirmationPercent'] as int?,
+      youOwePendingConfirmationPercent:
+          json['youOwePendingConfirmationPercent'] as int?,
       balances: (json['balances'] as List<dynamic>)
           .map((e) => BalanceContact.fromJson(e as Map<String, dynamic>))
           .toList(),

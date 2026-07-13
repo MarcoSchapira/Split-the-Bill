@@ -82,10 +82,11 @@ void main() {
     expect(event.friendInvitationId, 'fi_1');
   });
 
-  test('BillShare.fromJson parses settlement bools', () {
+  test('BillShare.fromJson parses settlement bools and lenderId', () {
     final paid = BillShare.fromJson({
       'id': 's1',
       'shareCents': 500,
+      'lenderId': 'u1',
       'payerMarkedAsPaid': true,
       'lenderConfirmedPaid': true,
       'user': {
@@ -98,6 +99,7 @@ void main() {
     final notPaid = BillShare.fromJson({
       'id': 's2',
       'shareCents': 500,
+      'lenderId': 'u1',
       'user': {
         'id': 'u2',
         'email': 'c@d.com',
@@ -108,7 +110,9 @@ void main() {
 
     expect(paid.payerMarkedAsPaid, isTrue);
     expect(paid.lenderConfirmedPaid, isTrue);
+    expect(paid.lenderId, 'u1');
     expect(notPaid.payerMarkedAsPaid, isFalse);
     expect(notPaid.lenderConfirmedPaid, isFalse);
+    expect(notPaid.lenderId, 'u1');
   });
 }

@@ -19,12 +19,14 @@ BillShare _share({
   required String id,
   required User user,
   required int shareCents,
+  String lenderId = 'u1',
   bool payerMarkedAsPaid = false,
   bool lenderConfirmedPaid = false,
 }) {
   return BillShare.fromJson({
     'id': id,
     'shareCents': shareCents,
+    'lenderId': lenderId,
     'payerMarkedAsPaid': payerMarkedAsPaid,
     'lenderConfirmedPaid': lenderConfirmedPaid,
     'user': user.toJson(),
@@ -54,6 +56,7 @@ Bill _bill({
       return {
         'id': share.id,
         'shareCents': share.shareCents,
+        'lenderId': payer.id,
         'payerMarkedAsPaid': share.payerMarkedAsPaid,
         'lenderConfirmedPaid': share.lenderConfirmedPaid,
         'user': share.user.toJson(),

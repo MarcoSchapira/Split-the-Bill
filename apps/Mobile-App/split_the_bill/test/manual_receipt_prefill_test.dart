@@ -115,6 +115,7 @@ void main() {
         {
           'id': 's1',
           'shareCents': 2100,
+          'lenderId': 'u1',
           'payerMarkedAsPaid': false,
           'lenderConfirmedPaid': false,
           'user': {
@@ -127,6 +128,7 @@ void main() {
         {
           'id': 's2',
           'shareCents': 2100,
+          'lenderId': 'u1',
           'payerMarkedAsPaid': false,
           'lenderConfirmedPaid': false,
           'user': {
@@ -222,6 +224,7 @@ void main() {
         {
           'id': 's1',
           'shareCents': 500,
+          'lenderId': 'u1',
           'payerMarkedAsPaid': false,
           'lenderConfirmedPaid': false,
           'user': {

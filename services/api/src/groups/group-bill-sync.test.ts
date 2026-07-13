@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { equalShares } from "../bills/bill-split";
+import { equalShares, sharesWithLenderId } from "../bills/bill-split";
 import { isFullyUnsettledGroupBill } from "./group-bill-sync";
 
 describe("group-bill-sync", () => {
@@ -23,5 +23,10 @@ describe("group-bill-sync", () => {
     const shares = equalShares(1000, ["a", "b", "c"]);
     expect(shares).toHaveLength(3);
     expect(shares.reduce((sum, share) => sum + share.shareCents, 0)).toBe(1000);
+  });
+
+  it("copies payerId onto each share as lenderId", () => {
+    const shares = sharesWithLenderId(equalShares(1000, ["a", "b"]), "payer-1");
+    expect(shares.every((share) => share.lenderId === "payer-1")).toBe(true);
   });
 });

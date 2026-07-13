@@ -15,7 +15,7 @@ type BalanceContact = {
 };
 
 export async function getDashboard(tx: PrismaTransaction, userId: string) {
-  const [friendships, groups, bills] = await Promise.all([
+  const [friendships, groups, shares] = await Promise.all([
     tx.friendship.findMany({
       where: { OR: [{ userAId: userId }, { userBId: userId }] },
       include: {
@@ -36,23 +36,20 @@ export async function getDashboard(tx: PrismaTransaction, userId: string) {
         },
       },
     }),
-    tx.bill.findMany({
+    tx.billShare.findMany({
       where: {
-        deletedAt: null,
-        shares: { some: { userId } },
+        bill: { deletedAt: null },
+        OR: [{ lenderId: userId }, { userId }],
       },
       select: {
-        payerId: true,
-        groupId: true,
-        payer: { select: safeUserSelect },
-        shares: {
-          select: {
-            shareCents: true,
-            payerMarkedAsPaid: true,
-            lenderConfirmedPaid: true,
-            user: { select: safeUserSelect },
-          },
-        },
+        shareCents: true,
+        userId: true,
+        lenderId: true,
+        payerMarkedAsPaid: true,
+        lenderConfirmedPaid: true,
+        user: { select: safeUserSelect },
+        lender: { select: safeUserSelect },
+        bill: { select: { groupId: true } },
       },
     }),
   ]);
@@ -78,20 +75,44 @@ export async function getDashboard(tx: PrismaTransaction, userId: string) {
     existing.balanceCents += amountCents;
   }
 
-  for (const bill of bills) {
-    if (bill.payerId === userId) {
-      for (const share of bill.shares) {
-        if (share.user.id !== userId && !share.lenderConfirmedPaid) {
-          adjustBalance(share.user, share.shareCents);
-        }
+  let totalOwedToYouCents = 0;
+  let owedToYouPendingConfirmationCents = 0;
+  let totalYouOweCents = 0;
+  let youOwePendingConfirmationCents = 0;
+  let youOweOutstandingCents = 0;
+
+  for (const share of shares) {
+    if (
+      share.lenderId === userId &&
+      share.userId !== userId &&
+      !share.lenderConfirmedPaid
+    ) {
+      totalOwedToYouCents += share.shareCents;
+      if (share.payerMarkedAsPaid) {
+        owedToYouPendingConfirmationCents += share.shareCents;
       }
-      continue;
+      adjustBalance(share.user, share.shareCents);
     }
 
-    const ownShare = bill.shares.find((share) => share.user.id === userId);
+    if (
+      share.userId === userId &&
+      share.lenderId !== userId &&
+      !share.lenderConfirmedPaid
+    ) {
+      youOweOutstandingCents += share.shareCents;
+      if (share.payerMarkedAsPaid) {
+        youOwePendingConfirmationCents += share.shareCents;
+      }
+    }
 
-    if (ownShare && !ownShare.lenderConfirmedPaid) {
-      adjustBalance(bill.payer, -ownShare.shareCents);
+    if (
+      share.userId === userId &&
+      share.lenderId !== userId &&
+      !share.payerMarkedAsPaid &&
+      !share.lenderConfirmedPaid
+    ) {
+      totalYouOweCents += share.shareCents;
+      adjustBalance(share.lender, -share.shareCents);
     }
   }
 
@@ -101,14 +122,20 @@ export async function getDashboard(tx: PrismaTransaction, userId: string) {
       const byBalance = Math.abs(right.balanceCents) - Math.abs(left.balanceCents);
       return byBalance || (left.user.name ?? left.user.email).localeCompare(right.user.name ?? right.user.email);
     });
-  const totalOwedToYouCents = balances.reduce(
-    (sum, contact) => sum + Math.max(contact.balanceCents, 0),
-    0,
-  );
-  const totalYouOweCents = balances.reduce(
-    (sum, contact) => sum + Math.max(-contact.balanceCents, 0),
-    0,
-  );
+
+  const owedToYouPendingConfirmationPercent =
+    totalOwedToYouCents === 0
+      ? null
+      : Math.round(
+          (owedToYouPendingConfirmationCents / totalOwedToYouCents) * 100,
+        );
+
+  const youOwePendingConfirmationPercent =
+    youOweOutstandingCents === 0
+      ? null
+      : Math.round(
+          (youOwePendingConfirmationCents / youOweOutstandingCents) * 100,
+        );
 
   const groupBalances: Array<{
     group: {
@@ -121,22 +148,27 @@ export async function getDashboard(tx: PrismaTransaction, userId: string) {
   }> = [];
 
   for (const membership of groups) {
-    const groupBills = bills.filter((bill) => bill.groupId === membership.group.id);
+    const groupId = membership.group.id;
     let balanceCents = 0;
 
-    for (const bill of groupBills) {
-      if (bill.payerId === userId) {
-        for (const share of bill.shares) {
-          if (share.user.id !== userId && !share.lenderConfirmedPaid) {
-            balanceCents += share.shareCents;
-          }
-        }
-        continue;
+    for (const share of shares) {
+      if (share.bill.groupId !== groupId) continue;
+
+      if (
+        share.lenderId === userId &&
+        share.userId !== userId &&
+        !share.lenderConfirmedPaid
+      ) {
+        balanceCents += share.shareCents;
       }
 
-      const ownShare = bill.shares.find((share) => share.user.id === userId);
-      if (ownShare && !ownShare.lenderConfirmedPaid) {
-        balanceCents -= ownShare.shareCents;
+      if (
+        share.userId === userId &&
+        share.lenderId !== userId &&
+        !share.payerMarkedAsPaid &&
+        !share.lenderConfirmedPaid
+      ) {
+        balanceCents -= share.shareCents;
       }
     }
 
@@ -158,6 +190,8 @@ export async function getDashboard(tx: PrismaTransaction, userId: string) {
     totalOwedToYouCents,
     totalYouOweCents,
     netBalanceCents: totalOwedToYouCents - totalYouOweCents,
+    owedToYouPendingConfirmationPercent,
+    youOwePendingConfirmationPercent,
     balances,
     groupBalances,
   };

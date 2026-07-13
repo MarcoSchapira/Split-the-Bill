@@ -27,6 +27,15 @@ function bearer(token: string) {
   return { Authorization: `Bearer ${token}` };
 }
 
+function expectShareLenderIdsMatchPayer(bill: {
+  payerId: string;
+  shares: Array<{ lenderId: string }>;
+}) {
+  for (const share of bill.shares) {
+    expect(share.lenderId).toBe(bill.payerId);
+  }
+}
+
 async function register(email: string, name?: string): Promise<RegisteredAccount> {
   const response = await registerTestUser(app, email, { name });
 
@@ -596,6 +605,7 @@ describe("bill ledger and dashboard API", () => {
         .map((share: { userId: string; shareCents: number }) => share.shareCents)
         .sort(),
     ).toEqual([3000, 7000]);
+    expectShareLenderIdsMatchPayer(created.body.bill);
     expect(friendDashboard.body.dashboard.totalYouOweCents).toBe(3000);
   });
 
@@ -615,6 +625,7 @@ describe("bill ledger and dashboard API", () => {
     expect(created.body.bill.shares).toHaveLength(1);
     expect(created.body.bill.shares[0].user.id).toBe(user.user.id);
     expect(created.body.bill.shares[0].shareCents).toBe(2450);
+    expectShareLenderIdsMatchPayer(created.body.bill);
     expect(created.body.bill.isOneMainTotal).toBe(true);
     expect(created.body.bill.isSplitWithFriends).toBe(false);
     expect(created.body.bill.isSplitByFinalAmounts).toBe(true);
@@ -1099,7 +1110,8 @@ describe("bill settle API", () => {
     const debtorMarked = await request(app)
       .post(`/bills/${created.body.bill.id as string}/settle`)
       .set(bearer(friend.token));
-    const afterDebtorMark = await request(app).get("/dashboard").set(bearer(payer.token));
+    const afterDebtorMarkPayer = await request(app).get("/dashboard").set(bearer(payer.token));
+    const afterDebtorMarkFriend = await request(app).get("/dashboard").set(bearer(friend.token));
 
     const friendShare = debtorMarked.body.bill.shares.find(
       (share: { user: { id: string } }) => share.user.id === friend.user.id,
@@ -1109,7 +1121,43 @@ describe("bill settle API", () => {
     expect(friendShare.payerMarkedAsPaid).toBe(true);
     expect(friendShare.lenderConfirmedPaid).toBe(false);
     expect(debtorMarked.body.bill.userSummary.settled).toBe(false);
-    expect(afterDebtorMark.body.dashboard.totalOwedToYouCents).toBe(1000);
+    expect(afterDebtorMarkPayer.body.dashboard.totalOwedToYouCents).toBe(1000);
+    expect(afterDebtorMarkPayer.body.dashboard.owedToYouPendingConfirmationPercent).toBe(100);
+    expect(afterDebtorMarkFriend.body.dashboard.totalYouOweCents).toBe(0);
+    expect(afterDebtorMarkFriend.body.dashboard.youOwePendingConfirmationPercent).toBe(100);
+  });
+
+  it("computes pending confirmation percent from mixed payer-marked shares", async () => {
+    const payer = await register("mixed-pending-payer@example.com");
+    const friendA = await register("mixed-pending-friend-a@example.com");
+    const friendB = await register("mixed-pending-friend-b@example.com");
+    await becomeFriends(payer, friendA);
+    await becomeFriends(payer, friendB);
+
+    const billA = await request(app).post("/bills").set(bearer(payer.token)).send({
+      description: "Lunch A",
+      incurredAt: "2026-05-25",
+      totalCents: 2000,
+      participantIds: [payer.user.id, friendA.user.id],
+      payerId: payer.user.id,
+    });
+    const billB = await request(app).post("/bills").set(bearer(payer.token)).send({
+      description: "Lunch B",
+      incurredAt: "2026-05-25",
+      totalCents: 2000,
+      participantIds: [payer.user.id, friendB.user.id],
+      payerId: payer.user.id,
+    });
+
+    await request(app)
+      .post(`/bills/${billA.body.bill.id as string}/settle`)
+      .set(bearer(friendA.token));
+
+    const dashboard = await request(app).get("/dashboard").set(bearer(payer.token));
+
+    expect(dashboard.status).toBe(200);
+    expect(dashboard.body.dashboard.totalOwedToYouCents).toBe(2000);
+    expect(dashboard.body.dashboard.owedToYouPendingConfirmationPercent).toBe(50);
   });
 });
 
@@ -1185,6 +1233,7 @@ describe("groups API", () => {
     expect(bill.body.bill.shares.map((share: { shareCents: number }) => share.shareCents)).toEqual([
       1000, 1000,
     ]);
+    expectShareLenderIdsMatchPayer(bill.body.bill);
   });
 
   it("adds a member to unsettled group bills when requested", async () => {
@@ -1229,6 +1278,7 @@ describe("groups API", () => {
         0,
       ),
     ).toBe(3000);
+    expectShareLenderIdsMatchPayer(updatedBill.body.bill);
   });
 
   it("clears line-item assignments when switching a bill to group split", async () => {
@@ -1297,6 +1347,7 @@ describe("groups API", () => {
     expect(updated.body.bill.shares.map((share: { shareCents: number }) => share.shareCents)).toEqual([
       1000, 1000,
     ]);
+    expectShareLenderIdsMatchPayer(updated.body.bill);
   });
 
   it("forbids non-creator from removing members but allows any member to edit", async () => {

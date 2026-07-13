@@ -50,6 +50,7 @@ export async function recalcGroupBillEvenShares(
       id: true,
       description: true,
       totalCents: true,
+      payerId: true,
       deletedAt: true,
       shares: {
         select: {
@@ -87,6 +88,7 @@ export async function recalcGroupBillEvenShares(
       billId,
       userId: share.userId,
       shareCents: share.shareCents,
+      lenderId: bill.payerId,
       ...(options.preserveSettlement !== false
         ? (settlementByUserId.get(share.userId) ?? {})
         : {}),

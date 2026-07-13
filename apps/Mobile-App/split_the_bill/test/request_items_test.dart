@@ -56,7 +56,7 @@ Bill _bill({
       return {
         'id': share.id,
         'shareCents': share.shareCents,
-        'lenderId': payer.id,
+        'lenderId': share.lenderId,
         'payerMarkedAsPaid': share.payerMarkedAsPaid,
         'lenderConfirmedPaid': share.lenderConfirmedPaid,
         'user': share.user.toJson(),
@@ -100,74 +100,177 @@ void main() {
     expect(requestAmountDirectionLabel(RequestDirection.youOwe), 'you owe');
   });
 
-  test('settlementStatusDetailLabel covers all statuses', () {
+  test('requestSettlementStatusLabel covers all debtor and lender states', () {
     expect(
-      settlementStatusDetailLabel(
+      requestSettlementStatusLabel(
         payerMarkedAsPaid: false,
         lenderConfirmedPaid: false,
-        counterpartyName: 'Blake',
-        direction: RequestDirection.owedToYou,
+        role: RequestRole.debtor,
       ),
       'Not paid',
     );
     expect(
-      settlementStatusDetailLabel(
+      requestSettlementStatusLabel(
         payerMarkedAsPaid: true,
         lenderConfirmedPaid: false,
-        counterpartyName: 'Blake',
-        direction: RequestDirection.owedToYou,
+        role: RequestRole.debtor,
       ),
-      'Blake marked as paid',
+      'pending lender confirmation',
     );
     expect(
-      settlementStatusDetailLabel(
-        payerMarkedAsPaid: true,
-        lenderConfirmedPaid: false,
-        counterpartyName: 'Alex',
-        direction: RequestDirection.youOwe,
-      ),
-      'You marked as paid',
-    );
-    expect(
-      settlementStatusDetailLabel(
+      requestSettlementStatusLabel(
         payerMarkedAsPaid: false,
         lenderConfirmedPaid: true,
-        counterpartyName: 'Blake',
-        direction: RequestDirection.owedToYou,
+        role: RequestRole.debtor,
+      ),
+      'Lender marked as paid',
+    );
+    expect(
+      requestSettlementStatusLabel(
+        payerMarkedAsPaid: false,
+        lenderConfirmedPaid: false,
+        role: RequestRole.lender,
+      ),
+      'Not paid',
+    );
+    expect(
+      requestSettlementStatusLabel(
+        payerMarkedAsPaid: true,
+        lenderConfirmedPaid: false,
+        role: RequestRole.lender,
+      ),
+      'Pending your confirmation',
+    );
+    expect(
+      requestSettlementStatusLabel(
+        payerMarkedAsPaid: false,
+        lenderConfirmedPaid: true,
+        role: RequestRole.lender,
       ),
       'Paid and confirmed',
     );
   });
 
-  test('settlementStatusColor is universal and not tab-dependent', () {
+  test('requestSettlementBarColor is role-aware for pending state', () {
     expect(
-      settlementStatusColor(
+      requestSettlementBarColor(
         payerMarkedAsPaid: false,
         lenderConfirmedPaid: false,
+        role: RequestRole.debtor,
       ),
-      AppColors.error,
+      AppColors.surfaceMuted,
     );
     expect(
-      settlementStatusColor(
+      requestSettlementBarColor(
         payerMarkedAsPaid: true,
         lenderConfirmedPaid: false,
-      ),
-      AppColors.pendingText,
-    );
-    expect(
-      settlementStatusColor(
-        payerMarkedAsPaid: false,
-        lenderConfirmedPaid: true,
+        role: RequestRole.debtor,
       ),
       AppColors.accent,
     );
     expect(
-      settlementStatusColor(
+      requestSettlementBarColor(
+        payerMarkedAsPaid: true,
+        lenderConfirmedPaid: false,
+        role: RequestRole.lender,
+      ),
+      AppColors.pendingText,
+    );
+    expect(
+      requestSettlementBarColor(
+        payerMarkedAsPaid: false,
+        lenderConfirmedPaid: true,
+        role: RequestRole.lender,
+      ),
+      AppColors.accent,
+    );
+  });
+
+  test('requestSettlementProgress and action visibility cover all states', () {
+    expect(
+      requestSettlementProgress(
         payerMarkedAsPaid: false,
         lenderConfirmedPaid: false,
       ),
-      isNot(AppColors.brandSoft),
+      0.0,
     );
+    expect(
+      requestSettlementProgress(
+        payerMarkedAsPaid: true,
+        lenderConfirmedPaid: false,
+      ),
+      0.5,
+    );
+    expect(
+      requestSettlementProgress(
+        payerMarkedAsPaid: false,
+        lenderConfirmedPaid: true,
+      ),
+      1.0,
+    );
+
+    expect(
+      canShowRequestMarkPaidAction(
+        payerMarkedAsPaid: false,
+        lenderConfirmedPaid: false,
+        role: RequestRole.debtor,
+      ),
+      isTrue,
+    );
+    expect(
+      canShowRequestMarkPaidAction(
+        payerMarkedAsPaid: true,
+        lenderConfirmedPaid: false,
+        role: RequestRole.debtor,
+      ),
+      isFalse,
+    );
+    expect(
+      canShowRequestMarkPaidAction(
+        payerMarkedAsPaid: false,
+        lenderConfirmedPaid: false,
+        role: RequestRole.lender,
+      ),
+      isTrue,
+    );
+    expect(
+      canShowRequestMarkPaidAction(
+        payerMarkedAsPaid: true,
+        lenderConfirmedPaid: false,
+        role: RequestRole.lender,
+      ),
+      isTrue,
+    );
+    expect(
+      canShowRequestMarkPaidAction(
+        payerMarkedAsPaid: true,
+        lenderConfirmedPaid: true,
+        role: RequestRole.lender,
+      ),
+      isFalse,
+    );
+
+    expect(
+      showDebtorMarkedBadge(
+        payerMarkedAsPaid: true,
+        lenderConfirmedPaid: false,
+        role: RequestRole.debtor,
+      ),
+      isTrue,
+    );
+    expect(
+      showDebtorMarkedBadge(
+        payerMarkedAsPaid: true,
+        lenderConfirmedPaid: false,
+        role: RequestRole.lender,
+      ),
+      isFalse,
+    );
+  });
+
+  test('requestMarkPaidActionLabel varies by role', () {
+    expect(requestMarkPaidActionLabel(RequestRole.debtor), 'Mark as paid');
+    expect(requestMarkPaidActionLabel(RequestRole.lender), 'Confirm paid');
   });
 
   test('payer sees one row per debtor on a group bill', () {
@@ -194,6 +297,8 @@ void main() {
     expect(items.length, 2);
     expect(items.map((item) => item.counterparty.id).toSet(), {'u2', 'u3'});
     expect(items.map((item) => item.amountCents).toSet(), {1500, 2500});
+    expect(items.every((item) => item.role == RequestRole.lender), isTrue);
+    expect(items.map((item) => item.shareId).toSet(), {'s2', 's3'});
   });
 
   test('non-payer sees one row owed to payer', () {
@@ -220,6 +325,37 @@ void main() {
     expect(items.length, 1);
     expect(items.first.counterparty.id, payer.id);
     expect(items.first.amountCents, 400);
+    expect(items.first.role, RequestRole.debtor);
+    expect(items.first.shareId, 's2');
+  });
+
+  test('lenderId-based filtering shows owed rows when user is lender', () {
+    final bills = [
+      _bill(
+        id: 'b1',
+        description: 'Trip',
+        incurredAt: '2026-06-11T00:00:00.000Z',
+        payer: friendA,
+        shares: [
+          _share(
+            id: 's1',
+            user: friendB,
+            shareCents: 900,
+            lenderId: payer.id,
+          ),
+        ],
+      ),
+    ];
+
+    final items = requestItemsFromBills(
+      bills: bills,
+      currentUserId: payer.id,
+      direction: RequestDirection.owedToYou,
+    );
+
+    expect(items.length, 1);
+    expect(items.first.counterparty.id, friendB.id);
+    expect(items.first.role, RequestRole.lender);
   });
 
   test('zero-share participants are excluded', () {
@@ -273,7 +409,7 @@ void main() {
     expect(items.length, 1);
     expect(items.first.lenderConfirmedPaid, isTrue);
     expect(
-      settlementProgress(
+      requestSettlementProgress(
         payerMarkedAsPaid: items.first.payerMarkedAsPaid,
         lenderConfirmedPaid: items.first.lenderConfirmedPaid,
       ),

@@ -5,6 +5,7 @@ import '../../api/api_exception.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../theme/app_colors.dart';
+import '../../utils/format.dart';
 import '../../utils/request_items.dart';
 import '../../widgets/common_widgets.dart';
 import '../../widgets/requests/request_list_item.dart';
@@ -27,6 +28,7 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen> {
   List<Bill> _bills = [];
   String? _error;
   bool _isLoading = true;
+  String? _settlingShareId;
 
   @override
   void initState() {
@@ -93,6 +95,48 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen> {
     setState(() => _selectedTab = tab);
   }
 
+  Future<void> _markPaid(RequestItem item) async {
+    setState(() => _settlingShareId = item.shareId);
+
+    try {
+      if (item.role == RequestRole.debtor) {
+        await ref.read(billsApiProvider).settleBill(item.billId);
+      } else {
+        await ref
+            .read(billsApiProvider)
+            .settleBill(
+              item.billId,
+              participantUserId: item.counterparty.id,
+            );
+      }
+      notifyDataChanged(ref);
+      await _load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              item.role == RequestRole.debtor
+                  ? 'Marked as paid.'
+                  : '${displayName(item.counterparty)} marked as paid.',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              apiErrorMessage(e, 'Unable to update payment status.'),
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _settlingShareId = null);
+    }
+  }
+
   _RequestsTab _tabFromQuery(String? tab) {
     switch (tab) {
       case 'you-owe':
@@ -130,7 +174,9 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen> {
                 currentUserId: currentUserId,
                 isLoading: _isLoading,
                 error: _error,
+                settlingShareId: _settlingShareId,
                 onRefresh: _load,
+                onMarkPaid: _markPaid,
               ),
               _RequestsTabBody(
                 tab: _RequestsTab.youOwe,
@@ -138,7 +184,9 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen> {
                 currentUserId: currentUserId,
                 isLoading: _isLoading,
                 error: _error,
+                settlingShareId: _settlingShareId,
                 onRefresh: _load,
+                onMarkPaid: _markPaid,
               ),
             ],
           ),
@@ -160,7 +208,9 @@ class _RequestsTabBody extends StatelessWidget {
     required this.currentUserId,
     required this.isLoading,
     required this.error,
+    required this.settlingShareId,
     required this.onRefresh,
+    required this.onMarkPaid,
   });
 
   final _RequestsTab tab;
@@ -168,7 +218,9 @@ class _RequestsTabBody extends StatelessWidget {
   final String? currentUserId;
   final bool isLoading;
   final String? error;
+  final String? settlingShareId;
   final Future<void> Function() onRefresh;
+  final Future<void> Function(RequestItem item) onMarkPaid;
 
   @override
   Widget build(BuildContext context) {
@@ -223,7 +275,12 @@ class _RequestsTabBody extends StatelessWidget {
             const SizedBox(height: 12),
           ],
           ...items.map(
-            (item) => RequestListItem(key: ValueKey('${item.billId}-${item.counterparty.id}'), item: item),
+            (item) => RequestListItem(
+              key: ValueKey(item.shareId),
+              item: item,
+              isSettling: settlingShareId == item.shareId,
+              onMarkPaid: () => onMarkPaid(item),
+            ),
           ),
         ],
       ),

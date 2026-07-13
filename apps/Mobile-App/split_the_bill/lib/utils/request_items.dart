@@ -4,8 +4,11 @@ import 'settlement_status.dart';
 
 enum RequestDirection { owedToYou, youOwe }
 
+enum RequestRole { debtor, lender }
+
 class RequestItem {
   const RequestItem({
+    required this.shareId,
     required this.billId,
     required this.billLabel,
     required this.incurredAt,
@@ -14,8 +17,10 @@ class RequestItem {
     required this.payerMarkedAsPaid,
     required this.lenderConfirmedPaid,
     required this.direction,
+    required this.role,
   });
 
+  final String shareId;
   final String billId;
   final String billLabel;
   final String incurredAt;
@@ -24,6 +29,7 @@ class RequestItem {
   final bool payerMarkedAsPaid;
   final bool lenderConfirmedPaid;
   final RequestDirection direction;
+  final RequestRole role;
 }
 
 String requestRelationshipTitle({
@@ -53,6 +59,14 @@ String _billLabel(Bill bill) {
   return 'Bill';
 }
 
+User? _lenderUserForShare(Bill bill, BillShare share) {
+  if (share.lenderId == bill.payer.id) return bill.payer;
+  for (final otherShare in bill.shares) {
+    if (otherShare.user.id == share.lenderId) return otherShare.user;
+  }
+  return null;
+}
+
 List<RequestItem> requestItemsFromBills({
   required List<Bill> bills,
   required String currentUserId,
@@ -63,16 +77,18 @@ List<RequestItem> requestItemsFromBills({
   for (final bill in bills) {
     final label = _billLabel(bill);
 
-    if (direction == RequestDirection.owedToYou) {
-      if (bill.payerId != currentUserId) continue;
+    for (final share in bill.shares) {
+      if (share.shareCents <= 0) continue;
 
-      for (final share in bill.shares) {
-        if (share.user.id == currentUserId || share.shareCents <= 0) {
+      if (direction == RequestDirection.owedToYou) {
+        if (share.lenderId != currentUserId ||
+            share.user.id == currentUserId) {
           continue;
         }
 
         items.add(
           RequestItem(
+            shareId: share.id,
             billId: bill.id,
             billLabel: label,
             incurredAt: bill.incurredAt,
@@ -81,36 +97,34 @@ List<RequestItem> requestItemsFromBills({
             payerMarkedAsPaid: share.payerMarkedAsPaid,
             lenderConfirmedPaid: share.lenderConfirmedPaid,
             direction: direction,
+            role: RequestRole.lender,
           ),
         );
+        continue;
       }
-      continue;
-    }
 
-    if (bill.payerId == currentUserId) continue;
-
-    BillShare? ownShare;
-    for (final share in bill.shares) {
-      if (share.user.id == currentUserId) {
-        ownShare = share;
-        break;
+      if (share.user.id != currentUserId || share.lenderId == currentUserId) {
+        continue;
       }
+
+      final lender = _lenderUserForShare(bill, share);
+      if (lender == null) continue;
+
+      items.add(
+        RequestItem(
+          shareId: share.id,
+          billId: bill.id,
+          billLabel: label,
+          incurredAt: bill.incurredAt,
+          counterparty: lender,
+          amountCents: share.shareCents,
+          payerMarkedAsPaid: share.payerMarkedAsPaid,
+          lenderConfirmedPaid: share.lenderConfirmedPaid,
+          direction: direction,
+          role: RequestRole.debtor,
+        ),
+      );
     }
-
-    if (ownShare == null || ownShare.shareCents <= 0) continue;
-
-    items.add(
-      RequestItem(
-        billId: bill.id,
-        billLabel: label,
-        incurredAt: bill.incurredAt,
-        counterparty: bill.payer,
-        amountCents: ownShare.shareCents,
-        payerMarkedAsPaid: ownShare.payerMarkedAsPaid,
-        lenderConfirmedPaid: ownShare.lenderConfirmedPaid,
-        direction: direction,
-      ),
-    );
   }
 
   items.sort((left, right) {

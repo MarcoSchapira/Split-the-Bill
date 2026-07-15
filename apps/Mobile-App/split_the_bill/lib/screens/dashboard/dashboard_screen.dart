@@ -144,19 +144,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               const SizedBox(height: 12),
             ],
             if (_dashboard != null) ...[
-              SummaryCard(
-                label: 'Net balance',
-                amount: formatCad(_dashboard!.netBalanceCents),
-              ),
-              const SizedBox(height: 10),
               Row(
                 children: [
                   Expanded(
                     child: SummaryCard(
                       label: 'You are owed',
                       amount: formatCad(_dashboard!.totalOwedToYouCents),
-                      pendingConfirmationPercent:
-                          _dashboard!.owedToYouPendingConfirmationPercent,
                       positive: true,
                       onTap: () => context.go('/requests?tab=owed-to-you'),
                     ),
@@ -166,13 +159,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     child: SummaryCard(
                       label: 'You owe',
                       amount: formatCad(_dashboard!.totalYouOweCents),
-                      pendingConfirmationPercent:
-                          _dashboard!.youOwePendingConfirmationPercent,
                       negative: true,
                       onTap: () => context.go('/requests?tab=you-owe'),
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 10),
+              SummaryCard(
+                label: 'Net balance',
+                amount: formatCad(_dashboard!.netBalanceCents),
               ),
               const SizedBox(height: 24),
               Row(

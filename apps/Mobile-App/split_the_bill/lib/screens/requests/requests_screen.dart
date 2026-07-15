@@ -9,6 +9,8 @@ import '../../utils/format.dart';
 import '../../utils/request_items.dart';
 import '../../widgets/common_widgets.dart';
 import '../../widgets/requests/request_list_item.dart';
+import '../../widgets/requests/request_totals_card.dart';
+import '../../widgets/requests/show_passed_requests_toggle.dart';
 import '../../widgets/segmented_toggle.dart';
 
 enum _RequestsTab { owedToYou, youOwe }
@@ -29,6 +31,7 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen> {
   String? _error;
   bool _isLoading = true;
   String? _settlingShareId;
+  bool _showPassedRequests = false;
 
   @override
   void initState() {
@@ -137,6 +140,11 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen> {
     }
   }
 
+  void _toggleShowPassedRequests() {
+    HapticFeedback.selectionClick();
+    setState(() => _showPassedRequests = !_showPassedRequests);
+  }
+
   _RequestsTab _tabFromQuery(String? tab) {
     switch (tab) {
       case 'you-owe':
@@ -156,12 +164,28 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
-          child: Text(
-            'Requests',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const Expanded(
+                child: Text(
+                  'Requests',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+                ),
+              ),
+              ShowPassedRequestsToggle(
+                isEnabled: _showPassedRequests,
+                onPressed: _toggleShowPassedRequests,
+              ),
+            ],
           ),
+        ),
+        _RequestsSegmentBar(
+          pageController: _pageController,
+          selectedTab: _selectedTab,
+          onChanged: _selectTab,
         ),
         Expanded(
           child: PageView(
@@ -175,6 +199,7 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen> {
                 isLoading: _isLoading,
                 error: _error,
                 settlingShareId: _settlingShareId,
+                showPassedRequests: _showPassedRequests,
                 onRefresh: _load,
                 onMarkPaid: _markPaid,
               ),
@@ -185,16 +210,12 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen> {
                 isLoading: _isLoading,
                 error: _error,
                 settlingShareId: _settlingShareId,
+                showPassedRequests: _showPassedRequests,
                 onRefresh: _load,
                 onMarkPaid: _markPaid,
               ),
             ],
           ),
-        ),
-        _RequestsSegmentBar(
-          pageController: _pageController,
-          selectedTab: _selectedTab,
-          onChanged: _selectTab,
         ),
       ],
     );
@@ -209,6 +230,7 @@ class _RequestsTabBody extends StatelessWidget {
     required this.isLoading,
     required this.error,
     required this.settlingShareId,
+    required this.showPassedRequests,
     required this.onRefresh,
     required this.onMarkPaid,
   });
@@ -219,6 +241,7 @@ class _RequestsTabBody extends StatelessWidget {
   final bool isLoading;
   final String? error;
   final String? settlingShareId;
+  final bool showPassedRequests;
   final Future<void> Function() onRefresh;
   final Future<void> Function(RequestItem item) onMarkPaid;
 
@@ -229,39 +252,28 @@ class _RequestsTabBody extends StatelessWidget {
     }
 
     final owedToYou = tab == _RequestsTab.owedToYou;
+    final direction = owedToYou
+        ? RequestDirection.owedToYou
+        : RequestDirection.youOwe;
     final userId = currentUserId;
     final items = userId == null
         ? const <RequestItem>[]
         : requestItemsFromBills(
             bills: bills,
             currentUserId: userId,
-            direction: owedToYou
-                ? RequestDirection.owedToYou
-                : RequestDirection.youOwe,
+            direction: direction,
+            includePassedRequests: showPassedRequests,
           );
-
-    if (items.isEmpty && error == null) {
-      return ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-        children: [
-          const SizedBox(height: 48),
-          _RequestsEmptyState(
-            icon: owedToYou
-                ? Icons.arrow_downward_rounded
-                : Icons.arrow_upward_rounded,
-            iconColor: owedToYou ? AppColors.accent : AppColors.error,
-            iconBackground:
-                owedToYou ? AppColors.accentSoft : AppColors.errorBg,
-            title: owedToYou
-                ? 'Nothing owed to you yet'
-                : 'Nothing to pay right now',
-            message: owedToYou
-                ? 'When someone owes you from a shared bill, their request will show up here.'
-                : 'When you owe someone from a shared bill, their request will show up here.',
-          ),
-        ],
-      );
-    }
+    final totals = userId == null
+        ? const RequestDirectionTotals(
+            totalCents: 0,
+            pendingConfirmationCents: 0,
+          )
+        : requestDirectionTotalsFromBills(
+            bills: bills,
+            currentUserId: userId,
+            direction: direction,
+          );
 
     return RefreshIndicator(
       onRefresh: onRefresh,
@@ -274,14 +286,33 @@ class _RequestsTabBody extends StatelessWidget {
             ErrorBanner(message: error!),
             const SizedBox(height: 12),
           ],
-          ...items.map(
-            (item) => RequestListItem(
-              key: ValueKey(item.shareId),
-              item: item,
-              isSettling: settlingShareId == item.shareId,
-              onMarkPaid: () => onMarkPaid(item),
+          if (totals.hasAnyAmount)
+            RequestTotalsCard(direction: direction, totals: totals),
+          if (items.isEmpty && error == null) ...[
+            const SizedBox(height: 48),
+            _RequestsEmptyState(
+              icon: owedToYou
+                  ? Icons.arrow_downward_rounded
+                  : Icons.arrow_upward_rounded,
+              iconColor: owedToYou ? AppColors.accent : AppColors.error,
+              iconBackground:
+                  owedToYou ? AppColors.accentSoft : AppColors.errorBg,
+              title: owedToYou
+                  ? 'Nothing owed to you yet'
+                  : 'Nothing to pay right now',
+              message: owedToYou
+                  ? 'When someone owes you from a shared bill, their request will show up here.'
+                  : 'When you owe someone from a shared bill, their request will show up here.',
             ),
-          ),
+          ] else
+            ...items.map(
+              (item) => RequestListItem(
+                key: ValueKey(item.shareId),
+                item: item,
+                isSettling: settlingShareId == item.shareId,
+                onMarkPaid: () => onMarkPaid(item),
+              ),
+            ),
         ],
       ),
     );
@@ -364,39 +395,30 @@ class _RequestsSegmentBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        border: Border(top: BorderSide(color: AppColors.border)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-          child: LayoutBuilder(
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      child: LayoutBuilder(
+        builder: (context, _) {
+          final selectedIndex = _tabs.indexWhere(
+            (tab) => tab.$1 == selectedTab,
+          );
+
+          return AnimatedBuilder(
+            animation: pageController,
             builder: (context, _) {
-              final selectedIndex = _tabs.indexWhere(
-                (tab) => tab.$1 == selectedTab,
-              );
+              final indicatorPosition = pageController.hasClients
+                  ? (pageController.page ?? selectedIndex.toDouble())
+                  : selectedIndex.toDouble();
 
-              return AnimatedBuilder(
-                animation: pageController,
-                builder: (context, _) {
-                  final indicatorPosition = pageController.hasClients
-                      ? (pageController.page ?? selectedIndex.toDouble())
-                      : selectedIndex.toDouble();
-
-                  return SegmentedToggle(
-                    items: _tabs.map((tab) => tab.$2).toList(growable: false),
-                    selectedIndex: selectedIndex,
-                    thumbPosition: indicatorPosition,
-                    onSelected: (index) => onChanged(_tabs[index].$1),
-                  );
-                },
+              return SegmentedToggle(
+                items: _tabs.map((tab) => tab.$2).toList(growable: false),
+                selectedIndex: selectedIndex,
+                thumbPosition: indicatorPosition,
+                onSelected: (index) => onChanged(_tabs[index].$1),
               );
             },
-          ),
-        ),
+          );
+        },
       ),
     );
   }

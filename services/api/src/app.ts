@@ -74,6 +74,7 @@ app.use("/auth/login", authRateLimit);
 app.use("/auth/register/send-code", sendRegistrationCodeRateLimit);
 app.use("/auth/register", authRateLimit);
 app.use("/auth/refresh", authRateLimit);
+app.use("/auth/change-password", authRateLimit);
 app.use("/friend-invitations", invitationRateLimit);
 
 app.get("/", (_req, res) => {

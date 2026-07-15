@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:split_the_bill/constants/group_icons.dart';
+import 'package:equisplit/constants/group_icons.dart';
 
 void main() {
   test('group icon keys map to icons', () {

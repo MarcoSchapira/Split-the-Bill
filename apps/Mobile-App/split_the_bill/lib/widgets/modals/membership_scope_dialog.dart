@@ -1,32 +1,31 @@
 import 'package:flutter/material.dart';
 
-enum MembershipScopeAction { add, remove, leave }
+enum MembershipConfirmAction { add, remove, leave }
 
-enum MembershipRetroactiveScope { newOnly, unsettledBills }
-
-Future<MembershipRetroactiveScope?> showMembershipScopeDialog(
+/// Confirms a membership change when the group already has bills.
+/// Returns `true` if the user confirms, `false`/`null` if cancelled.
+Future<bool?> showMembershipConfirmDialog(
   BuildContext context, {
-  required MembershipScopeAction action,
+  required MembershipConfirmAction action,
   required String subjectName,
   required String groupName,
 }) {
-  final isAdd = action == MembershipScopeAction.add;
-  final title = switch (action) {
-    MembershipScopeAction.add => 'Add $subjectName to $groupName?',
-    MembershipScopeAction.remove => 'Remove $subjectName from $groupName?',
-    MembershipScopeAction.leave => 'Leave $groupName?',
+  final (title, body) = switch (action) {
+    MembershipConfirmAction.add => (
+        'Add $subjectName to $groupName?',
+        '$subjectName will only be included in new expenses, not in any current bills.',
+      ),
+    MembershipConfirmAction.remove => (
+        'Remove $subjectName from $groupName?',
+        '$subjectName will stay on current bills but will not be included in future ones.',
+      ),
+    MembershipConfirmAction.leave => (
+        'Leave $groupName?',
+        'You will stay on current bills but will not be included in future ones.',
+      ),
   };
-  final body = isAdd
-      ? 'This group has existing expenses.'
-      : 'This member has shares on unpaid group expenses.';
-  final primaryLabel = isAdd
-      ? 'Only include in new expenses'
-      : 'Only exclude from new expenses';
-  final secondaryLabel = isAdd
-      ? 'Add to unpaid expenses'
-      : 'Remove from unpaid expenses';
 
-  return showDialog<MembershipRetroactiveScope>(
+  return showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
       title: Text(title),
@@ -37,23 +36,12 @@ Future<MembershipRetroactiveScope?> showMembershipScopeDialog(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             FilledButton(
-              onPressed: () => Navigator.pop(
-                context,
-                MembershipRetroactiveScope.newOnly,
-              ),
-              child: Text(primaryLabel),
-            ),
-            const SizedBox(height: 8),
-            OutlinedButton(
-              onPressed: () => Navigator.pop(
-                context,
-                MembershipRetroactiveScope.unsettledBills,
-              ),
-              child: Text(secondaryLabel),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Confirm'),
             ),
             const SizedBox(height: 8),
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(context, false),
               child: const Text('Cancel'),
             ),
           ],
@@ -61,11 +49,4 @@ Future<MembershipRetroactiveScope?> showMembershipScopeDialog(
       ],
     ),
   );
-}
-
-String membershipScopeToApi(MembershipRetroactiveScope scope) {
-  return switch (scope) {
-    MembershipRetroactiveScope.newOnly => 'new_only',
-    MembershipRetroactiveScope.unsettledBills => 'unsettled_bills',
-  };
 }

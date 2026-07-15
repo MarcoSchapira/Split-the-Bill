@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:split_the_bill/models/models.dart';
-import 'package:split_the_bill/models/user.dart';
-import 'package:split_the_bill/utils/dashboard_people.dart';
+import 'package:equisplit/models/models.dart';
+import 'package:equisplit/models/user.dart';
+import 'package:equisplit/utils/dashboard_people.dart';
 
 User _user(String id, String email, {String? name}) {
   return User(

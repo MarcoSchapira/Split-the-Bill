@@ -1,4 +1,4 @@
-name: split_the_bill
+name: equisplit
 description: EquiSplit mobile app — split bills with friends and groups.
 publish_to: 'none'
 version: 1.0.0+1
@@ -17,6 +17,7 @@ dependencies:
   intl: ^0.20.2
   google_fonts: ^6.2.1
   image_picker: ^1.1.2
+  permission_handler: ^11.3.1
   flutter_slidable: ^3.1.2
 
 dev_dependencies:
@@ -29,7 +30,7 @@ flutter_launcher_icons:
   android: true
   ios: true
   remove_alpha_ios: true
-  image_path: ../../web/public/color_green.png
+  image_path: assets/equisplit_logo_mobile.png
   web:
     generate: true
   macos:

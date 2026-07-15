@@ -36,9 +36,24 @@ export const loginSchema = z
   })
   .strict();
 
+export const updateProfileSchema = z
+  .object({
+    name: z.string().trim().min(1).max(100),
+  })
+  .strict();
+
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1).max(100),
+    newPassword: z.string().min(8).max(100),
+  })
+  .strict();
+
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type SendRegistrationCodeInput = z.infer<typeof sendRegistrationCodeSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
+export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 
 export type AuthenticatedUser = {
   id: string;

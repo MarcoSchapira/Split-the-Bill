@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:split_the_bill/models/user.dart';
-import 'package:split_the_bill/utils/bill_split.dart';
+import 'package:equisplit/models/user.dart';
+import 'package:equisplit/utils/bill_split.dart';
 
 void main() {
   group('equalShareCents', () {

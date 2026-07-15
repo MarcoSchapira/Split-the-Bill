@@ -109,6 +109,20 @@ export async function revokeAllSessions(userId: string): Promise<void> {
   });
 }
 
+export async function revokeOtherSessions(
+  userId: string,
+  exceptSessionId: string,
+): Promise<void> {
+  await prismaAdmin.session.updateMany({
+    where: {
+      userId,
+      revokedAt: null,
+      id: { not: exceptSessionId },
+    },
+    data: { revokedAt: new Date() },
+  });
+}
+
 export async function revokeSessionByRefreshToken(refreshToken: string): Promise<void> {
   const refreshTokenHash = hashRefreshToken(refreshToken);
   const session = await prismaAdmin.session.findFirst({

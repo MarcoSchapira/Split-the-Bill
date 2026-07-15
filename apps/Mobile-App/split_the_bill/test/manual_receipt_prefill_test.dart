@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:split_the_bill/models/models.dart';
-import 'package:split_the_bill/models/receipt.dart';
-import 'package:split_the_bill/models/user.dart';
-import 'package:split_the_bill/utils/manual_receipt_prefill.dart';
+import 'package:equisplit/models/models.dart';
+import 'package:equisplit/models/receipt.dart';
+import 'package:equisplit/models/user.dart';
+import 'package:equisplit/utils/manual_receipt_prefill.dart';
 
 void main() {
   const currentUser = User(
@@ -53,6 +53,8 @@ void main() {
     expect(prefill.lineItems.first.price, '4.50');
     expect(prefill.taxValue, '1.50');
     expect(prefill.tipValue, '2.00');
+    expect(prefill.taxInputMode, ManualReceiptAdjustmentMode.amount);
+    expect(prefill.tipInputMode, ManualReceiptAdjustmentMode.amount);
     expect(prefill.otherFeesCents, 100);
     expect(prefill.billSource, BillSource.capture);
     expect(prefill.expandAdditionalDetails, isTrue);
@@ -82,7 +84,54 @@ void main() {
     expect(prefill.title, 'Receipt');
     expect(prefill.lineItemsEnabled, isFalse);
     expect(prefill.amount, '42.50');
+    expect(prefill.taxValue, '0.00');
+    expect(prefill.tipValue, '0.00');
+    expect(prefill.taxInputMode, ManualReceiptAdjustmentMode.amount);
+    expect(prefill.tipInputMode, ManualReceiptAdjustmentMode.amount);
     expect(prefill.billSource, BillSource.capture);
+  });
+
+  test('prefillFromParsedReceipt treats zero tax/tip as dollar amounts', () {
+    const receipt = ParsedReceipt(
+      storeName: 'Shop',
+      storeAddress: null,
+      receiptNumber: null,
+      date: null,
+      time: null,
+      items: [
+        ReceiptItem(
+          name: 'Item',
+          quantity: 1,
+          unitPrice: 10,
+          totalPrice: 10,
+        ),
+      ],
+      itemCount: 1,
+      subtotal: 10,
+      otherFees: 0,
+      tax: 0,
+      tip: 0,
+      total: 10,
+      paymentMethod: null,
+      cardLast4: null,
+    );
+
+    final prefill = prefillFromParsedReceipt(receipt);
+
+    expect(prefill.taxValue, '0.00');
+    expect(prefill.tipValue, '0.00');
+    expect(prefill.taxInputMode, ManualReceiptAdjustmentMode.amount);
+    expect(prefill.tipInputMode, ManualReceiptAdjustmentMode.amount);
+    expect(prefill.otherFeesCents, 0);
+  });
+
+  test('taxAndTipFromBillCents uses dollar amounts not percentages', () {
+    final result = taxAndTipFromBillCents(taxCents: 150, tipCents: 200);
+
+    expect(result.taxValue, '1.50');
+    expect(result.tipValue, '2.00');
+    expect(result.taxInputMode, ManualReceiptAdjustmentMode.amount);
+    expect(result.tipInputMode, ManualReceiptAdjustmentMode.amount);
   });
 
   test('prefillFromBill preserves capture bill line items and assignments', () {
@@ -91,6 +140,10 @@ void main() {
       'description': 'Dinner',
       'incurredAt': '2026-06-11T00:00:00.000Z',
       'totalCents': 4200,
+      'subtotalCents': 3700,
+      'taxCents': 300,
+      'tipCents': 200,
+      'otherFeesCents': 0,
       'source': 'capture',
       'payerId': 'u1',
       'creatorId': 'u1',
@@ -195,6 +248,10 @@ void main() {
     expect(prefill.lineItemAssignments[0], {'u1'});
     expect(prefill.lineItemAssignments[1], {'u2'});
     expect(prefill.selectedFriendIds, {'u2'});
+    expect(prefill.taxValue, '3.00');
+    expect(prefill.tipValue, '2.00');
+    expect(prefill.taxInputMode, ManualReceiptAdjustmentMode.amount);
+    expect(prefill.tipInputMode, ManualReceiptAdjustmentMode.amount);
   });
 
   test('prefillFromBill handles simple manual bill without line items', () {

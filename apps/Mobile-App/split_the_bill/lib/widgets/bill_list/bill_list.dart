@@ -5,6 +5,7 @@ import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/format.dart';
+import '../../utils/settlement_status.dart';
 import '../common_widgets.dart';
 
 class BillList extends ConsumerWidget {
@@ -55,33 +56,6 @@ List<BillShare> _sortedShares(Bill bill) {
   return shares;
 }
 
-bool _isShareSettled(BillShare share, String payerId) {
-  if (share.user.id == payerId) return true;
-  return share.lenderConfirmedPaid;
-}
-
-List<BillShare> _debtorShares(Bill bill) {
-  return bill.shares.where((share) => share.user.id != bill.payerId).toList();
-}
-
-int _settledDebtorCount(Bill bill) {
-  return _debtorShares(bill)
-      .where((share) => _isShareSettled(share, bill.payerId))
-      .length;
-}
-
-bool _allDebtorsSettled(Bill bill) {
-  final debtors = _debtorShares(bill);
-  if (debtors.isEmpty) return true;
-  return debtors.every((share) => _isShareSettled(share, bill.payerId));
-}
-
-int _amountOwedToPayer(Bill bill) {
-  return _debtorShares(bill)
-      .where((share) => !_isShareSettled(share, bill.payerId))
-      .fold<int>(0, (sum, share) => sum + share.shareCents);
-}
-
 BillShare? _shareForUser(Bill bill, String? userId) {
   if (userId == null) return null;
   for (final share in bill.shares) {
@@ -101,14 +75,14 @@ enum _BillTileStatus {
   payerCollecting,
   payerComplete,
   debtorOwes,
+  debtorPending,
   debtorSettled,
 }
 
 _BillTileStatus _billTileStatus({
-  required Bill bill,
   required bool isPayer,
   required bool isSoloBill,
-  required bool userShareSettled,
+  required BillSettlementState? userShareState,
   required bool allDebtorsSettled,
   required int debtorCount,
 }) {
@@ -118,9 +92,11 @@ _BillTileStatus _billTileStatus({
         ? _BillTileStatus.payerComplete
         : _BillTileStatus.payerCollecting;
   }
-  return userShareSettled
-      ? _BillTileStatus.debtorSettled
-      : _BillTileStatus.debtorOwes;
+  return switch (userShareState) {
+    BillSettlementState.settled => _BillTileStatus.debtorSettled,
+    BillSettlementState.pending => _BillTileStatus.debtorPending,
+    BillSettlementState.unpaid || null => _BillTileStatus.debtorOwes,
+  };
 }
 
 class _BillListItem extends ConsumerWidget {
@@ -140,22 +116,23 @@ class _BillListItem extends ConsumerWidget {
         currentUserId != null && currentUserId == bill.payerId;
     final isSoloBill = !bill.isSplitWithFriends || shares.length <= 1;
     final multiParticipant = shares.length > 1;
-    final debtorShares = _debtorShares(bill);
+    final debtorShares = billDebtorShares(bill);
     final debtorCount = debtorShares.length;
-    final settledDebtorCount = _settledDebtorCount(bill);
-    final allDebtorsSettled = _allDebtorsSettled(bill);
-    final amountOwedToPayer = _amountOwedToPayer(bill);
-    final debtorProgress =
-        debtorCount == 0 ? 1.0 : settledDebtorCount / debtorCount;
+    final settledDebtorCount = billSettledDebtorCount(debtorShares);
+    final pendingDebtorCount = billPendingDebtorCount(debtorShares);
+    final unpaidDebtorCount = billUnpaidDebtorCount(debtorShares);
+    final allDebtorsSettled = billAllDebtorsSettled(debtorShares);
+    final amountOwedToPayer = billAmountStillOwedToPayer(debtorShares);
+    final debtorProgress = billDebtorProgress(debtorShares);
     final userShare = _shareForUser(bill, currentUserId);
-    final userShareSettled = userShare != null &&
-        _isShareSettled(userShare, bill.payerId);
+    final userShareState = userShare == null
+        ? null
+        : billShareSettlementState(userShare, payerId: bill.payerId);
     final userOwesAmount = userShare?.shareCents ?? 0;
     final tileStatus = _billTileStatus(
-      bill: bill,
       isPayer: isPayer,
       isSoloBill: isSoloBill,
-      userShareSettled: userShareSettled,
+      userShareState: userShareState,
       allDebtorsSettled: allDebtorsSettled,
       debtorCount: debtorCount,
     );
@@ -262,10 +239,13 @@ class _BillListItem extends ConsumerWidget {
                   _BillTileStatus.payerCollecting => amountOwedToPayer,
                   _BillTileStatus.payerComplete => bill.totalCents,
                   _BillTileStatus.debtorOwes => userOwesAmount,
+                  _BillTileStatus.debtorPending => userOwesAmount,
                   _BillTileStatus.debtorSettled => userOwesAmount,
                 },
                 payerName: displayName(bill.payer),
                 settledDebtorCount: settledDebtorCount,
+                pendingDebtorCount: pendingDebtorCount,
+                unpaidDebtorCount: unpaidDebtorCount,
                 debtorCount: debtorCount,
                 debtorProgress: debtorProgress,
               ),
@@ -283,6 +263,8 @@ class _BillStatusPanel extends StatelessWidget {
     required this.amountCents,
     required this.payerName,
     required this.settledDebtorCount,
+    required this.pendingDebtorCount,
+    required this.unpaidDebtorCount,
     required this.debtorCount,
     required this.debtorProgress,
   });
@@ -291,14 +273,13 @@ class _BillStatusPanel extends StatelessWidget {
   final int amountCents;
   final String payerName;
   final int settledDebtorCount;
+  final int pendingDebtorCount;
+  final int unpaidDebtorCount;
   final int debtorCount;
   final double debtorProgress;
 
   @override
   Widget build(BuildContext context) {
-    final remainingDebtorCount =
-        (debtorCount - settledDebtorCount).clamp(0, debtorCount);
-
     final config = switch (status) {
       _BillTileStatus.solo => (
           background: AppColors.surfaceMuted,
@@ -321,12 +302,15 @@ class _BillStatusPanel extends StatelessWidget {
           icon: Icons.payments_outlined,
           eyebrow: "You're owed",
           title: formatCad(amountCents),
-          subtitle: remainingDebtorCount == 1
-              ? 'Waiting on 1 person to pay you back'
-              : 'Waiting on $remainingDebtorCount people to pay you back',
+          subtitle: billPayerCollectingSubtitle(
+            unpaidCount: unpaidDebtorCount,
+            pendingCount: pendingDebtorCount,
+          ),
           titleColor: AppColors.textH,
           showProgress: true,
-          trailing: '$settledDebtorCount/$debtorCount paid',
+          trailing: pendingDebtorCount > 0
+              ? '$settledDebtorCount/$debtorCount paid · $pendingDebtorCount pending'
+              : '$settledDebtorCount/$debtorCount paid',
         ),
       _BillTileStatus.payerComplete => (
           background: AppColors.accentSoft,
@@ -350,6 +334,19 @@ class _BillStatusPanel extends StatelessWidget {
           eyebrow: 'You owe',
           title: formatCad(amountCents),
           subtitle: 'Pay back to $payerName',
+          titleColor: AppColors.textH,
+          showProgress: false,
+          trailing: null,
+        ),
+      _BillTileStatus.debtorPending => (
+          background: AppColors.pendingBg,
+          border: AppColors.pendingText.withValues(alpha: 0.25),
+          iconBg: AppColors.surface,
+          iconColor: AppColors.pendingText,
+          icon: Icons.hourglass_top_rounded,
+          eyebrow: 'Paid - pending',
+          title: formatCad(amountCents),
+          subtitle: 'Awaiting confirmation from $payerName',
           titleColor: AppColors.textH,
           showProgress: false,
           trailing: null,
@@ -438,6 +435,7 @@ class _BillStatusPanel extends StatelessWidget {
                         color: config.titleColor,
                         fontSize: status == _BillTileStatus.solo ||
                                 status == _BillTileStatus.debtorOwes ||
+                                status == _BillTileStatus.debtorPending ||
                                 status == _BillTileStatus.payerCollecting
                             ? 24
                             : 20,

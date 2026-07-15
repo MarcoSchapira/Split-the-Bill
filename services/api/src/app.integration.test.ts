@@ -8,6 +8,7 @@ import {
   sendRegistrationCodeForTest,
 } from "./test/registerHelper";
 import { MOBILE_CLIENT_HEADER, MOBILE_CLIENT_VALUE } from "./auth/auth.types";
+import { createSession } from "./auth/session.service";
 
 function mobileClient() {
   return { [MOBILE_CLIENT_HEADER]: MOBILE_CLIENT_VALUE };
@@ -331,6 +332,172 @@ describe("authentication API", () => {
 
     const oldTokenRejected = await request(app).get("/auth/me").set(bearer(accessToken));
     expect(oldTokenRejected.status).toBe(401);
+  });
+
+  it("updates the current user's display name", async () => {
+    const account = await register("profile@example.com", "Old Name");
+
+    const updated = await request(app)
+      .patch("/auth/me")
+      .set(bearer(account.token))
+      .send({ name: "New Name" });
+
+    expect(updated.status).toBe(200);
+    expect(updated.body.user).toMatchObject({
+      email: "profile@example.com",
+      name: "New Name",
+    });
+    expect(updated.body.user).not.toHaveProperty("passwordHash");
+
+    const me = await request(app).get("/auth/me").set(bearer(account.token));
+    expect(me.body.user.name).toBe("New Name");
+
+    const unauthenticated = await request(app).patch("/auth/me").send({ name: "Nope" });
+    expect(unauthenticated.status).toBe(401);
+
+    const invalid = await request(app)
+      .patch("/auth/me")
+      .set(bearer(account.token))
+      .send({ name: "" });
+    expect(invalid.status).toBe(400);
+    expect(invalid.body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("changes password, keeps the current session, and revokes other sessions", async () => {
+    await sendRegistrationCodeForTest(app, "pwd@example.com");
+    const code = getRegistrationCodeForTest("pwd@example.com");
+
+    const firstSession = await request(app)
+      .post("/auth/register")
+      .set(mobileClient())
+      .send({
+        email: "pwd@example.com",
+        password: "secure-password",
+        code,
+      });
+
+    expect(firstSession.status).toBe(201);
+
+    const secondSession = await request(app)
+      .post("/auth/login")
+      .set(mobileClient())
+      .send({ email: "pwd@example.com", password: "secure-password" });
+
+    expect(secondSession.status).toBe(200);
+
+    const wrongPassword = await request(app)
+      .post("/auth/change-password")
+      .set(bearer(firstSession.body.accessToken))
+      .send({ currentPassword: "wrong-password", newPassword: "new-secure-password" });
+
+    expect(wrongPassword.status).toBe(401);
+    expect(wrongPassword.body.error.code).toBe("INVALID_CREDENTIALS");
+
+    const changed = await request(app)
+      .post("/auth/change-password")
+      .set(bearer(firstSession.body.accessToken))
+      .send({
+        currentPassword: "secure-password",
+        newPassword: "new-secure-password",
+      });
+
+    expect(changed.status).toBe(204);
+
+    const currentStillValid = await request(app)
+      .get("/auth/me")
+      .set(bearer(firstSession.body.accessToken));
+    expect(currentStillValid.status).toBe(200);
+
+    const otherSessionRejected = await request(app)
+      .get("/auth/me")
+      .set(bearer(secondSession.body.accessToken));
+    expect(otherSessionRejected.status).toBe(401);
+
+    const otherRefreshRejected = await request(app)
+      .post("/auth/refresh")
+      .set(mobileClient())
+      .send({ refreshToken: secondSession.body.refreshToken });
+    expect(otherRefreshRejected.status).toBe(401);
+
+    const oldLogin = await request(app)
+      .post("/auth/login")
+      .set(mobileClient())
+      .send({ email: "pwd@example.com", password: "secure-password" });
+    expect(oldLogin.status).toBe(401);
+
+    const newLogin = await request(app)
+      .post("/auth/login")
+      .set(mobileClient())
+      .send({ email: "pwd@example.com", password: "new-secure-password" });
+    expect(newLogin.status).toBe(200);
+    expect(newLogin.body.accessToken).toEqual(expect.any(String));
+  });
+
+  it("rejects password change for accounts without a local password", async () => {
+    await prismaAdmin.user.create({
+      data: {
+        email: "oauth-pwd@example.com",
+        name: "OAuth User",
+        authProvider: "google",
+        providerUserId: "google-oauth-pwd",
+        passwordHash: null,
+        emailVerifiedAt: new Date(),
+      },
+    });
+
+    // Create a session manually so requireAuth can succeed.
+    const user = await prismaAdmin.user.findUniqueOrThrow({
+      where: { email: "oauth-pwd@example.com" },
+    });
+    const session = await createSession(user.id);
+
+    const response = await request(app)
+      .post("/auth/change-password")
+      .set(bearer(session.accessToken))
+      .send({
+        currentPassword: "anything",
+        newPassword: "new-secure-password",
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error.code).toBe("PASSWORD_CHANGE_UNAVAILABLE");
+  });
+
+  it("revokes all sessions on logout-all", async () => {
+    await sendRegistrationCodeForTest(app, "logout-all@example.com");
+    const code = getRegistrationCodeForTest("logout-all@example.com");
+
+    const session = await request(app)
+      .post("/auth/register")
+      .set(mobileClient())
+      .send({
+        email: "logout-all@example.com",
+        password: "secure-password",
+        code,
+      });
+
+    expect(session.status).toBe(201);
+
+    const before = await request(app)
+      .get("/auth/me")
+      .set(bearer(session.body.accessToken));
+    expect(before.status).toBe(200);
+
+    const logoutAll = await request(app)
+      .post("/auth/logout-all")
+      .set(bearer(session.body.accessToken));
+    expect(logoutAll.status).toBe(204);
+
+    const after = await request(app)
+      .get("/auth/me")
+      .set(bearer(session.body.accessToken));
+    expect(after.status).toBe(401);
+
+    const refreshRejected = await request(app)
+      .post("/auth/refresh")
+      .set(mobileClient())
+      .send({ refreshToken: session.body.refreshToken });
+    expect(refreshRejected.status).toBe(401);
   });
 });
 
@@ -1236,7 +1403,7 @@ describe("groups API", () => {
     expectShareLenderIdsMatchPayer(bill.body.bill);
   });
 
-  it("adds a member to unsettled group bills when requested", async () => {
+  it("does not add a new member to existing group bills", async () => {
     const owner = await register("group-retro-owner@example.com");
     const friend = await register("group-retro-friend@example.com");
     const third = await register("group-retro-third@example.com");
@@ -1262,22 +1429,65 @@ describe("groups API", () => {
       groupId: group.body.group.id,
     });
 
-    await request(app)
+    const added = await request(app)
       .post(`/groups/${group.body.group.id as string}/members`)
       .set(bearer(owner.token))
-      .send({ userId: third.user.id, retroactiveScope: "unsettled_bills" });
+      .send({ userId: third.user.id });
+
+    expect(added.status).toBe(200);
+    expect(added.body.group.members).toHaveLength(3);
 
     const updatedBill = await request(app)
       .get(`/bills/${bill.body.bill.id as string}`)
       .set(bearer(owner.token));
 
-    expect(updatedBill.body.bill.shares).toHaveLength(3);
+    expect(updatedBill.body.bill.shares).toHaveLength(2);
     expect(
-      updatedBill.body.bill.shares.reduce(
-        (sum: number, share: { shareCents: number }) => sum + share.shareCents,
-        0,
-      ),
-    ).toBe(3000);
+      updatedBill.body.bill.shares.map((share: { user: { id: string } }) => share.user.id).sort(),
+    ).toEqual([owner.user.id, friend.user.id].sort());
+    expectShareLenderIdsMatchPayer(updatedBill.body.bill);
+  });
+
+  it("does not remove a member from existing group bills when removed from the group", async () => {
+    const owner = await register("group-remove-owner@example.com");
+    const friend = await register("group-remove-friend@example.com");
+    await becomeFriends(owner, friend);
+
+    const group = await request(app).post("/groups").set(bearer(owner.token)).send({
+      name: "House",
+      iconKey: "rent",
+    });
+
+    await request(app)
+      .post(`/groups/${group.body.group.id as string}/members`)
+      .set(bearer(owner.token))
+      .send({ userId: friend.user.id });
+
+    const bill = await request(app).post("/bills").set(bearer(owner.token)).send({
+      description: "Utilities",
+      incurredAt: "2026-05-25",
+      totalCents: 2000,
+      payerId: owner.user.id,
+      isSplitWithGroup: true,
+      groupId: group.body.group.id,
+    });
+
+    const removed = await request(app)
+      .delete(`/groups/${group.body.group.id as string}/members/${friend.user.id}`)
+      .set(bearer(owner.token));
+
+    expect(removed.status).toBe(200);
+    expect(removed.body.group.members.map((member: { user: { id: string } }) => member.user.id)).toEqual([
+      owner.user.id,
+    ]);
+
+    const updatedBill = await request(app)
+      .get(`/bills/${bill.body.bill.id as string}`)
+      .set(bearer(owner.token));
+
+    expect(
+      updatedBill.body.bill.shares.map((share: { user: { id: string } }) => share.user.id).sort(),
+    ).toEqual([owner.user.id, friend.user.id].sort());
     expectShareLenderIdsMatchPayer(updatedBill.body.bill);
   });
 
@@ -1372,12 +1582,59 @@ describe("groups API", () => {
 
     const forbidden = await request(app)
       .delete(`/groups/${group.body.group.id as string}/members/${owner.user.id}`)
-      .set(bearer(friend.token))
-      .send({ retroactiveScope: "new_only" });
+      .set(bearer(friend.token));
 
     expect(renamed.status).toBe(200);
     expect(renamed.body.group.name).toBe("Office");
     expect(forbidden.status).toBe(403);
+  });
+
+  it("lets a member leave while keeping shares on existing group bills", async () => {
+    const owner = await register("group-leave-owner@example.com");
+    const friend = await register("group-leave-friend@example.com");
+    await becomeFriends(owner, friend);
+
+    const group = await request(app).post("/groups").set(bearer(owner.token)).send({
+      name: "Test1",
+      iconKey: "trip",
+    });
+
+    await request(app)
+      .post(`/groups/${group.body.group.id as string}/members`)
+      .set(bearer(owner.token))
+      .send({ userId: friend.user.id });
+
+    const bill = await request(app).post("/bills").set(bearer(owner.token)).send({
+      description: "Dinner",
+      incurredAt: "2026-05-25",
+      totalCents: 2000,
+      payerId: owner.user.id,
+      isSplitWithGroup: true,
+      groupId: group.body.group.id,
+    });
+
+    const left = await request(app)
+      .post(`/groups/${group.body.group.id as string}/leave`)
+      .set(bearer(friend.token));
+
+    expect(left.status).toBe(204);
+
+    const detail = await request(app)
+      .get(`/groups/${group.body.group.id as string}`)
+      .set(bearer(owner.token));
+
+    expect(detail.status).toBe(200);
+    expect(detail.body.group.members.map((member: { user: { id: string } }) => member.user.id)).toEqual([
+      owner.user.id,
+    ]);
+
+    const updatedBill = await request(app)
+      .get(`/bills/${bill.body.bill.id as string}`)
+      .set(bearer(owner.token));
+
+    expect(updatedBill.body.bill.shares.map((share: { user: { id: string } }) => share.user.id).sort()).toEqual(
+      [owner.user.id, friend.user.id].sort(),
+    );
   });
 
   it("filters bills by groupId", async () => {

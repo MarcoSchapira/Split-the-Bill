@@ -163,8 +163,6 @@ export type GroupBalanceSummary = {
   balanceCents: number;
 };
 
-export type RetroactiveScope = 'new_only' | 'unsettled_bills';
-
 export type BalanceContact = {
   user: User;
   relationship: 'friend' | 'group';

@@ -6,14 +6,11 @@ import { createActivity } from "../activity/activity.service";
 import {
   countGroupBills,
   countUnsettledGroupBills,
-  memberHasUnsettledGroupBillShares,
-  syncMemberToUnsettledGroupBills,
 } from "./group-bill-sync";
 import { assertGroupMember, getGroupMemberIds } from "./group-access";
 import type {
   AddGroupMemberInput,
   CreateGroupInput,
-  MembershipChangeInput,
   UpdateGroupInput,
 } from "./group.types";
 
@@ -370,11 +367,8 @@ export async function addGroupMember(
     },
   });
 
+  // New members are only included in future group bills; existing bills are unchanged.
   const memberIds = [...group.members.map((member) => member.user.id), input.userId];
-
-  if (input.retroactiveScope === "unsettled_bills") {
-    await syncMemberToUnsettledGroupBills(tx, groupId, memberIds, actingUserId);
-  }
 
   await createActivity(tx, {
     actorId: actingUserId,
@@ -392,7 +386,6 @@ async function removeMemberFromGroup(
   actingUserId: string,
   groupId: string,
   memberUserId: string,
-  retroactiveScope: "new_only" | "unsettled_bills",
 ) {
   const group = await tx.group.findUnique({
     where: { id: groupId },
@@ -410,13 +403,10 @@ async function removeMemberFromGroup(
 
   await tx.groupMember.delete({ where: { id: membership.id } });
 
+  // Removed members keep their shares on existing bills; they are excluded from future ones.
   const remainingMemberIds = group.members
     .filter((member) => member.user.id !== memberUserId)
     .map((member) => member.user.id);
-
-  if (retroactiveScope === "unsettled_bills") {
-    await syncMemberToUnsettledGroupBills(tx, groupId, remainingMemberIds, actingUserId);
-  }
 
   if (remainingMemberIds.length === 0) {
     await tx.group.delete({ where: { id: groupId } });
@@ -431,6 +421,11 @@ async function removeMemberFromGroup(
     message: `removed a member from "${group.name}".`,
   });
 
+  // Leaving users are no longer members, so they cannot load group detail.
+  if (actingUserId === memberUserId) {
+    return null;
+  }
+
   return getGroup(tx, actingUserId, groupId);
 }
 
@@ -439,7 +434,6 @@ export async function removeGroupMember(
   actingUserId: string,
   groupId: string,
   memberUserId: string,
-  input: MembershipChangeInput,
 ) {
   const group = await tx.group.findUnique({
     where: { id: groupId },
@@ -460,28 +454,12 @@ export async function removeGroupMember(
     throw new ApiError(400, "INVALID_MEMBER", "Use leave to remove yourself from the group");
   }
 
-  return removeMemberFromGroup(tx, actingUserId, groupId, memberUserId, input.retroactiveScope);
+  return removeMemberFromGroup(tx, actingUserId, groupId, memberUserId);
 }
 
-export async function leaveGroup(
-  tx: PrismaTransaction,
-  actingUserId: string,
-  groupId: string,
-  input: MembershipChangeInput,
-) {
+export async function leaveGroup(tx: PrismaTransaction, actingUserId: string, groupId: string) {
   await assertGroupMemberForService(tx, groupId, actingUserId);
-
-  const hasUnsettledShares = await memberHasUnsettledGroupBillShares(
-    tx,
-    groupId,
-    actingUserId,
-  );
-
-  if (hasUnsettledShares && input.retroactiveScope === "new_only") {
-    // no-op for existing bills; member simply won't be on new group bills
-  }
-
-  return removeMemberFromGroup(tx, actingUserId, groupId, actingUserId, input.retroactiveScope);
+  return removeMemberFromGroup(tx, actingUserId, groupId, actingUserId);
 }
 
 export { getGroupMemberIds, assertGroupMember as assertActingUserInGroup } from "./group-access";

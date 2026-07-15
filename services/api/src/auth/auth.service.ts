@@ -1,5 +1,6 @@
 import { Prisma } from "../generated/prisma/client";
 import { prismaAdmin } from "../db/prisma";
+import { withUserContext } from "../db/userContext";
 import { ApiError } from "../http/errors";
 import {
   sendRegistrationVerificationCode,
@@ -9,11 +10,14 @@ import { claimPendingInvitations } from "../invitations/invitation-claim";
 import {
   safeUserSelect,
   type AuthResponse,
+  type AuthenticatedUser,
+  type ChangePasswordInput,
   type LoginInput,
   type RegisterInput,
+  type UpdateProfileInput,
 } from "./auth.types";
 import { comparePassword, hashPassword } from "./password";
-import { createSession } from "./session.service";
+import { createSession, revokeOtherSessions } from "./session.service";
 
 async function buildAuthResponse(userId: string): Promise<AuthResponse> {
   const user = await prismaAdmin.user.findUniqueOrThrow({
@@ -93,4 +97,58 @@ export async function loginUser(input: LoginInput): Promise<AuthResponse> {
   await claimPendingInvitations(user.id, user.email);
 
   return buildAuthResponse(user.id);
+}
+
+export async function updateUserProfile(
+  userId: string,
+  input: UpdateProfileInput,
+): Promise<AuthenticatedUser> {
+  const user = await withUserContext(userId, (tx) =>
+    tx.user.update({
+      where: { id: userId },
+      data: { name: input.name },
+      select: safeUserSelect,
+    }),
+  );
+
+  return user;
+}
+
+export async function changeUserPassword(
+  userId: string,
+  sessionId: string,
+  input: ChangePasswordInput,
+): Promise<void> {
+  const user = await withUserContext(userId, (tx) =>
+    tx.user.findUnique({
+      where: { id: userId },
+      select: { passwordHash: true },
+    }),
+  );
+
+  if (!user?.passwordHash) {
+    throw new ApiError(
+      400,
+      "PASSWORD_CHANGE_UNAVAILABLE",
+      "Password change is not available for this account",
+    );
+  }
+
+  const isValidPassword = await comparePassword(input.currentPassword, user.passwordHash);
+
+  if (!isValidPassword) {
+    throw new ApiError(401, "INVALID_CREDENTIALS", "Invalid current password");
+  }
+
+  const passwordHash = await hashPassword(input.newPassword);
+
+  await withUserContext(userId, (tx) =>
+    tx.user.update({
+      where: { id: userId },
+      data: { passwordHash },
+      select: { id: true },
+    }),
+  );
+
+  await revokeOtherSessions(userId, sessionId);
 }

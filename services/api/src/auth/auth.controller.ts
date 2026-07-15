@@ -11,15 +11,29 @@ import {
 } from "./cookies";
 import {
   allowAuthTokenResponse,
+  changePasswordSchema,
   isMobileClient,
   loginSchema,
   mobileRefreshSchema,
   registerSchema,
   sendRegistrationCodeSchema,
+  updateProfileSchema,
 } from "./auth.types";
-import { loginUser, registerUser, sendRegistrationVerificationCode } from "./auth.service";
+import {
+  changeUserPassword,
+  loginUser,
+  registerUser,
+  sendRegistrationVerificationCode,
+  updateUserProfile,
+} from "./auth.service";
 import { verifyJwt } from "./jwt";
-import { revokeSession, revokeSessionByRefreshToken, rotateSession } from "./session.service";
+import {
+  revokeAllSessions,
+  revokeSession,
+  revokeSessionByRefreshToken,
+  rotateSession,
+} from "./session.service";
+import { ApiError } from "../http/errors";
 
 function attachAuthCookies(
   res: Parameters<RequestHandler>[1],
@@ -170,4 +184,29 @@ export const logout: RequestHandler = async (req, res) => {
 
 export const me: RequestHandler = (req, res) => {
   res.json({ user: currentUser(req) });
+};
+
+export const updateMe: RequestHandler = async (req, res) => {
+  const user = currentUser(req);
+  const input = updateProfileSchema.parse(req.body);
+  const updated = await updateUserProfile(user.id, input);
+  res.json({ user: updated });
+};
+
+export const changePassword: RequestHandler = async (req, res) => {
+  const user = currentUser(req);
+  if (!req.sessionId) {
+    throw new ApiError(401, "AUTHENTICATION_REQUIRED", "Authentication is required");
+  }
+
+  const input = changePasswordSchema.parse(req.body);
+  await changeUserPassword(user.id, req.sessionId, input);
+  res.status(204).send();
+};
+
+export const logoutAll: RequestHandler = async (req, res) => {
+  const user = currentUser(req);
+  await revokeAllSessions(user.id);
+  clearAuthCookies(res);
+  res.status(204).send();
 };

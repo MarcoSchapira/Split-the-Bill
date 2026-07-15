@@ -5,7 +5,6 @@ import {
   addGroupMemberSchema,
   createGroupSchema,
   groupIdSchema,
-  membershipChangeSchema,
   updateGroupSchema,
 } from "./group.types";
 import {
@@ -68,9 +67,8 @@ export const removeMember: RequestHandler = async (req, res) => {
   const userId = currentUser(req).id;
   const groupId = groupIdSchema.parse(req.params.groupId);
   const memberUserId = groupIdSchema.parse(req.params.userId);
-  const input = membershipChangeSchema.parse(req.body ?? {});
   const group = await withUserContext(userId, (tx) =>
-    removeGroupMember(tx, userId, groupId, memberUserId, input),
+    removeGroupMember(tx, userId, groupId, memberUserId),
   );
   res.json({ group });
 };
@@ -78,8 +76,7 @@ export const removeMember: RequestHandler = async (req, res) => {
 export const leave: RequestHandler = async (req, res) => {
   const userId = currentUser(req).id;
   const groupId = groupIdSchema.parse(req.params.groupId);
-  const input = membershipChangeSchema.parse(req.body ?? {});
-  const group = await withUserContext(userId, (tx) => leaveGroup(tx, userId, groupId, input));
+  const group = await withUserContext(userId, (tx) => leaveGroup(tx, userId, groupId));
 
   if (!group) {
     res.status(204).send();

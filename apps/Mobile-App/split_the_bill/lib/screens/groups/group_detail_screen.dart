@@ -83,24 +83,18 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
     final group = _group;
     if (group == null) return;
 
-    var scope = MembershipRetroactiveScope.newOnly;
-    if (group.unsettledBillCount > 0) {
-      final selected = await showMembershipScopeDialog(
+    if (group.hasExistingBills) {
+      final confirmed = await showMembershipConfirmDialog(
         context,
-        action: MembershipScopeAction.remove,
+        action: MembershipConfirmAction.remove,
         subjectName: displayName(member.user),
         groupName: group.name,
       );
-      if (selected == null) return;
-      scope = selected;
+      if (confirmed != true) return;
     }
 
     try {
-      await ref.read(groupsApiProvider).removeMember(
-        group.id,
-        member.user.id,
-        retroactiveScope: membershipScopeToApi(scope),
-      );
+      await ref.read(groupsApiProvider).removeMember(group.id, member.user.id);
       notifyDataChanged(ref);
       await _load();
       if (mounted) {
@@ -121,23 +115,16 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
     final group = _group;
     if (group == null) return;
 
-    var scope = MembershipRetroactiveScope.newOnly;
-    if (group.unsettledBillCount > 0) {
-      final selected = await showMembershipScopeDialog(
-        context,
-        action: MembershipScopeAction.leave,
-        subjectName: 'You',
-        groupName: group.name,
-      );
-      if (selected == null) return;
-      scope = selected;
-    }
+    final confirmed = await showMembershipConfirmDialog(
+      context,
+      action: MembershipConfirmAction.leave,
+      subjectName: 'You',
+      groupName: group.name,
+    );
+    if (confirmed != true) return;
 
     try {
-      final result = await ref.read(groupsApiProvider).leaveGroup(
-        group.id,
-        retroactiveScope: membershipScopeToApi(scope),
-      );
+      final result = await ref.read(groupsApiProvider).leaveGroup(group.id);
       notifyDataChanged(ref);
       if (!mounted) return;
       if (result == null) {
@@ -161,6 +148,24 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
     context.push(
       '/dashboard/capture/manual',
       extra: {'groupId': widget.groupId},
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 4),
+      child: Center(
+        child: Text(
+          title,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+            color: AppColors.textH,
+            letterSpacing: -0.2,
+          ),
+        ),
+      ),
     );
   }
 
@@ -250,7 +255,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                 ],
               ),
               const SizedBox(height: 24),
-              const Text('Members', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+              _buildSectionTitle('Members'),
               const SizedBox(height: 8),
               ...group.members.map((member) {
                 final isSelf = member.user.id == currentUserId;
@@ -275,17 +280,16 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                   ),
                 );
               }),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  const Text(
-                    'Group bills',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                  ),
-                  const Spacer(),
-                  CountBadge(count: group.billCount),
-                ],
+              const SizedBox(height: 4),
+              const Text(
+                'Only the creator can remove members',
+                style: TextStyle(
+                  color: AppColors.text,
+                  fontSize: 13,
+                ),
               ),
+              const SizedBox(height: 24),
+              _buildSectionTitle('Group bills'),
               const SizedBox(height: 12),
               BillList(bills: group.bills),
               const SizedBox(height: 24),

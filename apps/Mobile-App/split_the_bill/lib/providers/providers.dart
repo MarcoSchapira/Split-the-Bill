@@ -126,6 +126,27 @@ class AuthNotifier extends StateNotifier<AuthState> {
     await _authApi.logout();
     state = const AuthState(user: null, isLoading: false);
   }
+
+  Future<void> logoutAll() async {
+    await _authApi.logoutAll();
+    state = const AuthState(user: null, isLoading: false);
+  }
+
+  Future<void> updateName(String name) async {
+    final user = await _authApi.updateProfile(name: name);
+    await _storage.saveUserJson(jsonEncode(user.toJson()));
+    state = AuthState(user: user, isLoading: false);
+  }
+
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    await _authApi.changePassword(
+      currentPassword: currentPassword,
+      newPassword: newPassword,
+    );
+  }
 }
 
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {

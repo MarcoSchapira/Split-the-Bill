@@ -14,6 +14,7 @@ import '../screens/groups/groups_screen.dart';
 import '../screens/groups/group_detail_screen.dart';
 import '../screens/friends/friends_screen.dart';
 import '../screens/invitations/invitations_screen.dart';
+import '../screens/settings/legal_placeholder_screen.dart';
 import '../screens/settings/settings_screen.dart';
 import '../widgets/app_scaffold.dart';
 
@@ -39,16 +40,19 @@ final routerProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
       GoRoute(path: '/register', builder: (_, __) => const RegisterScreen()),
-      GoRoute(path: '/settings', builder: (_, __) => const SettingsScreen()),
       GoRoute(
-        path: '/friends/:friendshipId',
-        builder: (_, state) => FriendDetailScreen(
-          friendshipId: state.pathParameters['friendshipId']!,
-        ),
-      ),
-      GoRoute(
-        path: '/friends/invites',
-        builder: (_, __) => const InvitationsScreen(),
+        path: '/settings',
+        builder: (_, __) => const SettingsScreen(),
+        routes: [
+          GoRoute(
+            path: 'privacy',
+            builder: (_, __) => const PrivacyPolicyScreen(),
+          ),
+          GoRoute(
+            path: 'terms',
+            builder: (_, __) => const TermsOfServiceScreen(),
+          ),
+        ],
       ),
       StatefulShellRoute.indexedStack(
         builder: (_, __, navigationShell) =>
@@ -95,6 +99,16 @@ final routerProvider = Provider<GoRouter>((ref) {
                     ],
                   ),
                 ],
+              ),
+              GoRoute(
+                path: '/friends/invites',
+                builder: (_, __) => const InvitationsScreen(),
+              ),
+              GoRoute(
+                path: '/friends/:friendshipId',
+                builder: (_, state) => FriendDetailScreen(
+                  friendshipId: state.pathParameters['friendshipId']!,
+                ),
               ),
             ],
           ),

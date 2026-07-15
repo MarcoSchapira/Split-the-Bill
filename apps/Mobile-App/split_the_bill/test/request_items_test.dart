@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:split_the_bill/models/models.dart';
-import 'package:split_the_bill/models/user.dart';
-import 'package:split_the_bill/theme/app_colors.dart';
-import 'package:split_the_bill/utils/request_items.dart';
-import 'package:split_the_bill/utils/settlement_status.dart';
+import 'package:equisplit/models/models.dart';
+import 'package:equisplit/models/user.dart';
+import 'package:equisplit/theme/app_colors.dart';
+import 'package:equisplit/utils/request_items.dart';
+import 'package:equisplit/utils/settlement_status.dart';
 
 User _user(String id, {String? name, String email = 'user@example.com'}) {
   return User(
@@ -151,7 +151,7 @@ void main() {
     );
   });
 
-  test('requestSettlementBarColor is role-aware for pending state', () {
+  test('requestSettlementBarColor uses yellow for pending state', () {
     expect(
       requestSettlementBarColor(
         payerMarkedAsPaid: false,
@@ -166,7 +166,7 @@ void main() {
         lenderConfirmedPaid: false,
         role: RequestRole.debtor,
       ),
-      AppColors.accent,
+      AppColors.pendingText,
     );
     expect(
       requestSettlementBarColor(
@@ -417,6 +417,43 @@ void main() {
     );
   });
 
+  test('excludes lender-confirmed requests when includePassedRequests is false', () {
+    final bills = [
+      _bill(
+        id: 'b1',
+        description: 'Lunch',
+        incurredAt: '2026-06-11T00:00:00.000Z',
+        payer: payer,
+        shares: [
+          _share(id: 's1', user: payer, shareCents: 1200),
+          _share(
+            id: 's2',
+            user: friendA,
+            shareCents: 600,
+            lenderConfirmedPaid: true,
+          ),
+          _share(id: 's3', user: friendB, shareCents: 400),
+        ],
+      ),
+    ];
+
+    final filtered = requestItemsFromBills(
+      bills: bills,
+      currentUserId: payer.id,
+      direction: RequestDirection.owedToYou,
+      includePassedRequests: false,
+    );
+    final unfiltered = requestItemsFromBills(
+      bills: bills,
+      currentUserId: payer.id,
+      direction: RequestDirection.owedToYou,
+    );
+
+    expect(filtered.length, 1);
+    expect(filtered.first.counterparty.id, friendB.id);
+    expect(unfiltered.length, 2);
+  });
+
   test('sorts unpaid before paid then by newest bill first', () {
     final bills = [
       _bill(
@@ -472,5 +509,239 @@ void main() {
       'mid-pending',
       'old-paid',
     ]);
+  });
+
+  test('requestItemsForFriend returns both directions for one friend only', () {
+    final bills = [
+      _bill(
+        id: 'owed-a',
+        description: 'Blake owes you',
+        incurredAt: '2026-06-11T00:00:00.000Z',
+        payer: payer,
+        shares: [
+          _share(id: 's1', user: payer, shareCents: 1000),
+          _share(id: 's2', user: friendA, shareCents: 500),
+          _share(id: 's3', user: friendB, shareCents: 500),
+        ],
+      ),
+      _bill(
+        id: 'you-owe-a',
+        description: 'You owe Blake',
+        incurredAt: '2026-06-10T00:00:00.000Z',
+        payer: friendA,
+        shares: [
+          _share(id: 's4', user: friendA, shareCents: 800, lenderId: friendA.id),
+          _share(id: 's5', user: payer, shareCents: 400, lenderId: friendA.id),
+        ],
+      ),
+    ];
+
+    final items = requestItemsForFriend(
+      bills: bills,
+      currentUserId: payer.id,
+      friendUserId: friendA.id,
+      includePassedRequests: true,
+    );
+
+    expect(items.length, 2);
+    expect(items.every((item) => item.counterparty.id == friendA.id), isTrue);
+    expect(
+      items.map((item) => item.direction).toSet(),
+      {RequestDirection.owedToYou, RequestDirection.youOwe},
+    );
+  });
+
+  test('requestItemsForFriend respects includePassedRequests', () {
+    final bills = [
+      _bill(
+        id: 'passed',
+        description: 'Passed',
+        incurredAt: '2026-06-11T00:00:00.000Z',
+        payer: payer,
+        shares: [
+          _share(id: 's1', user: payer, shareCents: 600),
+          _share(
+            id: 's2',
+            user: friendA,
+            shareCents: 600,
+            lenderConfirmedPaid: true,
+          ),
+        ],
+      ),
+      _bill(
+        id: 'open',
+        description: 'Open',
+        incurredAt: '2026-06-10T00:00:00.000Z',
+        payer: payer,
+        shares: [
+          _share(id: 's3', user: payer, shareCents: 400),
+          _share(id: 's4', user: friendA, shareCents: 400),
+        ],
+      ),
+    ];
+
+    final filtered = requestItemsForFriend(
+      bills: bills,
+      currentUserId: payer.id,
+      friendUserId: friendA.id,
+    );
+    final unfiltered = requestItemsForFriend(
+      bills: bills,
+      currentUserId: payer.id,
+      friendUserId: friendA.id,
+      includePassedRequests: true,
+    );
+
+    expect(filtered.length, 1);
+    expect(filtered.first.billId, 'open');
+    expect(unfiltered.length, 2);
+  });
+
+  test('friendNetBalanceCents matches dashboard status rules', () {
+    final items = [
+      RequestItem(
+        shareId: 's1',
+        billId: 'b1',
+        billLabel: 'Lunch',
+        incurredAt: '2026-06-11T00:00:00.000Z',
+        counterparty: friendA,
+        amountCents: 500,
+        payerMarkedAsPaid: false,
+        lenderConfirmedPaid: false,
+        direction: RequestDirection.owedToYou,
+        role: RequestRole.lender,
+      ),
+      RequestItem(
+        shareId: 's1b',
+        billId: 'b1b',
+        billLabel: 'Pending owed to you',
+        incurredAt: '2026-06-11T01:00:00.000Z',
+        counterparty: friendA,
+        amountCents: 150,
+        payerMarkedAsPaid: true,
+        lenderConfirmedPaid: false,
+        direction: RequestDirection.owedToYou,
+        role: RequestRole.lender,
+      ),
+      RequestItem(
+        shareId: 's2',
+        billId: 'b2',
+        billLabel: 'Coffee',
+        incurredAt: '2026-06-10T00:00:00.000Z',
+        counterparty: friendA,
+        amountCents: 200,
+        payerMarkedAsPaid: false,
+        lenderConfirmedPaid: false,
+        direction: RequestDirection.youOwe,
+        role: RequestRole.debtor,
+      ),
+      RequestItem(
+        shareId: 's2b',
+        billId: 'b2b',
+        billLabel: 'Pending you owe',
+        incurredAt: '2026-06-10T01:00:00.000Z',
+        counterparty: friendA,
+        amountCents: 80,
+        payerMarkedAsPaid: true,
+        lenderConfirmedPaid: false,
+        direction: RequestDirection.youOwe,
+        role: RequestRole.debtor,
+      ),
+      RequestItem(
+        shareId: 's3',
+        billId: 'b3',
+        billLabel: 'Settled',
+        incurredAt: '2026-06-09T00:00:00.000Z',
+        counterparty: friendA,
+        amountCents: 1000,
+        payerMarkedAsPaid: true,
+        lenderConfirmedPaid: true,
+        direction: RequestDirection.owedToYou,
+        role: RequestRole.lender,
+      ),
+    ];
+
+    // +500 unpaid owed-to-you
+    // +150 pending owed-to-you (still counts)
+    // -200 unpaid you-owe
+    // pending you-owe and settled excluded
+    expect(friendNetBalanceCents(items), 450);
+    expect(friendAwaitingConfirmationCents(items), 80);
+  });
+
+  test('requestDirectionTotalsFromBills matches owed-to-you and you-owe rules', () {
+    final bills = [
+      _bill(
+        id: 'b1',
+        description: 'Groceries',
+        incurredAt: '2026-07-13T00:00:00.000Z',
+        payer: payer,
+        shares: [
+          _share(id: 's-payer', user: payer, shareCents: 1000),
+          _share(
+            id: 's-unpaid',
+            user: friendA,
+            shareCents: 4000,
+            payerMarkedAsPaid: false,
+          ),
+          _share(
+            id: 's-pending',
+            user: friendB,
+            shareCents: 2500,
+            payerMarkedAsPaid: true,
+          ),
+          _share(
+            id: 's-settled',
+            user: friendA,
+            shareCents: 1500,
+            payerMarkedAsPaid: true,
+            lenderConfirmedPaid: true,
+          ),
+        ],
+      ),
+      _bill(
+        id: 'b2',
+        description: 'Dinner',
+        incurredAt: '2026-07-12T00:00:00.000Z',
+        payer: friendA,
+        shares: [
+          _share(
+            id: 's-i-owe-unpaid',
+            user: payer,
+            shareCents: 3000,
+            lenderId: friendA.id,
+          ),
+          _share(
+            id: 's-i-owe-pending',
+            user: payer,
+            shareCents: 1200,
+            lenderId: friendA.id,
+            payerMarkedAsPaid: true,
+          ),
+          _share(
+            id: 's-other',
+            user: friendB,
+            shareCents: 800,
+            lenderId: friendA.id,
+          ),
+        ],
+      ),
+    ];
+
+    final owedToYou = requestDirectionTotalsFromBills(
+      bills: bills,
+      currentUserId: payer.id,
+      direction: RequestDirection.owedToYou,
+    );
+    expect(owedToYou.totalCents, 6500);
+    expect(owedToYou.pendingConfirmationCents, 2500);
+
+    final youOwe = requestDirectionTotalsFromBills(
+      bills: bills,
+      currentUserId: payer.id,
+      direction: RequestDirection.youOwe,
+    );
+    expect(youOwe.totalCents, 3000);
+    expect(youOwe.pendingConfirmationCents, 1200);
   });
 }

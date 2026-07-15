@@ -3,7 +3,6 @@ import type {
   GroupDetail,
   GroupIconKey,
   GroupSummary,
-  RetroactiveScope,
 } from './types';
 
 export type CreateGroupInput = {
@@ -16,11 +15,7 @@ export type UpdateGroupInput = {
   iconKey?: GroupIconKey;
 };
 
-export type MembershipChangeInput = {
-  retroactiveScope?: RetroactiveScope;
-};
-
-export type AddGroupMemberInput = MembershipChangeInput & {
+export type AddGroupMemberInput = {
   userId: string;
 };
 
@@ -59,22 +54,16 @@ export async function addGroupMember(groupId: string, input: AddGroupMemberInput
   return response.data.group;
 }
 
-export async function removeGroupMember(
-  groupId: string,
-  userId: string,
-  input: MembershipChangeInput = {},
-) {
+export async function removeGroupMember(groupId: string, userId: string) {
   const response = await api.delete<{ group: GroupDetail }>(
     `/groups/${groupId}/members/${userId}`,
-    { data: input },
   );
   return response.data?.group ?? null;
 }
 
-export async function leaveGroup(groupId: string, input: MembershipChangeInput = {}) {
+export async function leaveGroup(groupId: string) {
   const response = await api.post<{ group: GroupDetail }>(
     `/groups/${groupId}/leave`,
-    input,
   );
   return response.data?.group ?? null;
 }

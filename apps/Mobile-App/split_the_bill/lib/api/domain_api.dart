@@ -333,15 +333,11 @@ class GroupsApi {
     }
   }
 
-  Future<GroupDetail> addMember(
-    String groupId,
-    String userId, {
-    String retroactiveScope = 'new_only',
-  }) async {
+  Future<GroupDetail> addMember(String groupId, String userId) async {
     try {
       final response = await _client.dio.post<Map<String, dynamic>>(
         '/groups/$groupId/members',
-        data: {'userId': userId, 'retroactiveScope': retroactiveScope},
+        data: {'userId': userId},
       );
       return GroupDetail.fromJson(
         response.data!['group'] as Map<String, dynamic>,
@@ -351,15 +347,10 @@ class GroupsApi {
     }
   }
 
-  Future<GroupDetail?> removeMember(
-    String groupId,
-    String userId, {
-    String retroactiveScope = 'new_only',
-  }) async {
+  Future<GroupDetail?> removeMember(String groupId, String userId) async {
     try {
       final response = await _client.dio.delete<Map<String, dynamic>>(
         '/groups/$groupId/members/$userId',
-        data: {'retroactiveScope': retroactiveScope},
       );
       if (response.statusCode == 204 || response.data == null) {
         return null;
@@ -372,14 +363,10 @@ class GroupsApi {
     }
   }
 
-  Future<GroupDetail?> leaveGroup(
-    String groupId, {
-    String retroactiveScope = 'new_only',
-  }) async {
+  Future<GroupDetail?> leaveGroup(String groupId) async {
     try {
       final response = await _client.dio.post<Map<String, dynamic>>(
         '/groups/$groupId/leave',
-        data: {'retroactiveScope': retroactiveScope},
       );
       if (response.statusCode == 204 || response.data == null) {
         return null;

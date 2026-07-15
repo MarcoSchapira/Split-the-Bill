@@ -95,6 +95,7 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
   final _amountController = TextEditingController();
   final _taxController = TextEditingController(text: '13');
   final _tipController = TextEditingController(text: '0');
+  final _otherFeesController = TextEditingController(text: '0.00');
   final _storeNameController = TextEditingController();
   final _storeAddressController = TextEditingController();
   final _receiptNumberController = TextEditingController();
@@ -125,7 +126,6 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
   _AdjustmentInputMode _tipInputMode = _AdjustmentInputMode.percent;
   Map<int, Set<String>> _lineItemAssignments = <int, Set<String>>{};
   BillSource _billSource = BillSource.manual;
-  int _otherFeesCents = 0;
   DateTime? _incurredAt;
   bool _parsing = false;
   String? _error;
@@ -225,6 +225,8 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
     _cardLast4Controller.text = prefill.cardLast4;
     _taxController.text = prefill.taxValue;
     _tipController.text = prefill.tipValue;
+    _otherFeesController.text =
+        (prefill.otherFeesCents / 100).toStringAsFixed(2);
     _taxInputMode = prefill.taxInputMode == ManualReceiptAdjustmentMode.percent
         ? _AdjustmentInputMode.percent
         : _AdjustmentInputMode.amount;
@@ -258,7 +260,6 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
       for (final entry in prefill.lineItemAssignments.entries)
         entry.key: Set<String>.from(entry.value),
     };
-    _otherFeesCents = prefill.otherFeesCents;
     _incurredAt = prefill.incurredAt;
     _billSource = prefill.billSource;
   }
@@ -415,6 +416,7 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
     _amountController.dispose();
     _taxController.dispose();
     _tipController.dispose();
+    _otherFeesController.dispose();
     _storeNameController.dispose();
     _storeAddressController.dispose();
     _receiptNumberController.dispose();
@@ -508,6 +510,9 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
   int get _taxCents => _adjustmentCents(_taxController.text, _taxInputMode);
 
   int get _tipCents => _adjustmentCents(_tipController.text, _tipInputMode);
+
+  int get _otherFeesCents =>
+      _adjustmentCents(_otherFeesController.text, _AdjustmentInputMode.amount);
 
   int? get _lineItemsFinalTotalCents {
     if (!_lineItemsEnabled) return null;
@@ -1198,6 +1203,13 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
           mode: _tipInputMode,
           onToggleMode: _toggleTipInputMode,
         ),
+        const SizedBox(height: 10),
+        _buildAdjustmentRow(
+          label: 'Fees',
+          controller: _otherFeesController,
+          mode: _AdjustmentInputMode.amount,
+          onToggleMode: null,
+        ),
         const SizedBox(height: 14),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -1380,9 +1392,10 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
     required String label,
     required TextEditingController controller,
     required _AdjustmentInputMode mode,
-    required VoidCallback onToggleMode,
+    VoidCallback? onToggleMode,
   }) {
     final isPercent = mode == _AdjustmentInputMode.percent;
+    final showModeToggle = onToggleMode != null;
 
     return Row(
       children: [
@@ -1425,11 +1438,13 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
               ),
             ),
           ),
-        const SizedBox(width: 8),
-        _buildAdjustmentModeToggle(
-          isPercentActive: isPercent,
-          onTap: onToggleMode,
-        ),
+        if (showModeToggle) ...[
+          const SizedBox(width: 8),
+          _buildAdjustmentModeToggle(
+            isPercentActive: isPercent,
+            onTap: onToggleMode,
+          ),
+        ],
       ],
     );
   }
@@ -2587,7 +2602,8 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
           ),
         ),
       );
-      context.go('/bills/${bill.id}');
+      setState(() => _saving = false);
+      context.pop();
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -2672,7 +2688,29 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-          child: _buildSaveButton(isEditing),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnimatedSize(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutCubic,
+                alignment: Alignment.bottomCenter,
+                child: _error == null
+                    ? const SizedBox.shrink()
+                    : Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Material(
+                          elevation: 6,
+                          shadowColor: Colors.black.withValues(alpha: 0.28),
+                          borderRadius: BorderRadius.circular(13),
+                          color: Colors.transparent,
+                          child: ErrorBanner(message: _error!),
+                        ),
+                      ),
+              ),
+              _buildSaveButton(isEditing),
+            ],
+          ),
         ),
       ),
       body: _parsing || _loadingFriends
@@ -2685,10 +2723,6 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(20),
                 children: [
-                  if (_error != null) ...[
-                    ErrorBanner(message: _error!),
-                    const SizedBox(height: 16),
-                  ],
                   _buildBillDetailsCard(),
                 ],
               ),

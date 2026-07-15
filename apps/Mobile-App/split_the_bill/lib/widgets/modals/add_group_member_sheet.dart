@@ -63,26 +63,20 @@ class _AddGroupMemberSheetState extends ConsumerState<AddGroupMemberSheet> {
     });
 
     try {
-      var scope = MembershipRetroactiveScope.newOnly;
       if (widget.group.hasExistingBills) {
         if (!mounted) return;
-        final selected = await showMembershipScopeDialog(
+        final confirmed = await showMembershipConfirmDialog(
           context,
-          action: MembershipScopeAction.add,
+          action: MembershipConfirmAction.add,
           subjectName: displayName(friend),
           groupName: widget.group.name,
         );
-        if (selected == null) {
+        if (confirmed != true) {
           return;
         }
-        scope = selected;
       }
 
-      await ref.read(groupsApiProvider).addMember(
-        widget.group.id,
-        friend.id,
-        retroactiveScope: membershipScopeToApi(scope),
-      );
+      await ref.read(groupsApiProvider).addMember(widget.group.id, friend.id);
       notifyDataChanged(ref);
       if (mounted) {
         Navigator.pop(context);

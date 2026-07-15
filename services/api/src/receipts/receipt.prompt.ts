@@ -13,9 +13,9 @@ Top-level fields:
 - items (array of line items — see below)
 - item_count (number — total purchased units; sum of item quantities, or printed count if visible)
 - subtotal (number)
-- other_fees (number — sum of all non-tax/non-tip surcharges such as admin fee, service charge, delivery fee)
-- tax (number)
-- tip (number)
+- other_fees (number — currency amount; sum of all non-tax/non-tip surcharges such as admin fee, service charge, delivery fee)
+- tax (number — currency amount charged as tax, NOT a rate or percentage)
+- tip (number — currency amount tipped, NOT a rate or percentage)
 - total (number)
 - payment_method (string, e.g. "Visa", "Cash")
 - card_last_4 (string, last four digits if visible)
@@ -46,6 +46,8 @@ Each item in items[]:
 
 - Use JSON numbers with up to two decimal places.
 - Do not include currency symbols ($, €, etc.).
+- tax, tip, and other_fees MUST be absolute currency amounts (e.g. 2.92 for $2.92), never percentages or rates.
+- If the receipt prints "Tax 13%" or "Tip 18%", compute and return the dollar amount actually charged — do NOT return 13 or 18.
 - If tax or tip is not printed or is zero, use 0.00.
 
 ## Arithmetic consistency (critical)

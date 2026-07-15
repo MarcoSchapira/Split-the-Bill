@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../providers/providers.dart';
 import '../theme/app_colors.dart';
 import 'common_widgets.dart';
 import 'modals/capture_options_sheet.dart';
 
-class AppScaffold extends ConsumerWidget {
+class AppScaffold extends StatelessWidget {
   const AppScaffold({super.key, required this.navigationShell});
 
   final StatefulNavigationShell navigationShell;
@@ -34,7 +32,7 @@ class AppScaffold extends ConsumerWidget {
   static const _captureVerticalOffset = 28.0;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final router = GoRouter.of(context);
 
     return ListenableBuilder(
@@ -50,20 +48,10 @@ class AppScaffold extends ConsumerWidget {
               ? AppBar(
                   title: const AppBrandTitle(),
                   actions: [
-                    PopupMenuButton<String>(
-                      onSelected: (value) async {
-                        switch (value) {
-                          case 'settings':
-                            context.push('/settings');
-                          case 'logout':
-                            await ref.read(authProvider.notifier).logout();
-                            if (context.mounted) context.go('/login');
-                        }
-                      },
-                      itemBuilder: (context) => [
-                        const PopupMenuItem(value: 'settings', child: Text('Settings')),
-                        const PopupMenuItem(value: 'logout', child: Text('Log out')),
-                      ],
+                    IconButton(
+                      icon: const Icon(Icons.settings_outlined),
+                      tooltip: 'Settings',
+                      onPressed: () => context.push('/settings'),
                     ),
                   ],
                 )

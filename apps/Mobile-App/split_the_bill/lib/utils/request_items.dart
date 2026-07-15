@@ -71,6 +71,7 @@ List<RequestItem> requestItemsFromBills({
   required List<Bill> bills,
   required String currentUserId,
   required RequestDirection direction,
+  bool includePassedRequests = true,
 }) {
   final items = <RequestItem>[];
 
@@ -127,6 +128,10 @@ List<RequestItem> requestItemsFromBills({
     }
   }
 
+  if (!includePassedRequests) {
+    items.removeWhere((item) => item.lenderConfirmedPaid);
+  }
+
   items.sort((left, right) {
     final statusCompare = settlementSortOrder(
       payerMarkedAsPaid: left.payerMarkedAsPaid,
@@ -143,4 +148,134 @@ List<RequestItem> requestItemsFromBills({
   });
 
   return items;
+}
+
+List<RequestItem> requestItemsForFriend({
+  required List<Bill> bills,
+  required String currentUserId,
+  required String friendUserId,
+  bool includePassedRequests = false,
+}) {
+  final items = [
+    ...requestItemsFromBills(
+      bills: bills,
+      currentUserId: currentUserId,
+      direction: RequestDirection.owedToYou,
+      includePassedRequests: includePassedRequests,
+    ),
+    ...requestItemsFromBills(
+      bills: bills,
+      currentUserId: currentUserId,
+      direction: RequestDirection.youOwe,
+      includePassedRequests: includePassedRequests,
+    ),
+  ].where((item) => item.counterparty.id == friendUserId).toList();
+
+  items.sort((left, right) {
+    final statusCompare = settlementSortOrder(
+      payerMarkedAsPaid: left.payerMarkedAsPaid,
+      lenderConfirmedPaid: left.lenderConfirmedPaid,
+    ).compareTo(
+      settlementSortOrder(
+        payerMarkedAsPaid: right.payerMarkedAsPaid,
+        lenderConfirmedPaid: right.lenderConfirmedPaid,
+      ),
+    );
+    if (statusCompare != 0) return statusCompare;
+
+    return right.incurredAt.compareTo(left.incurredAt);
+  });
+
+  return items;
+}
+
+int friendNetBalanceCents(List<RequestItem> items) {
+  var balance = 0;
+  for (final item in items) {
+    if (item.lenderConfirmedPaid) continue;
+
+    if (item.direction == RequestDirection.owedToYou) {
+      balance += item.amountCents;
+      continue;
+    }
+
+    // Match dashboard: pending "you owe" (debtor marked paid) does not count.
+    if (item.payerMarkedAsPaid) continue;
+    balance -= item.amountCents;
+  }
+  return balance;
+}
+
+/// Sum of "you owe" amounts the current user marked paid, awaiting lender confirm.
+int friendAwaitingConfirmationCents(List<RequestItem> items) {
+  var total = 0;
+  for (final item in items) {
+    if (item.direction != RequestDirection.youOwe) continue;
+    if (!item.payerMarkedAsPaid || item.lenderConfirmedPaid) continue;
+    total += item.amountCents;
+  }
+  return total;
+}
+
+class RequestDirectionTotals {
+  const RequestDirectionTotals({
+    required this.totalCents,
+    required this.pendingConfirmationCents,
+  });
+
+  /// Open amount for the selected direction.
+  ///
+  /// Owed to you: all unconfirmed shares you are owed (includes pending).
+  /// You owe: unpaid shares only (excludes shares you marked paid).
+  final int totalCents;
+
+  /// Amount waiting on confirmation in this direction.
+  ///
+  /// Owed to you: counterparty marked paid, awaiting your confirmation.
+  /// You owe: you marked paid, awaiting lender confirmation.
+  final int pendingConfirmationCents;
+
+  bool get hasAnyAmount => totalCents > 0 || pendingConfirmationCents > 0;
+}
+
+RequestDirectionTotals requestDirectionTotalsFromBills({
+  required List<Bill> bills,
+  required String currentUserId,
+  required RequestDirection direction,
+}) {
+  var totalCents = 0;
+  var pendingConfirmationCents = 0;
+
+  for (final bill in bills) {
+    for (final share in bill.shares) {
+      if (share.shareCents <= 0 || share.lenderConfirmedPaid) continue;
+
+      if (direction == RequestDirection.owedToYou) {
+        if (share.lenderId != currentUserId || share.user.id == currentUserId) {
+          continue;
+        }
+
+        totalCents += share.shareCents;
+        if (share.payerMarkedAsPaid) {
+          pendingConfirmationCents += share.shareCents;
+        }
+        continue;
+      }
+
+      if (share.user.id != currentUserId || share.lenderId == currentUserId) {
+        continue;
+      }
+
+      if (share.payerMarkedAsPaid) {
+        pendingConfirmationCents += share.shareCents;
+      } else {
+        totalCents += share.shareCents;
+      }
+    }
+  }
+
+  return RequestDirectionTotals(
+    totalCents: totalCents,
+    pendingConfirmationCents: pendingConfirmationCents,
+  );
 }

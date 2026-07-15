@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:go_router/go_router.dart';
 import '../../api/api_exception.dart';
 import '../../models/models.dart';
@@ -8,8 +7,10 @@ import '../../models/user.dart';
 import '../../providers/providers.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/format.dart';
+import '../../utils/request_items.dart';
 import '../../widgets/bill_list/bill_list.dart';
 import '../../widgets/common_widgets.dart';
+import '../../widgets/requests/request_settlement_status_panel.dart';
 
 class BillsScreen extends ConsumerStatefulWidget {
   const BillsScreen({super.key});
@@ -55,26 +56,173 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
       return const LoadingView(message: 'Loading bills...');
     }
 
+    final isEmpty = _bills.isEmpty && _error == null;
+
     return RefreshIndicator(
       onRefresh: _load,
       color: AppColors.accent,
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
         children: [
           const Text(
             'Bills',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textH,
+            ),
           ),
           const SizedBox(height: 4),
-          const Text('All recorded bills and captured receipts.'),
+          Text(
+            'All recorded bills and captured receipts.',
+            style: TextStyle(
+              color: AppColors.text.withValues(alpha: 0.9),
+            ),
+          ),
           const SizedBox(height: 16),
           if (_error != null) ...[
             ErrorBanner(message: _error!),
             const SizedBox(height: 12),
           ],
-          BillList(bills: _bills),
+          if (isEmpty)
+            const _BillsEmptyState()
+          else
+            BillList(bills: _bills),
         ],
       ),
+    );
+  }
+}
+
+class _BillsEmptyState extends StatelessWidget {
+  const _BillsEmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    final viewportHeight = MediaQuery.sizeOf(context).height;
+    final contentHeight = (viewportHeight * 0.58).clamp(360.0, 520.0);
+
+    return SizedBox(
+      height: contentHeight,
+      child: Column(
+        children: [
+          Expanded(
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 88,
+                    height: 88,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          AppColors.accentSoft,
+                          AppColors.brandSoft.withValues(alpha: 0.55),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(28),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.accent.withValues(alpha: 0.14),
+                          blurRadius: 24,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.receipt_long_rounded,
+                      size: 42,
+                      color: AppColors.accent,
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+                  const Text(
+                    'No bills yet',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.6,
+                      height: 1.1,
+                      color: AppColors.textH,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Your receipts and shared expenses\nwill live here once you add one.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: AppColors.text.withValues(alpha: 0.9),
+                      fontSize: 16,
+                      height: 1.45,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const _AddBillCameraHint(),
+        ],
+      ),
+    );
+  }
+}
+
+class _AddBillCameraHint extends StatelessWidget {
+  const _AddBillCameraHint();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          'Tap the camera to get started',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: AppColors.accent,
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.2,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Scan a receipt or enter a bill manually',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: AppColors.text.withValues(alpha: 0.85),
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            height: 1.35,
+          ),
+        ),
+        const SizedBox(height: 18),
+        Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            color: AppColors.accentSoft,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.accent.withValues(alpha: 0.12),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: const Icon(
+            Icons.keyboard_arrow_down_rounded,
+            size: 40,
+            color: AppColors.accent,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -92,6 +240,7 @@ class _BillDetailScreenState extends ConsumerState<BillDetailScreen> {
   Bill? _bill;
   String? _error;
   Set<String> _expandedParticipantIds = {};
+  String? _settlingUserId;
 
   @override
   void initState() {
@@ -134,6 +283,7 @@ class _BillDetailScreenState extends ConsumerState<BillDetailScreen> {
         userId: share.user.id,
         user: share.user,
         shareCents: share.shareCents,
+        lenderId: share.lenderId,
         isPayer: share.user.id == bill.payerId,
         payerMarkedAsPaid: share.payerMarkedAsPaid,
         lenderConfirmedPaid: share.lenderConfirmedPaid,
@@ -175,19 +325,205 @@ class _BillDetailScreenState extends ConsumerState<BillDetailScreen> {
         summary.amountCents > 0;
   }
 
-  bool _isParticipantPaid(_ParticipantGroup group) {
-    return group.lenderConfirmedPaid;
+  BillShare? _shareForCurrentUser(Bill bill) {
+    final currentUserId = ref.read(authProvider).user?.id;
+    if (currentUserId == null) return null;
+    for (final share in bill.shares) {
+      if (share.user.id == currentUserId) return share;
+    }
+    return null;
   }
 
-  bool _canConfirmParticipantPaid(Bill bill, _ParticipantGroup group) {
-    final actingUserId = ref.read(authProvider).user?.id;
-    if (actingUserId == null) return false;
-    return actingUserId == bill.payerId && !group.isPayer;
+  /// Returns the viewer's role for this participant row, or null if no panel.
+  RequestRole? _settlementPanelRole(
+    _ParticipantGroup group,
+    String? currentUserId,
+  ) {
+    if (currentUserId == null) return null;
+    if (group.isPayer || group.shareCents <= 0) return null;
+    if (group.lenderId == currentUserId) return RequestRole.lender;
+    if (group.userId == currentUserId && group.lenderId != currentUserId) {
+      return RequestRole.debtor;
+    }
+    return null;
   }
 
   bool _showTotalsSection(Bill bill) {
     if (_hasFriends(bill) && !_hasLineItems(bill)) return false;
     return _hasLineItems(bill) || !_isSoloBill(bill);
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 4),
+      child: Center(
+        child: Text(
+          title,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+            color: AppColors.textH,
+            letterSpacing: -0.2,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTotalsBreakdownRow({
+    required String label,
+    required int valueCents,
+    bool muted = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: muted ? AppColors.text : AppColors.textH,
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
+          ),
+          Text(
+            formatCad(valueCents),
+            style: TextStyle(
+              color: muted ? AppColors.text : AppColors.textH,
+              fontWeight: FontWeight.w700,
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildItemizedTotalsCard(Bill bill) {
+    final lineItems = [...bill.lineItems]
+      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    final otherFeesCents = bill.otherFeesCents ?? 0;
+    final subtotalCents = bill.subtotalCents ??
+        lineItems.fold<int>(0, (sum, item) => sum + item.totalPriceCents);
+
+    return Card(
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: AppColors.border),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (var i = 0; i < lineItems.length; i++) ...[
+              if (i > 0)
+                const Divider(height: 20, thickness: 1, color: AppColors.border),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          lineItems[i].name,
+                          style: const TextStyle(
+                            color: AppColors.textH,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 15,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${_formatQuantity(lineItems[i].quantity)} × ${formatCad(lineItems[i].unitPriceCents)}',
+                          style: const TextStyle(
+                            color: AppColors.text,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    formatCad(lineItems[i].totalPriceCents),
+                    style: const TextStyle(
+                      color: AppColors.textH,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Divider(height: 1, thickness: 1, color: AppColors.border),
+            ),
+            _buildTotalsBreakdownRow(
+              label: 'Subtotal',
+              valueCents: subtotalCents,
+            ),
+            if (otherFeesCents > 0)
+              _buildTotalsBreakdownRow(
+                label: 'Other fees',
+                valueCents: otherFeesCents,
+                muted: true,
+              ),
+            _buildTotalsBreakdownRow(
+              label: 'Tax',
+              valueCents: bill.taxCents ?? 0,
+              muted: true,
+            ),
+            _buildTotalsBreakdownRow(
+              label: 'Tip',
+              valueCents: bill.tipCents ?? 0,
+              muted: true,
+            ),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppColors.accentSoft,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: AppColors.accent.withValues(alpha: 0.25),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Total',
+                      style: TextStyle(
+                        color: AppColors.textH,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    formatCad(bill.totalCents),
+                    style: const TextStyle(
+                      color: AppColors.textH,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 18,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _toggleParticipant(String userId) {
@@ -204,19 +540,31 @@ class _BillDetailScreenState extends ConsumerState<BillDetailScreen> {
     await context.push('/bills/${bill.id}/edit');
   }
 
-  Future<void> _confirmParticipantPaid(
+  Future<void> _markParticipantPaid(
     Bill bill,
     _ParticipantGroup group,
+    RequestRole role,
   ) async {
+    setState(() => _settlingUserId = group.userId);
     try {
-      await ref
-          .read(billsApiProvider)
-          .settleBill(bill.id, participantUserId: group.userId);
+      if (role == RequestRole.debtor) {
+        await ref.read(billsApiProvider).settleBill(bill.id);
+      } else {
+        await ref
+            .read(billsApiProvider)
+            .settleBill(bill.id, participantUserId: group.userId);
+      }
       notifyDataChanged(ref);
       await _load();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${displayName(group.user)} marked as paid.')),
+          SnackBar(
+            content: Text(
+              role == RequestRole.debtor
+                  ? 'Marked as paid.'
+                  : '${displayName(group.user)} marked as paid.',
+            ),
+          ),
         );
       }
     } catch (e) {
@@ -224,11 +572,13 @@ class _BillDetailScreenState extends ConsumerState<BillDetailScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              apiErrorMessage(e, 'Unable to mark this participant as paid.'),
+              apiErrorMessage(e, 'Unable to update payment status.'),
             ),
           ),
         );
       }
+    } finally {
+      if (mounted) setState(() => _settlingUserId = null);
     }
   }
 
@@ -253,25 +603,6 @@ class _BillDetailScreenState extends ConsumerState<BillDetailScreen> {
     }
   }
 
-  Widget _buildShareStatusBadge(_ParticipantGroup group) {
-    final paid = _isParticipantPaid(group);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: paid ? AppColors.accentSoft : AppColors.errorBg,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        paid ? 'paid' : 'not paid',
-        style: TextStyle(
-          color: paid ? AppColors.accent : AppColors.error,
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-
   Widget _buildPayerBadge() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -294,8 +625,10 @@ class _BillDetailScreenState extends ConsumerState<BillDetailScreen> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        group.isPayer ? _buildPayerBadge() : _buildShareStatusBadge(group),
-        const SizedBox(width: 8),
+        if (group.isPayer) ...[
+          _buildPayerBadge(),
+          const SizedBox(width: 8),
+        ],
         Text(
           formatCad(group.shareCents),
           style: const TextStyle(fontWeight: FontWeight.w700),
@@ -304,61 +637,22 @@ class _BillDetailScreenState extends ConsumerState<BillDetailScreen> {
     );
   }
 
-  Widget _wrapParticipantCard({
-    required Bill bill,
-    required _ParticipantGroup group,
-    required Widget child,
-  }) {
-    if (!_canConfirmParticipantPaid(bill, group)) {
-      return child;
-    }
-
-    return Slidable(
-      key: ValueKey('participant-slide-${group.userId}'),
-      startActionPane: ActionPane(
-        motion: const DrawerMotion(),
-        extentRatio: 0.28,
-        children: [_buildPaidSlidableAction(bill, group)],
-      ),
-      endActionPane: ActionPane(
-        motion: const DrawerMotion(),
-        extentRatio: 0.28,
-        children: [_buildPaidSlidableAction(bill, group)],
-      ),
-      child: child,
-    );
-  }
-
-  Widget _buildPaidSlidableAction(Bill bill, _ParticipantGroup group) {
-    return CustomSlidableAction(
-      onPressed: (_) => _confirmParticipantPaid(bill, group),
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      backgroundColor: Colors.transparent,
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.accent,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        alignment: Alignment.center,
-        child: const Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.check_circle_rounded,
-              color: AppColors.surface,
-              size: 22,
-            ),
-            SizedBox(height: 4),
-            Text(
-              'Paid',
-              style: TextStyle(
-                color: AppColors.surface,
-                fontWeight: FontWeight.w700,
-                fontSize: 13,
-              ),
-            ),
-          ],
-        ),
+  Widget? _buildSettlementPanel(
+    Bill bill,
+    _ParticipantGroup group,
+    String? currentUserId,
+  ) {
+    final role = _settlementPanelRole(group, currentUserId);
+    if (role == null) return null;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      child: RequestSettlementStatusPanel(
+        payerMarkedAsPaid: group.payerMarkedAsPaid,
+        lenderConfirmedPaid: group.lenderConfirmedPaid,
+        role: role,
+        isSettling: _settlingUserId == group.userId,
+        embedInCard: false,
+        onMarkPaid: () => _markParticipantPaid(bill, group, role),
       ),
     );
   }
@@ -449,39 +743,59 @@ class _BillDetailScreenState extends ConsumerState<BillDetailScreen> {
                           if (_showSettleUp(bill, summary) &&
                               summary != null) ...[
                             const SizedBox(height: 12),
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 10,
-                              ),
-                              decoration: BoxDecoration(
-                                color: summary.settled
+                            Builder(
+                              builder: (context) {
+                                final ownShare = _shareForCurrentUser(bill);
+                                final ownPending = ownShare != null &&
+                                    summary.direction == 'you_owe' &&
+                                    !summary.settled &&
+                                    ownShare.payerMarkedAsPaid &&
+                                    !ownShare.lenderConfirmedPaid;
+                                final background = summary.settled
                                     ? AppColors.surfaceMuted
+                                    : ownPending
+                                    ? AppColors.pendingBg
                                     : summary.direction == 'owed_to_you'
                                     ? AppColors.accentSoft
-                                    : AppColors.errorBg,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Text(
-                                summary.direction == 'owed_to_you'
+                                    : AppColors.errorBg;
+                                final message = summary.direction ==
+                                        'owed_to_you'
                                     ? (summary.settled
                                           ? 'Fully paid ${formatCad(summary.amountCents)}'
                                           : 'Still owed ${formatCad(summary.amountCents)}')
                                     : summary.direction == 'you_owe'
                                     ? (summary.settled
                                           ? 'You are fully paid up'
+                                          : ownPending
+                                          ? 'Paid - pending confirmation from ${displayName(bill.payer)}'
                                           : 'You owe ${formatCad(summary.amountCents)}')
-                                    : 'No outstanding balance',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  color: summary.settled
-                                      ? AppColors.text
-                                      : summary.direction == 'owed_to_you'
-                                      ? AppColors.accent
-                                      : AppColors.error,
-                                ),
-                              ),
+                                    : 'No outstanding balance';
+                                final textColor = summary.settled
+                                    ? AppColors.text
+                                    : ownPending
+                                    ? AppColors.pendingText
+                                    : summary.direction == 'owed_to_you'
+                                    ? AppColors.accent
+                                    : AppColors.error;
+                                return Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 10,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: background,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Text(
+                                    message,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: textColor,
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
                           ],
                         ],
@@ -489,50 +803,32 @@ class _BillDetailScreenState extends ConsumerState<BillDetailScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  if (!_isSoloBill(bill) || _hasLineItems(bill)) ...[
+                  if (_hasFriends(bill) ||
+                      (_hasLineItems(bill) && bill.isOneMainTotal)) ...[
                     if (_hasFriends(bill)) ...[
-                      Row(
-                        children: [
-                          const Text(
-                            'Split by person',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const Spacer(),
-                          CountBadge(count: bill.shares.length),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      if (_hasLineItems(bill))
-                        const Text(
-                          'Tap a person\'s name to see items.',
-                          style: TextStyle(color: AppColors.text, fontSize: 13),
-                        ),
-                      if (ref.watch(authProvider).user?.id == bill.payerId)
-                        const Padding(
-                          padding: EdgeInsets.only(top: 2),
-                          child: Text(
-                            'Swipe right on a person to confirm paid.',
-                            style: TextStyle(
-                              color: AppColors.text,
-                              fontSize: 13,
+                      _buildSectionTitle('Split by person'),
+                      if (_hasLineItems(bill) && !bill.isSplitByFinalAmounts)
+                        const SizedBox(
+                          width: double.infinity,
+                          child: Padding(
+                            padding: EdgeInsets.only(bottom: 4),
+                            child: Text(
+                              'Tap a person\'s name to see items.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: AppColors.text,
+                                fontSize: 13,
+                              ),
                             ),
                           ),
                         ),
                       const SizedBox(height: 8),
                     ] else if (_hasLineItems(bill)) ...[
-                      const Text(
-                        'Line items',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
+                      _buildSectionTitle('Line items'),
                       const SizedBox(height: 8),
                     ],
                     ..._buildParticipantGroups(bill).map((group) {
+                      final currentUserId = ref.watch(authProvider).user?.id;
                       final expanded = _expandedParticipantIds.contains(
                         group.userId,
                       );
@@ -541,8 +837,14 @@ class _BillDetailScreenState extends ConsumerState<BillDetailScreen> {
                         (sum, item) => sum + item.totalPriceCents,
                       );
                       final deltaCents = group.shareCents - itemsSubtotalCents;
-                      final useExpandableTiles =
-                          _hasFriends(bill) && _hasLineItems(bill);
+                      final useExpandableTiles = _hasFriends(bill) &&
+                          _hasLineItems(bill) &&
+                          !bill.isSplitByFinalAmounts;
+                      final settlementPanel = _buildSettlementPanel(
+                        bill,
+                        group,
+                        currentUserId,
+                      );
 
                       if (!useExpandableTiles &&
                           _isSoloBill(bill) &&
@@ -577,123 +879,119 @@ class _BillDetailScreenState extends ConsumerState<BillDetailScreen> {
                       }
 
                       if (!useExpandableTiles) {
-                        final card = Card(
+                        return Card(
                           margin: const EdgeInsets.only(bottom: 8),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                             side: const BorderSide(color: AppColors.border),
                           ),
-                          child: ListTile(
-                            title: Text(
-                              displayName(group.user),
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            trailing: _buildShareTrailing(group),
-                          ),
-                        );
-                        return _wrapParticipantCard(
-                          bill: bill,
-                          group: group,
-                          child: card,
-                        );
-                      }
-
-                      final card = Card(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          side: const BorderSide(color: AppColors.border),
-                        ),
-                        child: ExpansionTile(
-                          key: ValueKey(
-                            'participant-${group.userId}-$expanded',
-                          ),
-                          initiallyExpanded: expanded,
-                          onExpansionChanged: (_) =>
-                              _toggleParticipant(group.userId),
-                          title: Row(
+                          clipBehavior: Clip.antiAlias,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              Expanded(
-                                child: Text(
+                              ListTile(
+                                title: Text(
                                   displayName(group.user),
                                   style: const TextStyle(
                                     fontWeight: FontWeight.w700,
                                   ),
                                 ),
+                                trailing: _buildShareTrailing(group),
                               ),
+                              ?settlementPanel,
                             ],
                           ),
-                          subtitle: Text(
-                            group.items.isEmpty
-                                ? 'No itemized assignments'
-                                : '${group.items.length} assigned item${group.items.length == 1 ? '' : 's'}',
-                          ),
-                          trailing: _buildShareTrailing(group),
+                        );
+                      }
+
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          side: const BorderSide(color: AppColors.border),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            if (group.items.isEmpty)
-                              const Padding(
-                                padding: EdgeInsets.fromLTRB(16, 0, 16, 12),
-                                child: Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: Text('No assigned items.'),
-                                ),
-                              )
-                            else
-                              ...group.items.map(
-                                (item) => ListTile(
-                                  dense: true,
-                                  title: Text(item.name),
-                                  subtitle: Text(
-                                    '${_formatQuantity(item.quantity)} × ${formatCad(item.unitPriceCents)}${item.assignments.length > 1 ? ' · shared' : ''}',
-                                  ),
-                                  trailing: Text(
-                                    formatCad(item.totalPriceCents),
-                                  ),
-                                ),
+                            ExpansionTile(
+                              key: ValueKey(
+                                'participant-${group.userId}-$expanded',
                               ),
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                              child: Text(
-                                'Items subtotal ${formatCad(itemsSubtotalCents)}${deltaCents == 0 ? '' : ' · final share differs by ${formatCad(deltaCents.abs())} due to tax/fees/tip allocation'}',
-                                style: const TextStyle(color: AppColors.text),
+                              initiallyExpanded: expanded,
+                              onExpansionChanged: (_) =>
+                                  _toggleParticipant(group.userId),
+                              title: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      displayName(group.user),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
+                              subtitle: Text(
+                                group.items.isEmpty
+                                    ? 'No itemized assignments'
+                                    : '${group.items.length} assigned item${group.items.length == 1 ? '' : 's'}',
+                              ),
+                              trailing: _buildShareTrailing(group),
+                              children: [
+                                if (group.items.isEmpty)
+                                  const Padding(
+                                    padding: EdgeInsets.fromLTRB(16, 0, 16, 12),
+                                    child: Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: Text('No assigned items.'),
+                                    ),
+                                  )
+                                else
+                                  ...group.items.map(
+                                    (item) => ListTile(
+                                      dense: true,
+                                      title: Text(item.name),
+                                      subtitle: Text(
+                                        '${_formatQuantity(item.quantity)} × ${formatCad(item.unitPriceCents)}${item.assignments.length > 1 ? ' · shared' : ''}',
+                                      ),
+                                      trailing: Text(
+                                        formatCad(item.totalPriceCents),
+                                      ),
+                                    ),
+                                  ),
+                                Padding(
+                                  padding:
+                                      const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                                  child: Text(
+                                    'Items subtotal ${formatCad(itemsSubtotalCents)}${deltaCents == 0 ? '' : ' · final share differs by ${formatCad(deltaCents.abs())} due to tax/fees/tip allocation'}',
+                                    style: const TextStyle(color: AppColors.text),
+                                  ),
+                                ),
+                              ],
                             ),
+                            ?settlementPanel,
                           ],
                         ),
-                      );
-                      return _wrapParticipantCard(
-                        bill: bill,
-                        group: group,
-                        child: card,
                       );
                     }),
                   ],
                   if (_showTotalsSection(bill)) ...[
                     const SizedBox(height: 8),
-                    const Text(
-                      'Totals',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
+                    _buildSectionTitle('Totals'),
                     const SizedBox(height: 8),
-                    Text(
-                      'Subtotal ${formatCad(bill.subtotalCents ?? 0)}${(bill.otherFeesCents ?? 0) > 0 ? ' • Fees ${formatCad(bill.otherFeesCents!)}' : ''} • Tax ${formatCad(bill.taxCents ?? 0)} • Tip ${formatCad(bill.tipCents ?? 0)}',
-                      style: const TextStyle(color: AppColors.text),
-                    ),
+                    if (!bill.isOneMainTotal && bill.lineItems.isNotEmpty)
+                      _buildItemizedTotalsCard(bill)
+                    else
+                      Text(
+                        'Subtotal ${formatCad(bill.subtotalCents ?? 0)}${(bill.otherFeesCents ?? 0) > 0 ? ' • Fees ${formatCad(bill.otherFeesCents!)}' : ''} • Tax ${formatCad(bill.taxCents ?? 0)} • Tip ${formatCad(bill.tipCents ?? 0)}',
+                        style: const TextStyle(color: AppColors.text),
+                      ),
                   ],
                   const SizedBox(height: 16),
                   if (bill.storeName != null || bill.paymentMethod != null) ...[
-                    const Text(
-                      'Receipt details',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
+                    _buildSectionTitle('Receipt details'),
                     const SizedBox(height: 8),
                     if (bill.storeName != null)
                       Text('Store: ${bill.storeName}'),
@@ -722,6 +1020,7 @@ class _ParticipantGroup {
     required this.userId,
     required this.user,
     required this.shareCents,
+    required this.lenderId,
     required this.isPayer,
     required this.payerMarkedAsPaid,
     required this.lenderConfirmedPaid,
@@ -731,6 +1030,7 @@ class _ParticipantGroup {
   final String userId;
   final User user;
   final int shareCents;
+  final String lenderId;
   final bool isPayer;
   final bool payerMarkedAsPaid;
   final bool lenderConfirmedPaid;
@@ -741,6 +1041,7 @@ class _ParticipantGroup {
       userId: userId,
       user: user,
       shareCents: shareCents,
+      lenderId: lenderId,
       isPayer: isPayer,
       payerMarkedAsPaid: payerMarkedAsPaid,
       lenderConfirmedPaid: lenderConfirmedPaid,

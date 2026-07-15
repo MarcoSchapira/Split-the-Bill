@@ -64,11 +64,50 @@ class AuthApi {
     }
   }
 
+  Future<User> updateProfile({required String name}) async {
+    try {
+      final response = await _client.dio.patch<Map<String, dynamic>>(
+        '/auth/me',
+        data: {'name': name},
+      );
+      return User.fromJson(response.data!['user'] as Map<String, dynamic>);
+    } on DioException catch (e) {
+      _client.throwApiError(e, 'Unable to update profile.');
+    }
+  }
+
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    try {
+      await _client.dio.post(
+        '/auth/change-password',
+        data: {
+          'currentPassword': currentPassword,
+          'newPassword': newPassword,
+        },
+      );
+    } on DioException catch (e) {
+      _client.throwApiError(e, 'Unable to change password.');
+    }
+  }
+
   Future<void> logout() async {
     try {
       await _client.dio.post('/auth/logout');
     } on DioException {
       // Ignore logout errors.
+    } finally {
+      await _storage.clear();
+    }
+  }
+
+  Future<void> logoutAll() async {
+    try {
+      await _client.dio.post('/auth/logout-all');
+    } on DioException {
+      // Ignore logout-all errors; still clear local session.
     } finally {
       await _storage.clear();
     }

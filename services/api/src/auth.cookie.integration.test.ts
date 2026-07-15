@@ -111,6 +111,25 @@ describe("cookie and CSRF authentication API", () => {
     expect(me.status).toBe(401);
   });
 
+  it("updates profile and clears cookies on logout-all", async () => {
+    const agent = request.agent(app);
+    const { cookies } = await registerWithCookies(agent, "cookie-settings@example.com");
+
+    const updated = await agent
+      .patch("/auth/me")
+      .set(csrfHeader(cookies))
+      .send({ name: "Updated Cookie User" });
+
+    expect(updated.status).toBe(200);
+    expect(updated.body.user.name).toBe("Updated Cookie User");
+
+    const logoutAll = await agent.post("/auth/logout-all").set(csrfHeader(cookies));
+    expect(logoutAll.status).toBe(204);
+
+    const me = await agent.get("/auth/me");
+    expect(me.status).toBe(401);
+  });
+
   it("rotates refresh tokens and revokes all sessions on refresh reuse", async () => {
     const agent = request.agent(app);
     const { cookies } = await registerWithCookies(agent, "cookie-refresh@example.com");

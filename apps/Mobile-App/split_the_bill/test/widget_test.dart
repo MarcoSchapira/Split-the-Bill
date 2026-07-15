@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:split_the_bill/app.dart';
+import 'package:equisplit/app.dart';
 
 void main() {
   testWidgets('shows session restore loading', (tester) async {

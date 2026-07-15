@@ -154,7 +154,6 @@ ManualReceiptPrefill prefillFromBill(Bill bill, User currentUser) {
     };
 
     final taxAndTip = taxAndTipFromBillCents(
-      subtotalCents: bill.subtotalCents,
       taxCents: bill.taxCents,
       tipCents: bill.tipCents,
     );
@@ -217,7 +216,6 @@ ManualReceiptPrefill prefillFromParsedReceipt(ParsedReceipt receipt) {
       : <ManualReceiptLineItemSeed>[];
 
   final taxAndTip = taxAndTipFromReceiptDollars(
-    subtotal: receipt.subtotal,
     tax: receipt.tax,
     tip: receipt.tip,
   );
@@ -270,39 +268,21 @@ ManualReceiptPrefill prefillFromParsedReceipt(ParsedReceipt receipt) {
   ManualReceiptAdjustmentMode taxInputMode,
   ManualReceiptAdjustmentMode tipInputMode,
 }) taxAndTipFromBillCents({
-  required int? subtotalCents,
   required int? taxCents,
   required int? tipCents,
 }) {
-  var taxValue = '13';
-  var tipValue = '0';
-  var taxInputMode = ManualReceiptAdjustmentMode.percent;
-  var tipInputMode = ManualReceiptAdjustmentMode.percent;
+  // Stored bill tax/tip are always currency amounts (cents), never rates.
+  var taxValue = '0.00';
+  var tipValue = '0.00';
+  const taxInputMode = ManualReceiptAdjustmentMode.amount;
+  const tipInputMode = ManualReceiptAdjustmentMode.amount;
 
   if (taxCents != null) {
-    if (subtotalCents != null && subtotalCents > 0) {
-      final percent = (taxCents / subtotalCents) * 100;
-      taxValue = percent.toStringAsFixed(
-        percent == percent.roundToDouble() ? 0 : 2,
-      );
-      taxInputMode = ManualReceiptAdjustmentMode.percent;
-    } else {
-      taxValue = (taxCents / 100).toStringAsFixed(2);
-      taxInputMode = ManualReceiptAdjustmentMode.amount;
-    }
+    taxValue = (taxCents / 100).toStringAsFixed(2);
   }
 
   if (tipCents != null) {
-    if (subtotalCents != null && subtotalCents > 0 && tipCents > 0) {
-      final percent = (tipCents / subtotalCents) * 100;
-      tipValue = percent.toStringAsFixed(
-        percent == percent.roundToDouble() ? 0 : 2,
-      );
-      tipInputMode = ManualReceiptAdjustmentMode.percent;
-    } else {
-      tipValue = (tipCents / 100).toStringAsFixed(2);
-      tipInputMode = ManualReceiptAdjustmentMode.amount;
-    }
+    tipValue = (tipCents / 100).toStringAsFixed(2);
   }
 
   return (
@@ -319,22 +299,20 @@ ManualReceiptPrefill prefillFromParsedReceipt(ParsedReceipt receipt) {
   ManualReceiptAdjustmentMode taxInputMode,
   ManualReceiptAdjustmentMode tipInputMode,
 }) taxAndTipFromReceiptDollars({
-  required double? subtotal,
   required double? tax,
   required double? tip,
 }) {
-  var taxValue = '0';
-  var tipValue = '0';
+  // OCR returns tax/tip/other_fees as currency amounts, never percentages.
+  var taxValue = '0.00';
+  var tipValue = '0.00';
   const taxInputMode = ManualReceiptAdjustmentMode.amount;
   const tipInputMode = ManualReceiptAdjustmentMode.amount;
 
-  if (tax != null && tax > 0) {
+  if (tax != null) {
     taxValue = tax.toStringAsFixed(2);
-  } else if (subtotal != null && subtotal > 0) {
-    taxValue = '13';
   }
 
-  if (tip != null && tip > 0) {
+  if (tip != null) {
     tipValue = tip.toStringAsFixed(2);
   }
 

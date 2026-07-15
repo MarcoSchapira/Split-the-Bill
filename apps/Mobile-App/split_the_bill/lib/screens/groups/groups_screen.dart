@@ -65,8 +65,15 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
               const Spacer(),
               TextButton.icon(
                 onPressed: () => showCreateGroupSheet(context),
-                icon: const Icon(Icons.add),
+                icon: const Icon(Icons.add, size: 18),
                 label: const Text('New'),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.accent,
+                  backgroundColor: AppColors.accentSoft,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
               ),
             ],
           ),

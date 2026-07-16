@@ -15,9 +15,6 @@ class ApiException implements Exception {
 
 String apiErrorMessage(Object error, [String fallback = 'Something went wrong. Please try again.']) {
   if (error is ApiException) {
-    if (error.code == 'USER_NOT_FOUND') {
-      return 'Invitation sent.';
-    }
     return error.message;
   }
   return fallback;

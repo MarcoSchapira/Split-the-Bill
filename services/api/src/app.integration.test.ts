@@ -8,6 +8,10 @@ import {
   sendRegistrationCodeForTest,
 } from "./test/registerHelper";
 import { MOBILE_CLIENT_HEADER, MOBILE_CLIENT_VALUE } from "./auth/auth.types";
+import {
+  DELETED_ACCOUNT_NAME,
+  deletedAccountEmail,
+} from "./auth/auth.service";
 import { createSession } from "./auth/session.service";
 
 function mobileClient() {
@@ -499,6 +503,83 @@ describe("authentication API", () => {
       .send({ refreshToken: session.body.refreshToken });
     expect(refreshRejected.status).toBe(401);
   });
+
+  it("tombstones the account on delete, frees the email, and keeps shared bills", async () => {
+    const first = await register("delete-me@example.com", "Delete Me");
+    const second = await register("delete-friend@example.com", "Friend");
+
+    const invitation = await request(app)
+      .post("/friend-invitations")
+      .set(bearer(first.token))
+      .send({ email: second.user.email });
+    await request(app)
+      .patch(`/friend-invitations/${invitation.body.invitation.id as string}`)
+      .set(bearer(second.token))
+      .send({ decision: "accept" });
+
+    const created = await request(app).post("/bills").set(bearer(first.token)).send({
+      description: "Shared dinner",
+      incurredAt: "2026-05-25",
+      totalCents: 4000,
+      participantIds: [first.user.id, second.user.id],
+      payerId: first.user.id,
+    });
+    expect(created.status).toBe(201);
+    const billId = created.body.bill.id as string;
+
+    const deleted = await request(app)
+      .delete("/auth/account")
+      .set(bearer(first.token));
+    expect(deleted.status).toBe(204);
+
+    const meRejected = await request(app).get("/auth/me").set(bearer(first.token));
+    expect(meRejected.status).toBe(401);
+
+    const tombstone = await prismaAdmin.user.findUniqueOrThrow({
+      where: { id: first.user.id },
+    });
+    expect(tombstone).toMatchObject({
+      name: DELETED_ACCOUNT_NAME,
+      email: deletedAccountEmail(first.user.id),
+      passwordHash: null,
+      providerUserId: null,
+      emailVerifiedAt: null,
+      authProvider: "deleted",
+    });
+
+    const activeSessions = await prismaAdmin.session.count({
+      where: { userId: first.user.id, revokedAt: null },
+    });
+    expect(activeSessions).toBe(0);
+
+    const friendships = await prismaAdmin.friendship.count({
+      where: {
+        OR: [{ userAId: first.user.id }, { userBId: first.user.id }],
+      },
+    });
+    expect(friendships).toBe(0);
+
+    const friendsForSecond = await request(app).get("/friends").set(bearer(second.token));
+    expect(friendsForSecond.status).toBe(200);
+    expect(friendsForSecond.body.friends).toHaveLength(0);
+
+    const billForSecond = await request(app)
+      .get(`/bills/${billId}`)
+      .set(bearer(second.token));
+    expect(billForSecond.status).toBe(200);
+    expect(billForSecond.body.bill.payer).toMatchObject({
+      id: first.user.id,
+      name: DELETED_ACCOUNT_NAME,
+    });
+    const deletedShare = billForSecond.body.bill.shares.find(
+      (share: { user: { id: string } }) => share.user.id === first.user.id,
+    );
+    expect(deletedShare?.user.name).toBe(DELETED_ACCOUNT_NAME);
+
+    const reregister = await register("delete-me@example.com", "Back Again");
+    expect(reregister.user.id).not.toBe(first.user.id);
+    expect(reregister.user.email).toBe("delete-me@example.com");
+  });
 });
 
 describe("friend invitation API", () => {
@@ -534,7 +615,7 @@ describe("friend invitation API", () => {
     expect(friends.body.friends[0].friend.email).toBe(recipient.user.email);
   });
 
-  it("stores pending email invites and delivers them after registration", async () => {
+  it("rejects friend invitations to emails without an account", async () => {
     const sender = await register("inviter@example.com");
 
     const invitation = await request(app)
@@ -542,21 +623,8 @@ describe("friend invitation API", () => {
       .set(bearer(sender.token))
       .send({ email: "future-friend@example.com" });
 
-    expect(invitation.status).toBe(201);
-    expect(invitation.body.invitation.recipientEmail).toBe("future-friend@example.com");
-    expect(invitation.body.invitation.recipient).toBeNull();
-
-    const recipient = await register("future-friend@example.com");
-    const received = await request(app).get("/invitations").set(bearer(recipient.token));
-    const accepted = await request(app)
-      .patch(`/friend-invitations/${invitation.body.invitation.id as string}`)
-      .set(bearer(recipient.token))
-      .send({ decision: "accept" });
-    const friends = await request(app).get("/friends").set(bearer(sender.token));
-
-    expect(received.body.receivedFriends).toHaveLength(1);
-    expect(accepted.body.invitation.status).toBe("accepted");
-    expect(friends.body.friends).toHaveLength(1);
+    expect(invitation.status).toBe(404);
+    expect(invitation.body.error.code).toBe("USER_NOT_FOUND");
   });
 
   it("lets senders cancel pending invitations they sent", async () => {

@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:equisplit/models/models.dart';
-import 'package:equisplit/models/receipt.dart';
-import 'package:equisplit/models/user.dart';
-import 'package:equisplit/utils/manual_receipt_prefill.dart';
+import 'package:equishare/models/models.dart';
+import 'package:equishare/models/receipt.dart';
+import 'package:equishare/models/user.dart';
+import 'package:equishare/utils/manual_receipt_prefill.dart';
 
 void main() {
   const currentUser = User(

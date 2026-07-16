@@ -113,6 +113,15 @@ class AuthApi {
     }
   }
 
+  Future<void> deleteAccount() async {
+    try {
+      await _client.dio.delete('/auth/account');
+      await _storage.clear();
+    } on DioException catch (e) {
+      _client.throwApiError(e, 'Unable to delete account.');
+    }
+  }
+
   AuthResponse _parseAuthResponse(Map<String, dynamic> data) {
     final accessToken = data['accessToken'] as String? ?? data['token'] as String?;
     final refreshToken = data['refreshToken'] as String?;

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import '../theme/app_colors.dart';
 import 'common_widgets.dart';
@@ -74,6 +75,7 @@ class AppScaffold extends StatelessWidget {
                           selectedIndex: navIndex,
                           onDestinationSelected: (selectedIndex) {
                             if (selectedIndex == _centerNavSlotIndex) return;
+                            HapticFeedback.selectionClick();
                             final branchIndex = _navToBranchIndex(selectedIndex);
                             navigationShell.goBranch(
                               branchIndex,
@@ -146,7 +148,10 @@ class AppScaffold extends StatelessWidget {
                             shape: const CircleBorder(),
                             child: InkWell(
                               customBorder: const CircleBorder(),
-                              onTap: () => showCaptureOptionsSheet(context),
+                              onTap: () {
+                                HapticFeedback.lightImpact();
+                                showCaptureOptionsSheet(context);
+                              },
                               child: const Center(
                                 child: Icon(Icons.camera_alt, color: Colors.white, size: 30),
                               ),

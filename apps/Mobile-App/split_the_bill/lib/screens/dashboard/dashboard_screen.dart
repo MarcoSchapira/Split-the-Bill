@@ -126,7 +126,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 const Expanded(
                   child: Text(
                     'Dashboard',
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+                    style: kTabPageTitleStyle,
                   ),
                 ),
                 IconButton(

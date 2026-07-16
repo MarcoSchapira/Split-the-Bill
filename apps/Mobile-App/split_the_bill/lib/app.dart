@@ -5,8 +5,8 @@ import 'routing/app_router.dart';
 import 'theme/app_theme.dart';
 import 'widgets/common_widgets.dart';
 
-class EquiSplitApp extends ConsumerWidget {
-  const EquiSplitApp({super.key});
+class EquiShareApp extends ConsumerWidget {
+  const EquiShareApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -21,7 +21,7 @@ class EquiSplitApp extends ConsumerWidget {
     final router = ref.watch(routerProvider);
 
     return MaterialApp.router(
-      title: 'EquiSplit',
+      title: 'EquiShare',
       theme: AppTheme.light(),
       routerConfig: router,
       debugShowCheckedModeBanner: false,

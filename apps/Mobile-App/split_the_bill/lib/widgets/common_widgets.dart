@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../theme/app_colors.dart';
 import '../utils/format.dart';
 
@@ -18,10 +19,16 @@ class PrimaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final handlePress = onPressed;
     return SizedBox(
       width: double.infinity,
       child: FilledButton(
-        onPressed: isLoading ? null : onPressed,
+        onPressed: isLoading || handlePress == null
+            ? null
+            : () {
+                HapticFeedback.lightImpact();
+                handlePress();
+              },
         style: FilledButton.styleFrom(
           backgroundColor: AppColors.accent,
           foregroundColor: Colors.white,
@@ -60,10 +67,16 @@ class SecondaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final handlePress = onPressed;
     return SizedBox(
       width: double.infinity,
       child: OutlinedButton(
-        onPressed: onPressed,
+        onPressed: handlePress == null
+            ? null
+            : () {
+                HapticFeedback.lightImpact();
+                handlePress();
+              },
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.textH,
           backgroundColor: AppColors.surface,
@@ -161,17 +174,35 @@ class AppBrandTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Text(
-      'EquiSplit',
-      style: TextStyle(
-        color: AppColors.accent,
-        fontSize: 24,
-        fontWeight: FontWeight.w800,
-        letterSpacing: 0.04,
-      ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Image.asset(
+          'assets/equishare_logo_inverted.png',
+          width: 28,
+          height: 28,
+          fit: BoxFit.contain,
+        ),
+        const SizedBox(width: 8),
+        const Text(
+          'EquiShare',
+          style: TextStyle(
+            color: AppColors.accent,
+            fontSize: 24,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.04,
+          ),
+        ),
+      ],
     );
   }
 }
+
+/// Shared page title style for the four main tab screens.
+const kTabPageTitleStyle = TextStyle(
+  fontSize: 24,
+  fontWeight: FontWeight.w700,
+);
 
 class SummaryCard extends StatelessWidget {
   const SummaryCard({
@@ -197,9 +228,15 @@ class SummaryCard extends StatelessWidget {
     if (positive) amountColor = AppColors.accent;
     if (negative) amountColor = AppColors.error;
 
+    final handleTap = onTap;
     return Card(
       child: InkWell(
-        onTap: onTap,
+        onTap: handleTap == null
+            ? null
+            : () {
+                HapticFeedback.selectionClick();
+                handleTap();
+              },
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(18),

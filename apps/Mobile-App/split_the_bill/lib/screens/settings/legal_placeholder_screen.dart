@@ -49,7 +49,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
     return const LegalPlaceholderScreen(
       title: 'Privacy Policy',
       body:
-          'This is a placeholder privacy policy for EquiSplit. '
+          'This is a placeholder privacy policy for EquiShare. '
           'A full policy describing how account data, bill history, and '
           'authentication information are handled will be published here before launch.',
     );
@@ -64,7 +64,7 @@ class TermsOfServiceScreen extends StatelessWidget {
     return const LegalPlaceholderScreen(
       title: 'Terms of Service',
       body:
-          'This is a placeholder terms of service for EquiSplit. '
+          'This is a placeholder terms of service for EquiShare. '
           'The complete terms governing use of the app will be published here before launch.',
     );
   }

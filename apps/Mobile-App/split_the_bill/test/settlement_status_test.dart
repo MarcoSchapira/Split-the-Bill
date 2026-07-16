@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:equisplit/models/models.dart';
-import 'package:equisplit/models/user.dart';
-import 'package:equisplit/theme/app_colors.dart';
-import 'package:equisplit/utils/settlement_status.dart';
+import 'package:equishare/models/models.dart';
+import 'package:equishare/models/user.dart';
+import 'package:equishare/theme/app_colors.dart';
+import 'package:equishare/utils/settlement_status.dart';
 
 User _user(String id, {String? name}) {
   return User(

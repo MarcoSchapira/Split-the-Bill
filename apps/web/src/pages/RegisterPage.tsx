@@ -112,7 +112,7 @@ export function RegisterPage() {
   return (
     <main className="auth-shell">
       <section className="brand-panel">
-        <p className="eyebrow">EquiSplit</p>
+        <p className="eyebrow">EquiShare</p>
         <h1>Start a fair tab.</h1>
         <p>
           Invite registered friends and keep every shared cost

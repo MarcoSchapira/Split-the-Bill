@@ -1,4 +1,4 @@
-# EquiSplit Mobile App
+# EquiShare Mobile App
 
 Flutter iOS/Android client for the Split-the-Bill API.
 

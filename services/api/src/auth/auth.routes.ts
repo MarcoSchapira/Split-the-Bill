@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   changePassword,
+  deleteAccount,
   login,
   logout,
   logoutAll,
@@ -23,5 +24,6 @@ router.post("/logout-all", requireAuth, logoutAll);
 router.post("/change-password", requireAuth, changePassword);
 router.get("/me", requireAuth, me);
 router.patch("/me", requireAuth, updateMe);
+router.delete("/account", requireAuth, deleteAccount);
 
 export default router;

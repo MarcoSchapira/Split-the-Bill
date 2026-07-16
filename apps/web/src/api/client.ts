@@ -73,8 +73,5 @@ export function apiErrorMessage(
   }
 
   const data = error.response.data as { error?: { message?: string; code?: string } }
-  if (data.error?.code === 'USER_NOT_FOUND') {
-    return 'Invitation sent.'
-  }
   return data.error?.message ?? fallback
 }

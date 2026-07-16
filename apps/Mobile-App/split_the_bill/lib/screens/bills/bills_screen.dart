@@ -67,11 +67,7 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
         children: [
           const Text(
             'Bills',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textH,
-            ),
+            style: kTabPageTitleStyle,
           ),
           const SizedBox(height: 4),
           Text(

@@ -31,7 +31,7 @@ export class ResendEmailTransport implements EmailTransport {
     const { error } = await resend.emails.send({
       from,
       to: [email],
-      subject: "Your EquiSplit verification code",
+      subject: "Your EquiShare verification code",
       html: `
         <p>Your verification code is:</p>
         <p style="font-size: 24px; font-weight: bold; letter-spacing: 4px;">${code}</p>

@@ -82,6 +82,14 @@ class SettingsScreen extends ConsumerWidget {
                         iconColor: AppColors.error,
                         onTap: () => _logoutAll(context, ref),
                       ),
+                      const Divider(height: 1),
+                      ListTile(
+                        leading: const Icon(Icons.delete_forever_outlined),
+                        title: const Text('Delete account'),
+                        textColor: AppColors.error,
+                        iconColor: AppColors.error,
+                        onTap: () => _deleteAccount(context, ref),
+                      ),
                     ],
                   ),
                 ),
@@ -165,7 +173,7 @@ class SettingsScreen extends ConsumerWidget {
     final confirmed = await showConfirmDialog(
       context,
       title: 'Log out?',
-      message: 'You will need to sign in again to use EquiSplit on this device.',
+      message: 'You will need to sign in again to use EquiShare on this device.',
       confirmLabel: 'Log out',
     );
     if (confirmed != true || !context.mounted) return;
@@ -187,6 +195,28 @@ class SettingsScreen extends ConsumerWidget {
 
     await ref.read(authProvider.notifier).logoutAll();
     if (context.mounted) context.go('/login');
+  }
+
+  Future<void> _deleteAccount(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showConfirmDialog(
+      context,
+      title: 'Delete account?',
+      message:
+          'All your personal data will be deleted. Shared bills will keep an '
+          'anonymized "Deleted Account" entry. This cannot be undone.',
+      confirmLabel: 'Delete account',
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    try {
+      await ref.read(authProvider.notifier).deleteAccount();
+      if (context.mounted) context.go('/login');
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(apiErrorMessage(e, 'Unable to delete account.'))),
+      );
+    }
   }
 }
 

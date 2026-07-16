@@ -21,6 +21,7 @@ import {
 } from "./auth.types";
 import {
   changeUserPassword,
+  deleteUserAccount,
   loginUser,
   registerUser,
   sendRegistrationVerificationCode,
@@ -207,6 +208,13 @@ export const changePassword: RequestHandler = async (req, res) => {
 export const logoutAll: RequestHandler = async (req, res) => {
   const user = currentUser(req);
   await revokeAllSessions(user.id);
+  clearAuthCookies(res);
+  res.status(204).send();
+};
+
+export const deleteAccount: RequestHandler = async (req, res) => {
+  const user = currentUser(req);
+  await deleteUserAccount(user.id);
   clearAuthCookies(res);
   res.status(204).send();
 };

@@ -132,6 +132,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = const AuthState(user: null, isLoading: false);
   }
 
+  Future<void> deleteAccount() async {
+    await _authApi.deleteAccount();
+    state = const AuthState(user: null, isLoading: false);
+  }
+
   Future<void> updateName(String name) async {
     final user = await _authApi.updateProfile(name: name);
     await _storage.saveUserJson(jsonEncode(user.toJson()));

@@ -2579,6 +2579,7 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
     if (_saving) return;
     if (!_validateForm()) return;
 
+    HapticFeedback.mediumImpact();
     setState(() {
       _saving = true;
       _error = null;

@@ -11,7 +11,7 @@ import {
   ACCESS_COOKIE,
   CSRF_COOKIE,
 } from "./test/cookieAuth";
-import { getRegistrationCodeForTest, sendRegistrationCodeForTest } from "./test/registerHelper";
+import { getRegistrationCodeForTest, registerTestUser, sendRegistrationCodeForTest } from "./test/registerHelper";
 
 function expectAuthCookies(cookies: Record<string, string>) {
   expect(cookies[ACCESS_COOKIE]).toEqual(expect.any(String));
@@ -90,6 +90,8 @@ describe("cookie and CSRF authentication API", () => {
   it("allows mutating requests with cookies and matching CSRF header", async () => {
     const agent = request.agent(app);
     const { cookies } = await registerWithCookies(agent, "cookie-create@example.com");
+    const friendResponse = await registerTestUser(app, "friend@example.com");
+    expect(friendResponse.status).toBe(201);
 
     const created = await agent
       .post("/friend-invitations")
@@ -97,7 +99,7 @@ describe("cookie and CSRF authentication API", () => {
       .send({ email: "friend@example.com" });
 
     expect(created.status).toBe(201);
-    expect(created.body.invitation.recipientEmail).toBe("friend@example.com");
+    expect(created.body.invitation.recipient.id).toBe(friendResponse.body.user.id);
   });
 
   it("clears the session after logout", async () => {

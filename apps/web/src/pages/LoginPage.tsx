@@ -32,7 +32,7 @@ export function LoginPage() {
   return (
     <main className="auth-shell">
       <section className="brand-panel">
-        <p className="eyebrow">EquiSplit</p>
+        <p className="eyebrow">EquiShare</p>
         <h1>Shared expenses, clear balances.</h1>
         <p>
           Keep shared expenses organized and settle together with an account built on
@@ -69,7 +69,7 @@ export function LoginPage() {
           </button>
         </form>
         <p className="auth-link">
-          New to EquiSplit? <Link to="/register">Create an account</Link>
+          New to EquiShare? <Link to="/register">Create an account</Link>
         </p>
       </section>
     </main>

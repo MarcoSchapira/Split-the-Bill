@@ -1,5 +1,5 @@
-name: equisplit
-description: EquiSplit mobile app — split bills with friends and groups.
+name: equishare
+description: EquiShare mobile app — split bills with friends and groups.
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -30,7 +30,7 @@ flutter_launcher_icons:
   android: true
   ios: true
   remove_alpha_ios: true
-  image_path: assets/equisplit_logo_mobile.png
+  image_path: assets/equishare_logo_mobile.png
   web:
     generate: true
   macos:
@@ -40,3 +40,6 @@ flutter_launcher_icons:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/equishare_logo_mobile.png
+    - assets/equishare_logo_inverted.png

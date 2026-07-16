@@ -131,7 +131,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 child: const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Eyebrow('EquiSplit'),
+                    Eyebrow('EquiShare'),
                     SizedBox(height: 8),
                     Text(
                       'Create account',

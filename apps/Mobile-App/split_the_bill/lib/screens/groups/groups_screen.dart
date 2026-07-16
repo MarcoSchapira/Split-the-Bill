@@ -60,7 +60,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
             children: [
               const Text(
                 'Your groups',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+                style: kTabPageTitleStyle,
               ),
               const Spacer(),
               TextButton.icon(

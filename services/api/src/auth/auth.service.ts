@@ -17,7 +17,13 @@ import {
   type UpdateProfileInput,
 } from "./auth.types";
 import { comparePassword, hashPassword } from "./password";
-import { createSession, revokeOtherSessions } from "./session.service";
+import { createSession, revokeAllSessions, revokeOtherSessions } from "./session.service";
+
+export const DELETED_ACCOUNT_NAME = "Deleted Account";
+
+export function deletedAccountEmail(userId: string): string {
+  return `account-deleted-${userId}@deleted.invalid`;
+}
 
 async function buildAuthResponse(userId: string): Promise<AuthResponse> {
   const user = await prismaAdmin.user.findUniqueOrThrow({
@@ -151,4 +157,57 @@ export async function changeUserPassword(
   );
 
   await revokeOtherSessions(userId, sessionId);
+}
+
+export async function deleteUserAccount(userId: string): Promise<void> {
+  const user = await prismaAdmin.user.findUnique({
+    where: { id: userId },
+    select: { id: true, email: true, authProvider: true },
+  });
+
+  if (!user || user.authProvider === "deleted") {
+    throw new ApiError(404, "USER_NOT_FOUND", "User not found");
+  }
+
+  const previousEmail = user.email;
+
+  await prismaAdmin.$transaction(async (tx) => {
+    await tx.friendship.deleteMany({
+      where: {
+        OR: [{ userAId: userId }, { userBId: userId }],
+      },
+    });
+
+    await tx.friendInvitation.deleteMany({
+      where: {
+        OR: [{ senderId: userId }, { recipientId: userId }],
+      },
+    });
+
+    await tx.groupMember.deleteMany({
+      where: { userId },
+    });
+
+    await tx.activityRecipient.deleteMany({
+      where: { userId },
+    });
+
+    await tx.user.update({
+      where: { id: userId },
+      data: {
+        name: DELETED_ACCOUNT_NAME,
+        email: deletedAccountEmail(userId),
+        passwordHash: null,
+        providerUserId: null,
+        emailVerifiedAt: null,
+        authProvider: "deleted",
+      },
+    });
+  });
+
+  await revokeAllSessions(userId);
+
+  await prismaAdmin.emailVerification.deleteMany({
+    where: { email: previousEmail },
+  });
 }

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:equisplit/models/models.dart';
+import 'package:equishare/models/models.dart';
 
 void main() {
   test('Bill.fromJson parses participant-based bills', () {

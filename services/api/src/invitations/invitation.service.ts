@@ -110,67 +110,53 @@ export async function sendFriendInvitation(
 ) {
   const recipient = await findRegisteredInviteRecipient(input.email);
 
-  if (recipient?.id === senderId) {
+  if (!recipient) {
+    throw new ApiError(
+      404,
+      "USER_NOT_FOUND",
+      "No account was found for this email. They need to create an EquiShare account before you can invite them.",
+    );
+  }
+
+  if (recipient.id === senderId) {
     throw new ApiError(400, "SELF_INVITATION_NOT_ALLOWED", "You cannot invite yourself");
   }
 
-  if (recipient) {
-    const pair = friendshipUsers(senderId, recipient.id);
-    const existingFriendship = await tx.friendship.findUnique({
-      where: { userAId_userBId: pair },
-    });
+  const pair = friendshipUsers(senderId, recipient.id);
+  const existingFriendship = await tx.friendship.findUnique({
+    where: { userAId_userBId: pair },
+  });
 
-    if (existingFriendship) {
-      throw new ApiError(409, "ALREADY_FRIENDS", "You are already friends with this user");
-    }
-
-    const pending = await tx.friendInvitation.findFirst({
-      where: {
-        status: "pending",
-        OR: [
-          { senderId, recipientId: recipient.id },
-          { senderId: recipient.id, recipientId: senderId },
-        ],
-      },
-    });
-
-    if (pending) {
-      throw new ApiError(409, "FRIEND_INVITATION_PENDING", "A friend invitation is already pending");
-    }
-
-    const invitation = await tx.friendInvitation.create({
-      data: { senderId, recipientId: recipient.id },
-      select: friendInvitationSelect,
-    });
-    await createActivity(tx, {
-      actorId: senderId,
-      recipientIds: [recipient.id],
-      friendInvitationId: invitation.id,
-      type: "FRIEND_INVITATION_SENT",
-      message: "sent a friend invitation.",
-    });
-    return invitation;
+  if (existingFriendship) {
+    throw new ApiError(409, "ALREADY_FRIENDS", "You are already friends with this user");
   }
 
-  const pendingEmailInvite = await tx.friendInvitation.findFirst({
+  const pending = await tx.friendInvitation.findFirst({
     where: {
-      senderId,
-      recipientEmail: input.email,
       status: "pending",
+      OR: [
+        { senderId, recipientId: recipient.id },
+        { senderId: recipient.id, recipientId: senderId },
+      ],
     },
   });
 
-  if (pendingEmailInvite) {
+  if (pending) {
     throw new ApiError(409, "FRIEND_INVITATION_PENDING", "A friend invitation is already pending");
   }
 
-  return tx.friendInvitation.create({
-    data: {
-      senderId,
-      recipientEmail: input.email,
-    },
+  const invitation = await tx.friendInvitation.create({
+    data: { senderId, recipientId: recipient.id },
     select: friendInvitationSelect,
   });
+  await createActivity(tx, {
+    actorId: senderId,
+    recipientIds: [recipient.id],
+    friendInvitationId: invitation.id,
+    type: "FRIEND_INVITATION_SENT",
+    message: "sent a friend invitation.",
+  });
+  return invitation;
 }
 
 export async function listInvitations(tx: PrismaTransaction, userId: string) {

@@ -172,7 +172,7 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen> {
               const Expanded(
                 child: Text(
                   'Requests',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+                  style: kTabPageTitleStyle,
                 ),
               ),
               ShowPassedRequestsToggle(

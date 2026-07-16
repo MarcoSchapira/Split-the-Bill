@@ -7,8 +7,8 @@ type LandingHeaderProps = {
 export function LandingHeader({ showFeaturesLink = true }: LandingHeaderProps) {
   return (
     <header className="landing-header">
-      <Link className="landing-brand" to="/" aria-label="EquiSplit home">
-        <span className="eyebrow">EquiSplit</span>
+      <Link className="landing-brand" to="/" aria-label="EquiShare home">
+        <span className="eyebrow">EquiShare</span>
         <strong>Split the Bill</strong>
       </Link>
       <nav className="landing-navigation" aria-label="Public navigation">

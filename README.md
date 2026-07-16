@@ -1,4 +1,4 @@
-# Split-the-Bill (EquiSplit)
+# Split-the-Bill (EquiShare)
 
 Full-stack expense-sharing platform.
 

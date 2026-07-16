@@ -99,7 +99,7 @@ export function AppLayout() {
     <div className="workspace-shell">
       <aside className="sidebar">
         <div className="sidebar-brand">
-          <p className="eyebrow">EquiSplit</p>
+          <p className="eyebrow">EquiShare</p>
           <strong>Split the Bill</strong>
         </div>
         <nav className="sidebar-nav" aria-label="Primary navigation">
@@ -151,7 +151,7 @@ export function AppLayout() {
       </main>
       {dialog === 'friend' ? (
         <Modal onClose={closeDialog} title="Add a friend">
-          <p className="muted">Send an invitation to an existing EquiSplit account.</p>
+          <p className="muted">Send an invitation to an existing EquiShare account.</p>
           <form className="stack-form" onSubmit={submitFriend}>
             <label>
               Registered email

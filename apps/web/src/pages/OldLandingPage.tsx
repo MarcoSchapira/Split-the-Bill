@@ -49,7 +49,7 @@ export function OldLandingPage() {
           <p className="eyebrow">Shared expenses made clear</p>
           <h1>Split bills. Keep friendships simple.</h1>
           <p className="landing-lede">
-            EquiSplit keeps invitations, bills, and balances in one
+            EquiShare keeps invitations, bills, and balances in one
             calm place so everyone knows where things stand.
           </p>
           <div className="landing-actions">
@@ -113,7 +113,7 @@ export function OldLandingPage() {
       </section>
 
       <footer className="landing-footer">
-        <strong>EquiSplit</strong>
+        <strong>EquiShare</strong>
         <p>Clear balances for shared expenses.</p>
       </footer>
     </main>

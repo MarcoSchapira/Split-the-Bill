@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:equisplit/api/api_client.dart';
-import 'package:equisplit/api/domain_api.dart';
-import 'package:equisplit/models/models.dart';
-import 'package:equisplit/models/user.dart';
-import 'package:equisplit/providers/providers.dart';
-import 'package:equisplit/screens/dashboard/dashboard_screen.dart';
+import 'package:equishare/api/api_client.dart';
+import 'package:equishare/api/domain_api.dart';
+import 'package:equishare/models/models.dart';
+import 'package:equishare/models/user.dart';
+import 'package:equishare/providers/providers.dart';
+import 'package:equishare/screens/dashboard/dashboard_screen.dart';
 
 class _FakeDashboardApi extends DashboardApi {
   _FakeDashboardApi(this.dashboard) : super(ApiClient());

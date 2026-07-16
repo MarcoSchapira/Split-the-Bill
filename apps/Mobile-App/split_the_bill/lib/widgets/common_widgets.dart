@@ -349,6 +349,7 @@ class BalanceChip extends StatelessWidget {
             : negative
             ? AppColors.error
             : AppColors.text,
+        fontSize: 18,
         fontWeight: FontWeight.w700,
       ),
     );

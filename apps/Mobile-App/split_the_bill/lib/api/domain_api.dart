@@ -62,6 +62,14 @@ class FriendsApi {
     }
   }
 
+  Future<void> removeFriend(String friendshipId) async {
+    try {
+      await _client.dio.delete<void>('/friends/$friendshipId');
+    } on DioException catch (e) {
+      _client.throwApiError(e, 'Unable to remove this friend.');
+    }
+  }
+
   Future<FriendInvitation> inviteFriend(String email) async {
     try {
       final response = await _client.dio.post<Map<String, dynamic>>(

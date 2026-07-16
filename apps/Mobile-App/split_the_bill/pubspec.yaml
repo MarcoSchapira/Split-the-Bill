@@ -43,3 +43,4 @@ flutter:
   assets:
     - assets/equishare_logo_mobile.png
     - assets/equishare_logo_inverted.png
+    - google_fonts/

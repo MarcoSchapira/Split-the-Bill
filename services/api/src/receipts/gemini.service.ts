@@ -1,21 +1,13 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { ZodError } from "zod";
 import { ApiError } from "../http/errors";
-import {
-  logGeminiParsedReceipt,
-  logGeminiRawResponse,
-  logJsonExtraction,
-  logParseError,
-  logZodFailure,
-} from "./receipt.logger";
+import { logParseError, logZodFailure } from "./receipt.logger";
 import { parseGeminiReceiptJson } from "./parse-gemini-json";
 import { RECEIPT_PROMPT } from "./receipt.prompt";
 import { parsedReceiptSchema, type ParsedReceipt } from "./receipt.types";
 
 const RECEIPT_PARSE_FAILED_MESSAGE =
   "Unable to read receipt. Please retake the photo.";
-
-const RAW_RESPONSE_LOG_LIMIT = 4000;
 
 function getGeminiModel() {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -57,20 +49,7 @@ export async function parseReceiptWithGemini(
 
     const text = result.response.text();
     const extraction = parseGeminiReceiptJson(text);
-
-    logGeminiRawResponse({
-      mimeType,
-      responseLength: text.length,
-      responsePreview:
-        text.length > RAW_RESPONSE_LOG_LIMIT
-          ? `${text.slice(0, RAW_RESPONSE_LOG_LIMIT)}…`
-          : text,
-      extractionStrategy: extraction.strategy,
-    });
-    logJsonExtraction(extraction);
-
     const receipt = parsedReceiptSchema.parse(extraction.parsed);
-    logGeminiParsedReceipt(receipt);
     return { receipt, extractionStrategy: extraction.strategy };
   } catch (error) {
     if (error instanceof ApiError) {

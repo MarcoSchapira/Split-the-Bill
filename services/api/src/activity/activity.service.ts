@@ -33,6 +33,7 @@ const INVITATION_ACTIVITY_MESSAGES: Record<string, string> = {
   FRIEND_INVITATION_ACCEPTED: "accepted a friend invitation.",
   FRIEND_INVITATION_DECLINED: "declined a friend invitation.",
   FRIEND_SETTLED: "settled up all outstanding bills.",
+  FRIEND_REMOVED: "removed you as a friend.",
 };
 
 function friendshipUsers(firstUserId: string, secondUserId: string) {

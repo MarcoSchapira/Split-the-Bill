@@ -192,6 +192,14 @@ export async function deleteUserAccount(userId: string): Promise<void> {
       where: { userId },
     });
 
+    await tx.bill.deleteMany({
+      where: {
+        creatorId: userId,
+        isSplitWithFriends: false,
+        isSplitWithGroup: false,
+      },
+    });
+
     await tx.user.update({
       where: { id: userId },
       data: {

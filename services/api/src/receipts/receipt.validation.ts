@@ -176,22 +176,38 @@ export function validateReceiptTotals(receipt: ParsedReceipt): ParsedReceipt {
   const debug = getReceiptTotalsDebug(receipt);
 
   if (receipt.subtotal === null) {
-    logValidationFailure({ ...debug, reason: "missing_subtotal" });
+    logValidationFailure({
+      reason: "missing_subtotal",
+      itemCount: debug.itemCount,
+      matchedItemsStrategy: debug.matchedItemsStrategy,
+    });
     throw new ApiError(422, "RECEIPT_TOTALS_MISMATCH", RECEIPT_TOTALS_MISMATCH_MESSAGE);
   }
 
   if (receipt.total === null) {
-    logValidationFailure({ ...debug, reason: "missing_total" });
+    logValidationFailure({
+      reason: "missing_total",
+      itemCount: debug.itemCount,
+      matchedItemsStrategy: debug.matchedItemsStrategy,
+    });
     throw new ApiError(422, "RECEIPT_TOTALS_MISMATCH", RECEIPT_TOTALS_MISMATCH_MESSAGE);
   }
 
   if (debug.matchedItemsStrategy === null) {
-    logValidationFailure({ ...debug, reason: "items_subtotal_mismatch" });
+    logValidationFailure({
+      reason: "items_subtotal_mismatch",
+      itemCount: debug.itemCount,
+      matchedItemsStrategy: debug.matchedItemsStrategy,
+    });
     throw new ApiError(422, "RECEIPT_TOTALS_MISMATCH", RECEIPT_TOTALS_MISMATCH_MESSAGE);
   }
 
   if (!grandTotalMatches(debug)) {
-    logValidationFailure({ ...debug, reason: "grand_total_mismatch" });
+    logValidationFailure({
+      reason: "grand_total_mismatch",
+      itemCount: debug.itemCount,
+      matchedItemsStrategy: debug.matchedItemsStrategy,
+    });
     throw new ApiError(422, "RECEIPT_TOTALS_MISMATCH", RECEIPT_TOTALS_MISMATCH_MESSAGE);
   }
 

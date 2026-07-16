@@ -504,7 +504,7 @@ describe("authentication API", () => {
     expect(refreshRejected.status).toBe(401);
   });
 
-  it("tombstones the account on delete, frees the email, and keeps shared bills", async () => {
+  it("tombstones the account on delete, frees the email, deletes solo bills, and keeps shared bills", async () => {
     const first = await register("delete-me@example.com", "Delete Me");
     const second = await register("delete-friend@example.com", "Friend");
 
@@ -516,6 +516,14 @@ describe("authentication API", () => {
       .patch(`/friend-invitations/${invitation.body.invitation.id as string}`)
       .set(bearer(second.token))
       .send({ decision: "accept" });
+
+    const solo = await request(app).post("/bills").set(bearer(first.token)).send({
+      description: "Personal coffee",
+      incurredAt: "2026-05-24",
+      totalCents: 500,
+    });
+    expect(solo.status).toBe(201);
+    const soloBillId = solo.body.bill.id as string;
 
     const created = await request(app).post("/bills").set(bearer(first.token)).send({
       description: "Shared dinner",
@@ -562,6 +570,11 @@ describe("authentication API", () => {
     const friendsForSecond = await request(app).get("/friends").set(bearer(second.token));
     expect(friendsForSecond.status).toBe(200);
     expect(friendsForSecond.body.friends).toHaveLength(0);
+
+    const deletedSoloBill = await prismaAdmin.bill.findUnique({
+      where: { id: soloBillId },
+    });
+    expect(deletedSoloBill).toBeNull();
 
     const billForSecond = await request(app)
       .get(`/bills/${billId}`)
@@ -660,6 +673,67 @@ describe("friend invitation API", () => {
       .set(bearer(recipient.token));
 
     expect(cancelled.status).toBe(404);
+  });
+});
+
+describe("friends API", () => {
+  async function becomeFriends(first: RegisteredAccount, second: RegisteredAccount) {
+    const invitation = await request(app)
+      .post("/friend-invitations")
+      .set(bearer(first.token))
+      .send({ email: second.user.email });
+    await request(app)
+      .patch(`/friend-invitations/${invitation.body.invitation.id as string}`)
+      .set(bearer(second.token))
+      .send({ decision: "accept" });
+    const friends = await request(app).get("/friends").set(bearer(first.token));
+    return friends.body.friends[0].id as string;
+  }
+
+  it("removes a friendship without affecting shared bills and records activity", async () => {
+    const remover = await register("remove-friend-remover@example.com");
+    const friend = await register("remove-friend-target@example.com");
+    const friendshipId = await becomeFriends(remover, friend);
+
+    const created = await request(app).post("/bills").set(bearer(remover.token)).send({
+      description: "Shared dinner",
+      incurredAt: "2026-05-25",
+      totalCents: 2000,
+      participantIds: [remover.user.id, friend.user.id],
+      payerId: remover.user.id,
+    });
+    const dashboardBefore = await request(app).get("/dashboard").set(bearer(remover.token));
+
+    const removed = await request(app)
+      .delete(`/friends/${friendshipId}`)
+      .set(bearer(remover.token));
+    const removerFriends = await request(app).get("/friends").set(bearer(remover.token));
+    const friendFriends = await request(app).get("/friends").set(bearer(friend.token));
+    const billAfter = await request(app)
+      .get(`/bills/${created.body.bill.id as string}`)
+      .set(bearer(remover.token));
+    const dashboardAfter = await request(app).get("/dashboard").set(bearer(remover.token));
+    const activity = await request(app).get("/activity").set(bearer(friend.token));
+    const removedEvent = activity.body.activity.find(
+      (event: { type: string }) => event.type === "FRIEND_REMOVED",
+    );
+
+    expect(removed.status).toBe(204);
+    expect(removerFriends.body.friends).toHaveLength(0);
+    expect(friendFriends.body.friends).toHaveLength(0);
+    expect(billAfter.status).toBe(200);
+    expect(billAfter.body.bill.description).toBe("Shared dinner");
+    expect(dashboardAfter.body.dashboard.totalOwedToYouCents).toBe(
+      dashboardBefore.body.dashboard.totalOwedToYouCents,
+    );
+    expect(removedEvent).toMatchObject({
+      type: "FRIEND_REMOVED",
+      message: "removed you as a friend.",
+      billId: null,
+      friendInvitationId: null,
+      friendshipId: null,
+      actor: { id: remover.user.id },
+    });
   });
 });
 

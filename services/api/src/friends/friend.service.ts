@@ -1,4 +1,5 @@
 import type { PrismaTransaction } from "../db/userContext";
+import { createActivity } from "../activity/activity.service";
 import { safeUserSelect } from "../auth/auth.types";
 import { billInclude, presentBill } from "../bills/bill.service";
 import { billsSharedBetween } from "../bills/participants";
@@ -59,4 +60,34 @@ export async function getFriend(tx: PrismaTransaction, userId: string, friendshi
     friend: friendForUser(friendship, userId),
     bills,
   };
+}
+
+export async function removeFriend(
+  tx: PrismaTransaction,
+  userId: string,
+  friendshipId: string,
+) {
+  const friendship = await tx.friendship.findFirst({
+    where: {
+      id: friendshipId,
+      OR: [{ userAId: userId }, { userBId: userId }],
+    },
+    select: { id: true, userAId: true, userBId: true },
+  });
+
+  if (!friendship) {
+    throw new ApiError(404, "FRIENDSHIP_NOT_FOUND", "Friendship not found");
+  }
+
+  const friendUserId =
+    friendship.userAId === userId ? friendship.userBId : friendship.userAId;
+
+  await createActivity(tx, {
+    actorId: userId,
+    recipientIds: [friendUserId],
+    type: "FRIEND_REMOVED",
+    message: "removed you as a friend.",
+  });
+
+  await tx.friendship.delete({ where: { id: friendship.id } });
 }

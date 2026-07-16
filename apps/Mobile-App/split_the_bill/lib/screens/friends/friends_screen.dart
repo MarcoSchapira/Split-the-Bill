@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../api/api_exception.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
@@ -37,6 +38,7 @@ class _FriendDetailScreenState extends ConsumerState<FriendDetailScreen> {
   bool _showPassedRequests = false;
   String? _settlingShareId;
   bool _isSettlingAll = false;
+  bool _isRemoving = false;
 
   @override
   void initState() {
@@ -169,9 +171,51 @@ class _FriendDetailScreenState extends ConsumerState<FriendDetailScreen> {
     }
   }
 
+  Future<void> _openRemoveDialog({required String friendName}) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierColor: AppColors.modalBackdrop,
+      builder: (context) => _RemoveFriendConfirmDialog(friendName: friendName),
+    );
+    if (confirmed == true && mounted) {
+      await _removeFriend();
+    }
+  }
+
+  Future<void> _removeFriend() async {
+    if (_isRemoving) return;
+    setState(() => _isRemoving = true);
+
+    try {
+      await ref.read(friendsApiProvider).removeFriend(widget.friendshipId);
+      notifyDataChanged(ref);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Friend removed.')),
+        );
+        context.pop();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              apiErrorMessage(e, 'Unable to remove this friend.'),
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isRemoving = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    ref.listen<int>(dataRefreshProvider, (_, __) => _load());
+    ref.listen<int>(dataRefreshProvider, (_, _) {
+      if (_isRemoving) return;
+      _load();
+    });
 
     final friendship = _friendship;
     final currentUserId = ref.watch(authProvider).user?.id;
@@ -191,6 +235,25 @@ class _FriendDetailScreenState extends ConsumerState<FriendDetailScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(friendName),
+        actions: [
+          if (friendship != null)
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert),
+              tooltip: 'Friend options',
+              enabled: !_isRemoving,
+              onSelected: (value) {
+                if (value == 'remove') {
+                  _openRemoveDialog(friendName: friendName);
+                }
+              },
+              itemBuilder: (context) => const [
+                PopupMenuItem<String>(
+                  value: 'remove',
+                  child: Text('Remove friend'),
+                ),
+              ],
+            ),
+        ],
       ),
       body: _isLoading && friendship == null
           ? const LoadingView(message: 'Loading friend...')
@@ -591,6 +654,78 @@ class _SettleUpConfirmDialog extends StatelessWidget {
             const SizedBox(height: 24),
             PrimaryButton(
               label: 'Confirm',
+              onPressed: () => Navigator.of(context).pop(true),
+            ),
+            const SizedBox(height: 10),
+            SecondaryButton(
+              label: 'Cancel',
+              onPressed: () => Navigator.of(context).pop(false),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RemoveFriendConfirmDialog extends StatelessWidget {
+  const _RemoveFriendConfirmDialog({required this.friendName});
+
+  final String friendName;
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      backgroundColor: AppColors.surface,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(22, 28, 22, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: AppColors.errorBg,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: AppColors.error.withValues(alpha: 0.2),
+                  ),
+                ),
+                child: const Icon(
+                  Icons.person_remove_outlined,
+                  color: AppColors.error,
+                  size: 30,
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Remove friend?',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.textH,
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              '$friendName will no longer appear in your friends list. '
+              'Existing bills with them will not be affected.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.text.withValues(alpha: 0.9),
+                fontSize: 14,
+                height: 1.45,
+              ),
+            ),
+            const SizedBox(height: 24),
+            PrimaryButton(
+              label: 'Remove friend',
               onPressed: () => Navigator.of(context).pop(true),
             ),
             const SizedBox(height: 10),

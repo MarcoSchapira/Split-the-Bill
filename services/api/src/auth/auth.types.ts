@@ -29,6 +29,25 @@ export const sendRegistrationCodeSchema = z
   })
   .strict();
 
+export const sendDeleteAccountCodeSchema = z
+  .object({
+    email: z.string().trim().email().transform((email) => email.toLowerCase()),
+  })
+  .strict();
+
+export const verifyDeleteAccountCodeSchema = z
+  .object({
+    email: z.string().trim().email().transform((email) => email.toLowerCase()),
+    code: z.string().regex(/^\d{6}$/, "Verification code must be 6 digits"),
+  })
+  .strict();
+
+export const confirmDeleteAccountSchema = z
+  .object({
+    deletionToken: z.string().min(1),
+  })
+  .strict();
+
 export const loginSchema = z
   .object({
     email: z.string().trim().email().transform((email) => email.toLowerCase()),
@@ -60,6 +79,7 @@ export type AuthenticatedUser = {
   email: string;
   name: string | null;
   createdAt: Date;
+  aiReceiptConsentAt: Date | null;
 };
 
 export type AuthResponse = {
@@ -94,4 +114,5 @@ export const safeUserSelect = {
   email: true,
   name: true,
   createdAt: true,
+  aiReceiptConsentAt: true,
 } as const;

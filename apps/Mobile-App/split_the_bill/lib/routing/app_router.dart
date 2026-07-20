@@ -14,19 +14,22 @@ import '../screens/groups/groups_screen.dart';
 import '../screens/groups/group_detail_screen.dart';
 import '../screens/friends/friends_screen.dart';
 import '../screens/invitations/invitations_screen.dart';
-import '../screens/settings/legal_placeholder_screen.dart';
+import '../screens/settings/legal_document_screen.dart';
 import '../screens/settings/settings_screen.dart';
 import '../widgets/app_scaffold.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
-  final auth = ref.watch(authProvider);
+  // Only watch auth flags needed for redirects. Watching the full AuthState
+  // would recreate GoRouter on profile updates (e.g. AI consent) and drop
+  // route `extra` data such as receipt image bytes.
+  final isLoading = ref.watch(authProvider.select((s) => s.isLoading));
+  final isAuthenticated =
+      ref.watch(authProvider.select((s) => s.isAuthenticated));
 
   return GoRouter(
     initialLocation: '/dashboard',
     refreshListenable: _AuthRefreshListenable(ref),
-    redirect: (context, state) {
-      final isLoading = auth.isLoading;
-      final isAuthenticated = auth.isAuthenticated;
+      redirect: (context, state) {
       final isAuthRoute =
           state.matchedLocation == '/login' ||
           state.matchedLocation == '/register';

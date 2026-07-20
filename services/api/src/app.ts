@@ -37,11 +37,16 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(requireCsrf);
 
+// HTTP rate limits are IP-keyed, which would throttle the integration suite
+// (every supertest request shares one IP). Service-level caps still apply in tests.
+const skipRateLimitInTests = () => process.env.NODE_ENV === "test";
+
 const authRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: skipRateLimitInTests,
   message: {
     error: { code: "RATE_LIMITED", message: "Too many authentication attempts. Try again later." },
   },
@@ -52,6 +57,7 @@ const sendRegistrationCodeRateLimit = rateLimit({
   max: 5,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: skipRateLimitInTests,
   message: {
     error: {
       code: "RATE_LIMITED",
@@ -60,11 +66,39 @@ const sendRegistrationCodeRateLimit = rateLimit({
   },
 });
 
+const sendDeleteAccountCodeRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: skipRateLimitInTests,
+  message: {
+    error: {
+      code: "RATE_LIMITED",
+      message: "Too many verification code requests. Try again later.",
+    },
+  },
+});
+
+function deleteAccountRateLimit() {
+  return rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    skip: skipRateLimitInTests,
+    message: {
+      error: { code: "RATE_LIMITED", message: "Too many attempts. Try again later." },
+    },
+  });
+}
+
 const invitationRateLimit = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 30,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: skipRateLimitInTests,
   message: {
     error: { code: "RATE_LIMITED", message: "Too many invitations sent. Try again later." },
   },
@@ -75,6 +109,9 @@ app.use("/auth/register/send-code", sendRegistrationCodeRateLimit);
 app.use("/auth/register", authRateLimit);
 app.use("/auth/refresh", authRateLimit);
 app.use("/auth/change-password", authRateLimit);
+app.use("/auth/account/send-delete-code", sendDeleteAccountCodeRateLimit);
+app.use("/auth/account/verify-delete-code", deleteAccountRateLimit());
+app.use("/auth/account/confirm-delete", deleteAccountRateLimit());
 app.use("/friend-invitations", invitationRateLimit);
 
 app.get("/", (_req, res) => {

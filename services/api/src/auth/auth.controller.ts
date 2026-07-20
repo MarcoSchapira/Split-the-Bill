@@ -12,20 +12,27 @@ import {
 import {
   allowAuthTokenResponse,
   changePasswordSchema,
+  confirmDeleteAccountSchema,
   isMobileClient,
   loginSchema,
   mobileRefreshSchema,
   registerSchema,
+  sendDeleteAccountCodeSchema,
   sendRegistrationCodeSchema,
   updateProfileSchema,
+  verifyDeleteAccountCodeSchema,
 } from "./auth.types";
 import {
   changeUserPassword,
+  confirmAccountDeletion,
   deleteUserAccount,
   loginUser,
+  recordAiReceiptConsent,
   registerUser,
+  requestAccountDeletionCode,
   sendRegistrationVerificationCode,
   updateUserProfile,
+  verifyAccountDeletionRequest,
 } from "./auth.service";
 import { verifyJwt } from "./jwt";
 import {
@@ -194,6 +201,12 @@ export const updateMe: RequestHandler = async (req, res) => {
   res.json({ user: updated });
 };
 
+export const recordAiConsent: RequestHandler = async (req, res) => {
+  const user = currentUser(req);
+  const updated = await recordAiReceiptConsent(user.id);
+  res.json({ user: updated });
+};
+
 export const changePassword: RequestHandler = async (req, res) => {
   const user = currentUser(req);
   if (!req.sessionId) {
@@ -215,6 +228,28 @@ export const logoutAll: RequestHandler = async (req, res) => {
 export const deleteAccount: RequestHandler = async (req, res) => {
   const user = currentUser(req);
   await deleteUserAccount(user.id);
+  clearAuthCookies(res);
+  res.status(204).send();
+};
+
+export const sendDeleteAccountCode: RequestHandler = async (req, res) => {
+  const input = sendDeleteAccountCodeSchema.parse(req.body);
+  await requestAccountDeletionCode(input.email);
+  res.json({
+    message:
+      "If an EquiShare account exists for this email address, a verification code has been sent.",
+  });
+};
+
+export const verifyDeleteAccountCode: RequestHandler = async (req, res) => {
+  const input = verifyDeleteAccountCodeSchema.parse(req.body);
+  const deletionToken = await verifyAccountDeletionRequest(input.email, input.code);
+  res.json({ deletionToken });
+};
+
+export const confirmDeleteAccount: RequestHandler = async (req, res) => {
+  const input = confirmDeleteAccountSchema.parse(req.body);
+  await confirmAccountDeletion(input.deletionToken);
   clearAuthCookies(res);
   res.status(204).send();
 };

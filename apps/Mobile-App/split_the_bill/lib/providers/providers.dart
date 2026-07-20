@@ -143,6 +143,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = AuthState(user: user, isLoading: false);
   }
 
+  Future<void> recordAiReceiptConsent() async {
+    final user = await _authApi.recordAiReceiptConsent();
+    await _storage.saveUserJson(jsonEncode(user.toJson()));
+    state = state.copyWith(user: user);
+  }
+
   Future<void> changePassword({
     required String currentPassword,
     required String newPassword,

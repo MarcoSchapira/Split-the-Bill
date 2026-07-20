@@ -1,7 +1,7 @@
 # Privacy Policy
 
-**Effective Date:** July 16, 2026
-**Last Updated:** July 16, 2026
+**Effective Date:** July 20, 2026
+**Last Updated:** July 20, 2026
 
 ## 1. Introduction
 
@@ -59,11 +59,9 @@ When you create or maintain an EquiShare account, we may collect:
 * Your password in hashed form;
 * An internal user identifier;
 * Account creation and update dates;
-* Email-verification status and date;
-* An internal authentication-provider marker for local email-and-password accounts (and for deleted-account state);
+* Email-verification status and related dates;
 * Verification-code records;
-* Session records;
-* Hashed refresh tokens; and
+* Session and authentication-token records; and
 * Information associated with password changes, session revocation, and account security.
 
 Passwords are not stored in readable form.
@@ -139,12 +137,12 @@ When you create, edit, share, settle, or delete a bill, we may collect:
 * Bill description;
 * Bill source, such as manual entry or receipt capture;
 * Date of the expense;
-* Total amount stored as an integer currency subunit (for example, cents) without a separate currency code;
+* Total amount;
 * Creator and payer identifiers;
 * Participant identifiers;
-* Group identifier;
+* Group identifier, where applicable;
 * Split type and split settings;
-* Amount assigned to each participant as a bill-share amount;
+* Amount assigned to each participant;
 * Information indicating who marked an amount as paid;
 * Information indicating who confirmed payment;
 * Settlement status;
@@ -157,9 +155,7 @@ Bill line-item information may include:
 * Quantity;
 * Unit price;
 * Line total; and
-* Participant assignments identifying which users are assigned to a line item.
-
-Monetary amounts owed by each participant are stored separately as bill-share amounts, not as per-participant portions on each line-item assignment.
+* Which participants are assigned to a line item.
 
 Participants in a shared bill may be able to see information necessary to understand the expense, including:
 
@@ -219,7 +215,7 @@ When you photograph or select a receipt:
 5. The suggested information is returned to you for review and editing.
 6. Structured receipt information is saved only if you choose to save the bill.
 
-EquiShare does not intentionally save the original receipt image in its persistent database or permanent object storage. The image may exist temporarily in application memory, network systems, and service-provider systems while the request is processed.
+EquiShare does not intentionally retain the original receipt image after extraction is complete. The image may exist temporarily in application memory, network systems, and service-provider systems while the request is processed.
 
 As of the Effective Date of this Privacy Policy, EquiShare uses a billing-enabled Gemini API service. Under Google’s applicable paid-service terms as of that date, Google states that prompts, associated files, and responses are not used to improve Google’s products. Google’s terms may change. Google may still process, log, cache, or temporarily retain receipt content for security, abuse monitoring, policy enforcement, service operation, caching, or legal purposes in accordance with Google’s applicable terms and data-processing commitments.
 
@@ -248,7 +244,7 @@ Activity records may include:
 * References to bills, groups, invitations, or friendships; and
 * Creation date.
 
-Dismissing an activity item removes it from that user’s feed by removing the recipient link for that user. EquiShare does not currently store a separate dismissal-status field on the activity event.
+Users may dismiss activity items from their feed. Certain underlying activity records may remain where required for other participants, security, dispute resolution, or legal obligations.
 
 Activity is intended to be visible only to users who are relevant to the event.
 
@@ -394,21 +390,23 @@ You should only share bills and information with people you intend to receive th
 
 ### 6.2 Service providers
 
-We use third-party providers to operate the Service. These providers may process personal information subject to their contracts, terms, security practices, and legal obligations.
+We use third-party service providers to operate and support the Service. These providers may process personal information on our behalf subject to their applicable contracts, terms, data-processing commitments, security practices, and legal obligations.
 
-Our principal providers include:
+We require service providers that process personal information on our behalf to process it only for authorized purposes and to provide the same or equivalent protection for user data as described in this Privacy Policy and required by applicable law and applicable platform privacy requirements.
+
+Our principal service providers include:
 
 **Neon**
 
-Neon hosts the PostgreSQL database used to store account, authentication, friendship, group, bill, settlement, and activity information.
+Neon provides database hosting for account, authentication, friendship, group, bill, settlement, and activity information.
 
 **Google Cloud**
 
-Google Cloud Run hosts the EquiShare backend. Google Cloud may process API traffic, authentication requests, application operations, temporary receipt-image buffers, technical information, and server logs.
+Google Cloud hosts the EquiShare backend and may process API traffic, authentication requests, application operations, temporary receipt images, technical information, and server logs.
 
 **Cloudflare**
 
-Cloudflare provides website hosting, DNS, content delivery, network security, and web API proxying. Cloudflare may process IP addresses, browser requests, request headers, network information, and web API traffic.
+Cloudflare provides website hosting, DNS, content delivery, network security, and related web traffic handling. Cloudflare may process IP addresses, browser requests, request headers, network information, and web API traffic.
 
 **Resend**
 
@@ -416,9 +414,10 @@ Resend delivers transactional registration-verification emails. Resend receives 
 
 **Google Gemini**
 
-The Google Gemini API performs automated receipt extraction. Google receives the receipt image, extraction instructions, requested output format, and related technical information.
+The Google Gemini API performs automated receipt extraction. Google receives the receipt image, extraction instructions, requested output information, and related technical information.
 
-As of the Effective Date of this Privacy Policy, EquiShare uses a billing-enabled Gemini API service. Under Google’s applicable paid-service terms as of that date, Google states that prompts, associated files, and responses are not used to improve Google’s products. Google’s terms may change. Google may nevertheless process, log, cache, or temporarily retain data for service operation, security, abuse monitoring, policy enforcement, caching, or legal purposes.
+As of the Effective Date of this Privacy Policy, EquiShare uses a billing-enabled Gemini API service. Under Google’s applicable paid-service terms as of that date, Google states that prompts, associated files, and responses are not used to improve Google’s products. Google’s terms may change. Google may nevertheless process, log, cache, or temporarily retain data for service operation, security, abuse monitoring, policy enforcement, caching, or legal purposes in accordance with its applicable terms and data-processing commitments.
+
 
 ### 6.3 Apple and Google app stores
 
@@ -472,14 +471,7 @@ If these practices change, we will update this Privacy Policy and provide any le
 
 The web application uses cookies and browser storage that are necessary to authenticate users, maintain sessions, prevent request forgery, and provide account functionality.
 
-These technologies may include:
-
-* HttpOnly access-token cookies;
-* HttpOnly refresh-token cookies;
-* A cross-site request forgery protection cookie; and
-* Browser local storage containing a limited cached account profile.
-
-The cached profile may include your internal user identifier, email address, display name, and account creation information.
+These technologies may include authentication cookies, session-related cookies used to help prevent request forgery, and limited browser storage for a cached account profile (such as your user identifier, email address, display name, and account creation information).
 
 We do not currently use advertising cookies or dedicated third-party behavioural analytics cookies.
 
@@ -487,7 +479,7 @@ You may configure your browser to block or remove cookies and local storage, but
 
 ### 8.2 Mobile application
 
-The mobile application stores authentication tokens and a limited cached profile using platform-provided secure storage, such as the iOS Keychain or encrypted Android storage.
+The mobile application stores authentication credentials and a limited cached profile using the device’s platform-provided secure storage.
 
 Logging out or deleting the application may remove some locally stored information. Server-side information remains until it is deleted or de-identified under the procedures described in this Privacy Policy.
 
@@ -510,17 +502,15 @@ Retention depends on the type of information and the reason it is processed.
 Examples include:
 
 * Receipt images are not intentionally retained by EquiShare after the receipt-extraction request is completed;
-* Email-verification codes generally become unusable after approximately ten minutes;
-* Access tokens generally become unusable after approximately fifteen minutes;
-* Refresh tokens generally become unusable after approximately thirty days unless rotated or revoked;
-* Underlying email-verification and session records may remain in our systems after expiry until removed by account deletion, security processes, or later cleanup;
+* Email-verification codes and authentication credentials are short-lived and become unusable after they expire or are revoked;
+* Related verification and session records may remain until removed by account deletion, security processes, or later cleanup;
 * Active account, bill, friendship, group, and activity information may be retained while the account remains active;
 * Shared bill records may remain after one participant deletes their account where needed by other participants. Bills that involved only the deleted user are deleted as described in Section 10;
 * Technical and security logs may remain according to operational needs and provider configurations;
 * Information may remain temporarily in service-provider backups or disaster-recovery systems; and
 * Information involved in a dispute, security incident, or legal obligation may be retained until the matter is resolved.
 
-Deleting a bill from the active interface may not erase every related record immediately. A bill may be soft-deleted and remain in our systems for recovery, security, dispute resolution, backup, or technical purposes even when it is no longer shown in the ordinary user interface.
+Deleting a bill from the ordinary user interface may not erase every related record immediately. Related records may remain in our systems for recovery, security, dispute resolution, backup, or technical purposes even when the bill is no longer shown to you.
 
 When information is no longer reasonably required, we take steps to delete, anonymize, or otherwise place it beyond ordinary use, subject to technical and legal limitations.
 
@@ -536,17 +526,17 @@ We may require reasonable information to verify your identity and protect the ac
 
 When an account-deletion request is completed, the result for each category is:
 
-* **Email and display name** — de-identified. The email is replaced with a non-functional placeholder tied to the internal user id, and the display name is set to “Deleted Account.” The original email and display name are no longer stored on the account record.
-* **Password hash** — Deleted. The password hash and provider user id are cleared; the account cannot be used to sign in.
-* **Sessions and refresh tokens** — Revoked. All active sessions are marked revoked so existing access and refresh tokens stop working. Session rows may remain in the database in revoked form.
-* **Verification records** — Deleted. Email-verification records for the account’s former email address are deleted.
-* **Friend invitations** — Deleted. Sent and received friend invitations involving the account are deleted.
-* **Friendships** — Deleted. Friendship records involving the account are deleted.
-* **Group memberships** — Deleted. The user’s memberships are removed. Groups themselves and other members’ data remain.
+* **Email and display name** — De-identified. The original email and display name are removed from the account and replaced with a non-identifying placeholder such as “Deleted Account.”
+* **Password and sign-in credentials** — Deleted or disabled so the account cannot be used to sign in.
+* **Sessions and authentication tokens** — Revoked so existing sessions stop working.
+* **Verification records** — Deleted.
+* **Friend invitations** — Deleted.
+* **Friendships** — Deleted.
+* **Group memberships** — Removed. Groups themselves and other members’ data remain.
 * **Solo bills** — Deleted. Bills created by the user that were not shared with friends or a group are deleted.
-* **Shared bills** — Retained for other participants. The deleted user’s identity on those bills is shown as “Deleted Account” (or similar); amounts, shares, settlement status, and bill history remain associated with the de-identified account record and internal user id.
-* **Activity records** — Partially deleted / partially retained. The deleted user’s activity-feed links (recipient records) are deleted. Activity events that other users still need (for example events tied to retained shared bills) may remain and will show the de-identified “Deleted Account” identity rather than the original email or name.
-* **Cloud logs** — Retained according to operational and provider lifecycles. Account deletion does not purge encrypted backups, disaster-recovery copies, or operational/security logs held by EquiShare or its providers. Those copies are isolated from ordinary product use and are deleted or overwritten according to the applicable backup or log retention cycle.
+* **Shared bills** — Retained for other participants. The deleted user’s identity on those bills is shown as “Deleted Account” (or similar); amounts, shares, settlement status, and bill history remain available to other participants.
+* **Activity records** — Removed from the deleted user’s feed. Activity that other users still need (for example activity tied to retained shared bills) may remain and will show the de-identified “Deleted Account” identity rather than the original email or name.
+* **Backups and logs** — Account deletion does not immediately purge backups, disaster-recovery copies, or operational/security logs held by EquiShare or its providers. Those copies are isolated from ordinary product use and are deleted or overwritten according to applicable retention cycles.
 
 After deletion is completed, login with the deleted account is disabled. Registering again with the same email address creates a new account.
 
@@ -556,18 +546,14 @@ We use administrative, technical, and organizational safeguards designed to prot
 
 Safeguards may include:
 
-* HTTPS encryption for production network traffic;
-* Secure database connections;
+* Encryption of network traffic in production;
+* Secure connections to our data stores;
 * Hashed passwords;
-* Hashed refresh tokens;
-* Cryptographically protected verification codes;
-* Short-lived access tokens;
-* Refresh-token rotation and revocation;
-* Secure and HttpOnly authentication cookies where appropriate;
-* Cross-site request forgery protections;
-* Restricted cross-origin access;
+* Short-lived, revocable authentication credentials;
+* Protected verification codes;
+* Secure authentication cookies where appropriate;
+* Protections against common web attacks such as request forgery;
 * Rate limiting;
-* Security-related HTTP headers;
 * Mobile secure storage;
 * Provider-level encryption and access controls;
 * User-scoped authorization; and
@@ -643,13 +629,13 @@ EquiShare does not sell personal information or share it for cross-context behav
 
 ## 14. Children and Minimum Age
 
-EquiShare is intended only for people who are at least **16 years old**.
+EquiShare is intended only for people who are at least **18 years old**.
 
-We do not knowingly collect personal information from anyone under 16. We do not request a date of birth and do not currently operate a separate age-verification system.
+We do not knowingly collect personal information from anyone under 18. We do not request a date of birth and do not currently operate a separate age-verification system.
 
-If we learn that an individual under 16 has provided personal information, we may suspend or delete the account and take reasonable steps to remove or anonymize the information, subject to information that must remain in shared records for other users.
+If we learn that an individual under 18 has provided personal information, we may suspend or delete the account and take reasonable steps to remove or anonymize the information, subject to information that must remain in shared records for other users.
 
-A parent or legal guardian who believes that a person under 16 has provided personal information may contact [privacy@split-the-bill.net](mailto:privacy@split-the-bill.net).
+A parent or legal guardian who believes that a person under 18 has provided personal information may contact [privacy@split-the-bill.net](mailto:privacy@split-the-bill.net).
 
 ## 15. Third-Party Websites and Services
 

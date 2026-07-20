@@ -6,14 +6,17 @@ import { ActivityPage } from './pages/ActivityPage'
 import { BillDetailPage } from './pages/BillDetailPage'
 import { BillsPage } from './pages/BillsPage'
 import { DashboardPage } from './pages/DashboardPage'
+import { DeleteAccountPage } from './pages/DeleteAccountPage'
 import { FriendDetailPage } from './pages/FriendDetailPage'
 import { FriendsPage } from './pages/FriendsPage'
 import { InvitationsPage } from './pages/InvitationsPage'
 import { LandingPage } from './pages/LandingPage'
 import { OldLandingPage } from './pages/OldLandingPage'
 import { LoginPage } from './pages/LoginPage'
+import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { SettingsPage } from './pages/SettingsPage'
+import { TermsOfServicePage } from './pages/TermsOfServicePage'
 import './App.css'
 
 function App() {
@@ -21,6 +24,9 @@ function App() {
     <BrowserRouter>
       <AuthProvider>
         <Routes>
+          <Route path="/privacy" element={<PrivacyPolicyPage />} />
+          <Route path="/terms" element={<TermsOfServicePage />} />
+          <Route path="/delete-account" element={<DeleteAccountPage />} />
           <Route element={<PublicOnlyRoute />}>
             <Route path="/" element={<LandingPage />} />
             <Route path="/old-home" element={<OldLandingPage />} />

@@ -76,6 +76,17 @@ class AuthApi {
     }
   }
 
+  Future<User> recordAiReceiptConsent() async {
+    try {
+      final response = await _client.dio.post<Map<String, dynamic>>(
+        '/auth/ai-receipt-consent',
+      );
+      return User.fromJson(response.data!['user'] as Map<String, dynamic>);
+    } on DioException catch (e) {
+      _client.throwApiError(e, 'Unable to save AI receipt consent.');
+    }
+  }
+
   Future<void> changePassword({
     required String currentPassword,
     required String newPassword,

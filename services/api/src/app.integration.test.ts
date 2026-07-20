@@ -9,6 +9,11 @@ import {
 } from "./test/registerHelper";
 import { MOBILE_CLIENT_HEADER, MOBILE_CLIENT_VALUE } from "./auth/auth.types";
 import {
+  clearTestRegistrationCodes,
+  getTestAccountDeletionCode,
+  hasTestAccountDeletedConfirmation,
+} from "./email/email.transport";
+import {
   DELETED_ACCOUNT_NAME,
   deletedAccountEmail,
 } from "./auth/auth.service";
@@ -592,6 +597,127 @@ describe("authentication API", () => {
     const reregister = await register("delete-me@example.com", "Back Again");
     expect(reregister.user.id).not.toBe(first.user.id);
     expect(reregister.user.email).toBe("delete-me@example.com");
+  });
+});
+
+describe("public account deletion API", () => {
+  it("responds generically without sending a code for unknown emails", async () => {
+    const response = await request(app)
+      .post("/auth/account/send-delete-code")
+      .send({ email: "nobody@example.com" });
+
+    expect(response.status).toBe(200);
+    expect(response.body.message).toContain("If an EquiShare account exists");
+    expect(getTestAccountDeletionCode("nobody@example.com")).toBeUndefined();
+  });
+
+  it("deletes an account via email code and sends a confirmation email", async () => {
+    const account = await register("web-delete@example.com", "Web Delete");
+
+    const sent = await request(app)
+      .post("/auth/account/send-delete-code")
+      .send({ email: " WEB-DELETE@example.com " });
+    expect(sent.status).toBe(200);
+
+    const code = getTestAccountDeletionCode("web-delete@example.com");
+    expect(code).toMatch(/^\d{6}$/);
+
+    const verified = await request(app)
+      .post("/auth/account/verify-delete-code")
+      .send({ email: "web-delete@example.com", code });
+    expect(verified.status).toBe(200);
+    expect(verified.body.deletionToken).toEqual(expect.any(String));
+
+    const confirmed = await request(app)
+      .post("/auth/account/confirm-delete")
+      .send({ deletionToken: verified.body.deletionToken });
+    expect(confirmed.status).toBe(204);
+
+    const tombstone = await prismaAdmin.user.findUniqueOrThrow({
+      where: { id: account.user.id },
+    });
+    expect(tombstone).toMatchObject({
+      name: DELETED_ACCOUNT_NAME,
+      email: deletedAccountEmail(account.user.id),
+      passwordHash: null,
+      authProvider: "deleted",
+    });
+
+    expect(hasTestAccountDeletedConfirmation("web-delete@example.com")).toBe(true);
+
+    const meRejected = await request(app).get("/auth/me").set(bearer(account.token));
+    expect(meRejected.status).toBe(401);
+
+    // A second request for the now-deleted email is still generic and sends nothing.
+    clearTestRegistrationCodes();
+    const resent = await request(app)
+      .post("/auth/account/send-delete-code")
+      .send({ email: "web-delete@example.com" });
+    expect(resent.status).toBe(200);
+    expect(getTestAccountDeletionCode("web-delete@example.com")).toBeUndefined();
+  });
+
+  it("rejects wrong deletion codes and locks after too many attempts", async () => {
+    await register("delete-attempts@example.com");
+
+    const sent = await request(app)
+      .post("/auth/account/send-delete-code")
+      .send({ email: "delete-attempts@example.com" });
+    expect(sent.status).toBe(200);
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const response = await request(app)
+        .post("/auth/account/verify-delete-code")
+        .send({ email: "delete-attempts@example.com", code: "000000" });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error.code).toBe("VERIFICATION_CODE_INVALID");
+    }
+
+    const locked = await request(app)
+      .post("/auth/account/verify-delete-code")
+      .send({ email: "delete-attempts@example.com", code: "000000" });
+
+    expect(locked.status).toBe(429);
+    expect(locked.body.error.code).toBe("VERIFICATION_ATTEMPTS_EXCEEDED");
+
+    const stillActive = await prismaAdmin.user.findUniqueOrThrow({
+      where: { email: "delete-attempts@example.com" },
+    });
+    expect(stillActive.authProvider).toBe("local");
+  });
+
+  it("rejects expired deletion codes", async () => {
+    await register("delete-expired@example.com");
+
+    const sent = await request(app)
+      .post("/auth/account/send-delete-code")
+      .send({ email: "delete-expired@example.com" });
+    expect(sent.status).toBe(200);
+
+    await prismaAdmin.emailVerification.updateMany({
+      where: { email: "delete-expired@example.com" },
+      data: { expiresAt: new Date(Date.now() - 60_000) },
+    });
+
+    const response = await request(app)
+      .post("/auth/account/verify-delete-code")
+      .send({
+        email: "delete-expired@example.com",
+        code: getTestAccountDeletionCode("delete-expired@example.com"),
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error.code).toBe("VERIFICATION_CODE_INVALID");
+  });
+
+  it("rejects confirm-delete with an invalid deletion token", async () => {
+    const response = await request(app)
+      .post("/auth/account/confirm-delete")
+      .send({ deletionToken: "not-a-real-token" });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error.code).toBe("DELETION_TOKEN_INVALID");
   });
 });
 

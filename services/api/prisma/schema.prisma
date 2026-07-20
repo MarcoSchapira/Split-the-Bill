@@ -15,6 +15,7 @@ model User {
   authProvider   String   @default("local") @map("auth_provider")
   providerUserId String?   @map("provider_user_id")
   emailVerifiedAt DateTime? @map("email_verified_at")
+  aiReceiptConsentAt DateTime? @map("ai_receipt_consent_at")
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
 
@@ -55,12 +56,14 @@ model Session {
 model EmailVerification {
   id        String   @id @default(uuid())
   email     String
+  purpose   String   @default("registration")
   codeHash  String   @map("code_hash")
   attempts  Int      @default(0)
   expiresAt DateTime @map("expires_at")
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([email])
+  @@index([email, purpose])
   @@map("email_verifications")
 }
 

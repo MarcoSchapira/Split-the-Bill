@@ -40,6 +40,9 @@ apiClient.interceptors.response.use(
       !error.config?.url?.includes('/auth/login') &&
       !error.config?.url?.includes('/auth/register') &&
       !error.config?.url?.includes('/auth/register/send-code') &&
+      !error.config?.url?.includes('/auth/account/send-delete-code') &&
+      !error.config?.url?.includes('/auth/account/verify-delete-code') &&
+      !error.config?.url?.includes('/auth/account/confirm-delete') &&
       !logoutInFlight
     ) {
       logoutInFlight = true

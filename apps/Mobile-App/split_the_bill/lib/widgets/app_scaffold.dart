@@ -58,6 +58,37 @@ class AppScaffold extends StatelessWidget {
                 )
               : null,
           body: navigationShell,
+          floatingActionButtonLocation: const _CaptureFabLocation(),
+          floatingActionButton: Container(
+            width: _captureButtonDiameter,
+            height: _captureButtonDiameter,
+            decoration: BoxDecoration(
+              color: AppColors.accent,
+              shape: BoxShape.circle,
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x2B112824),
+                  blurRadius: 18,
+                  offset: Offset(0, 8),
+                ),
+              ],
+              border: Border.all(color: AppColors.border, width: 4),
+            ),
+            child: Material(
+              color: Colors.transparent,
+              shape: const CircleBorder(),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  showCaptureOptionsSheet(context);
+                },
+                child: const Center(
+                  child: Icon(Icons.camera_alt, color: Colors.white, size: 30),
+                ),
+              ),
+            ),
+          ),
           bottomNavigationBar: ColoredBox(
             color: AppColors.surface,
             child: SafeArea(
@@ -65,7 +96,6 @@ class AppScaffold extends StatelessWidget {
               child: SizedBox(
                 height: _navigationBarHeight,
                 child: Stack(
-                  clipBehavior: Clip.none,
                   children: [
                     Positioned.fill(
                       child: Padding(
@@ -123,43 +153,6 @@ class AppScaffold extends StatelessWidget {
                       ),
                     ),
                     const Positioned.fill(child: _CenterNavSlotBlocker()),
-                    Positioned(
-                      top: -_captureVerticalOffset,
-                      left: 0,
-                      right: 0,
-                      child: Center(
-                        child: Container(
-                          width: _captureButtonDiameter,
-                          height: _captureButtonDiameter,
-                          decoration: BoxDecoration(
-                            color: AppColors.accent,
-                            shape: BoxShape.circle,
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Color(0x2B112824),
-                                blurRadius: 18,
-                                offset: Offset(0, 8),
-                              ),
-                            ],
-                            border: Border.all(color: AppColors.border, width: 4),
-                          ),
-                          child: Material(
-                            color: Colors.transparent,
-                            shape: const CircleBorder(),
-                            child: InkWell(
-                              customBorder: const CircleBorder(),
-                              onTap: () {
-                                HapticFeedback.lightImpact();
-                                showCaptureOptionsSheet(context);
-                              },
-                              child: const Center(
-                                child: Icon(Icons.camera_alt, color: Colors.white, size: 30),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -182,6 +175,24 @@ class AppScaffold extends StatelessWidget {
       return navIndex - 1;
     }
     return navIndex;
+  }
+}
+
+/// Places the capture button so [_captureVerticalOffset] protrudes above the
+/// bottom navigation bar — matching the previous Stack overflow layout, while
+/// remaining fully hit-testable via the Scaffold FAB layer.
+class _CaptureFabLocation extends FloatingActionButtonLocation {
+  const _CaptureFabLocation();
+
+  @override
+  Offset getOffset(ScaffoldPrelayoutGeometry scaffoldGeometry) {
+    final fabX =
+        (scaffoldGeometry.scaffoldSize.width -
+            scaffoldGeometry.floatingActionButtonSize.width) /
+        2.0;
+    final fabY =
+        scaffoldGeometry.contentBottom - AppScaffold._captureVerticalOffset;
+    return Offset(fabX, fabY);
   }
 }
 

@@ -3,9 +3,13 @@ import { prismaAdmin } from "../db/prisma";
 import { withUserContext } from "../db/userContext";
 import { ApiError } from "../http/errors";
 import {
+  sendAccountDeletionVerificationCode,
   sendRegistrationVerificationCode,
+  verifyAccountDeletionCode,
   verifyRegistrationCode,
 } from "./email-verification.service";
+import { signDeletionToken, verifyDeletionToken } from "./deletion-token";
+import { sendAccountDeletedConfirmationEmail } from "../email/email.service";
 import { claimPendingInvitations } from "../invitations/invitation-claim";
 import {
   safeUserSelect,
@@ -120,6 +124,29 @@ export async function updateUserProfile(
   return user;
 }
 
+export async function recordAiReceiptConsent(
+  userId: string,
+): Promise<AuthenticatedUser> {
+  const user = await withUserContext(userId, async (tx) => {
+    const existing = await tx.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: safeUserSelect,
+    });
+
+    if (existing.aiReceiptConsentAt != null) {
+      return existing;
+    }
+
+    return tx.user.update({
+      where: { id: userId },
+      data: { aiReceiptConsentAt: new Date() },
+      select: safeUserSelect,
+    });
+  });
+
+  return user;
+}
+
 export async function changeUserPassword(
   userId: string,
   sessionId: string,
@@ -218,4 +245,49 @@ export async function deleteUserAccount(userId: string): Promise<void> {
   await prismaAdmin.emailVerification.deleteMany({
     where: { email: previousEmail },
   });
+
+  await sendAccountDeletedConfirmationEmail(previousEmail);
+}
+
+export async function requestAccountDeletionCode(email: string): Promise<void> {
+  await sendAccountDeletionVerificationCode(email);
+}
+
+export async function verifyAccountDeletionRequest(
+  email: string,
+  code: string,
+): Promise<string> {
+  const normalizedEmail = email.toLowerCase();
+
+  await verifyAccountDeletionCode(normalizedEmail, code);
+
+  const user = await prismaAdmin.user.findUnique({
+    where: { email: normalizedEmail },
+    select: { id: true, authProvider: true },
+  });
+
+  if (!user || user.authProvider === "deleted") {
+    throw new ApiError(
+      400,
+      "VERIFICATION_CODE_INVALID",
+      "Verification code is invalid or expired",
+    );
+  }
+
+  return signDeletionToken({ userId: user.id, email: normalizedEmail });
+}
+
+export async function confirmAccountDeletion(deletionToken: string): Promise<void> {
+  const payload = verifyDeletionToken(deletionToken);
+
+  const user = await prismaAdmin.user.findUnique({
+    where: { id: payload.userId },
+    select: { id: true, email: true, authProvider: true },
+  });
+
+  if (!user || user.authProvider === "deleted" || user.email !== payload.email) {
+    throw new ApiError(400, "DELETION_TOKEN_INVALID", "Deletion request is invalid or expired");
+  }
+
+  await deleteUserAccount(user.id);
 }

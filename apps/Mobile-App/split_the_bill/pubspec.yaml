@@ -19,6 +19,9 @@ dependencies:
   image_picker: ^1.1.2
   permission_handler: ^11.3.1
   flutter_slidable: ^3.1.2
+  url_launcher: ^6.3.2
+  flutter_markdown_plus: ^1.0.12
+  shared_preferences: ^2.5.3
 
 dev_dependencies:
   flutter_test:
@@ -43,4 +46,6 @@ flutter:
   assets:
     - assets/equishare_logo_mobile.png
     - assets/equishare_logo_inverted.png
+    - assets/privacy_policy.md
+    - assets/terms_of_service.md
     - google_fonts/

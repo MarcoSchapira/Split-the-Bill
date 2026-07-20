@@ -1,10 +1,12 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../api/api_exception.dart';
 import '../../providers/providers.dart';
+import '../../screens/settings/legal_document_screen.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/common_widgets.dart';
 
@@ -19,11 +21,15 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   static const _resendCooldownSeconds = 60;
 
   bool _detailsStep = false;
+  bool _agreedToTerms = false;
+  bool _showTermsRequiredError = false;
   final _emailController = TextEditingController();
   final _nameController = TextEditingController();
   final _codeController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  late final TapGestureRecognizer _termsTap;
+  late final TapGestureRecognizer _privacyTap;
   String? _error;
   String? _info;
   bool _isSendingCode = false;
@@ -32,12 +38,35 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   Timer? _cooldownTimer;
 
   @override
+  void initState() {
+    super.initState();
+    _termsTap = TapGestureRecognizer()
+      ..onTap = () {
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => const TermsOfServiceScreen(),
+          ),
+        );
+      };
+    _privacyTap = TapGestureRecognizer()
+      ..onTap = () {
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => const PrivacyPolicyScreen(),
+          ),
+        );
+      };
+  }
+
+  @override
   void dispose() {
     _emailController.dispose();
     _nameController.dispose();
     _codeController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _termsTap.dispose();
+    _privacyTap.dispose();
     _cooldownTimer?.cancel();
     super.dispose();
   }
@@ -55,7 +84,15 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     });
   }
 
+  bool _ensureAgreedToTerms() {
+    if (_agreedToTerms) return true;
+    setState(() => _showTermsRequiredError = true);
+    return false;
+  }
+
   Future<void> _sendCode() async {
+    if (!_ensureAgreedToTerms()) return;
+
     setState(() {
       _error = null;
       _info = null;
@@ -77,6 +114,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 
   Future<void> _submit() async {
+    if (!_ensureAgreedToTerms()) return;
+
     setState(() => _error = null);
 
     final code = _codeController.text.trim();
@@ -110,6 +149,102 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
+  }
+
+  Widget _buildTermsAgreement() {
+    final borderColor =
+        _showTermsRequiredError ? AppColors.error : AppColors.border;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(12, 12, 14, 12),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: borderColor, width: 1.5),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 24,
+                height: 24,
+                child: Checkbox(
+                  value: _agreedToTerms,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                  side: BorderSide(
+                    color: _showTermsRequiredError
+                        ? AppColors.error
+                        : AppColors.border,
+                    width: 1.5,
+                  ),
+                  onChanged: (value) {
+                    setState(() {
+                      _agreedToTerms = value ?? false;
+                      if (_agreedToTerms) _showTermsRequiredError = false;
+                    });
+                  },
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text.rich(
+                  TextSpan(
+                    style: const TextStyle(
+                      fontSize: 14,
+                      height: 1.4,
+                      color: AppColors.text,
+                    ),
+                    children: [
+                      const TextSpan(
+                        text: 'By creating an account you agree to the ',
+                      ),
+                      TextSpan(
+                        text: 'Terms of Service',
+                        style: const TextStyle(
+                          color: AppColors.accent,
+                          fontWeight: FontWeight.w600,
+                          decoration: TextDecoration.underline,
+                          decorationColor: AppColors.accent,
+                        ),
+                        recognizer: _termsTap,
+                      ),
+                      const TextSpan(text: ' and '),
+                      TextSpan(
+                        text: 'Privacy Policy',
+                        style: const TextStyle(
+                          color: AppColors.accent,
+                          fontWeight: FontWeight.w600,
+                          decoration: TextDecoration.underline,
+                          decorationColor: AppColors.accent,
+                        ),
+                        recognizer: _privacyTap,
+                      ),
+                      const TextSpan(text: ' and confirm you are 18 years of age or older.'),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (_showTermsRequiredError) ...[
+          const SizedBox(height: 8),
+          const Text(
+            'Required',
+            style: TextStyle(
+              color: AppColors.error,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ],
+    );
   }
 
   @override
@@ -157,6 +292,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   keyboardType: TextInputType.emailAddress,
                   decoration: const InputDecoration(labelText: 'Email'),
                 ),
+                const SizedBox(height: 16),
+                _buildTermsAgreement(),
                 const SizedBox(height: 20),
                 PrimaryButton(
                   label: 'Send verification code',

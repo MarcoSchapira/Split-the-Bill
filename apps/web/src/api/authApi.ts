@@ -34,6 +34,25 @@ export async function logoutUser(): Promise<void> {
   await apiClient.post('/auth/logout')
 }
 
+export async function sendDeleteAccountCode(email: string): Promise<void> {
+  await apiClient.post('/auth/account/send-delete-code', { email })
+}
+
+export async function verifyDeleteAccountCode(
+  email: string,
+  code: string,
+): Promise<string> {
+  const response = await apiClient.post<{ deletionToken: string }>(
+    '/auth/account/verify-delete-code',
+    { email, code },
+  )
+  return response.data.deletionToken
+}
+
+export async function confirmDeleteAccount(deletionToken: string): Promise<void> {
+  await apiClient.post('/auth/account/confirm-delete', { deletionToken })
+}
+
 export async function refreshSession(): Promise<void> {
   await apiClient.post('/auth/refresh')
 }

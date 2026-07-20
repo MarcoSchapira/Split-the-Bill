@@ -3,6 +3,7 @@ export type User = {
   email: string;
   name: string | null;
   createdAt: string;
+  aiReceiptConsentAt?: string | null;
 };
 
 export type AuthResponse = {

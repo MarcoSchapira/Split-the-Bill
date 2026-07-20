@@ -123,6 +123,24 @@ class SettingsScreen extends ConsumerWidget {
                     ],
                   ),
                 ),
+                const SizedBox(height: 28),
+                const Center(
+                  child: Text.rich(
+                    TextSpan(
+                      style: TextStyle(fontSize: 13, color: Colors.black),
+                      children: [
+                        TextSpan(text: 'Email '),
+                        TextSpan(
+                          text: 'privacy@split-the-bill.net',
+                          style: TextStyle(color: AppColors.accent),
+                        ),
+                        TextSpan(text: ' for any help'),
+                      ],
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                const SizedBox(height: 28),
               ],
             ),
     );

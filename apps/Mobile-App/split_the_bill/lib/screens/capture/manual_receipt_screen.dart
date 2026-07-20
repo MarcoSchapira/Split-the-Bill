@@ -7,12 +7,14 @@ import '../../models/models.dart';
 import '../../models/receipt.dart';
 import '../../models/user.dart';
 import '../../providers/providers.dart';
+import '../../services/ai_receipt_consent_storage.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/capture_bill_split.dart';
 import '../../utils/even_split.dart';
 import '../../utils/format.dart';
 import '../../utils/manual_receipt_prefill.dart';
 import '../../widgets/common_widgets.dart';
+import '../../widgets/modals/ai_receipt_consent_dialog.dart';
 import '../../widgets/segmented_toggle.dart';
 
 class ManualSplitEntry {
@@ -27,6 +29,8 @@ enum _AdjustmentInputMode { percent, amount }
 enum _SplitMode { splitTotal, splitByLineItem }
 
 enum _SplitTarget { solo, friends, group }
+
+enum _ConsentResult { granted, cancelled, failed }
 
 class _ManualLineItemRow {
   _ManualLineItemRow({
@@ -128,13 +132,16 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
   BillSource _billSource = BillSource.manual;
   DateTime? _incurredAt;
   bool _parsing = false;
+  bool _awaitingConsent = false;
   String? _error;
   String? _titleError;
   String? _amountError;
+  List<int>? _imageBytes;
 
   @override
   void initState() {
     super.initState();
+    _imageBytes = widget.imageBytes;
     final currentUser = ref.read(authProvider).user;
     final bill = widget.initialBill;
     if (bill != null) {
@@ -153,9 +160,12 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
         _splitTarget = _SplitTarget.group;
         _selectedGroupId = widget.initialGroupId;
       }
-      if (widget.imageBytes != null) {
-        _parsing = true;
-        _parseReceipt();
+      if (_imageBytes != null) {
+        _awaitingConsent = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _parseReceipt();
+        });
       }
     }
     if (_lineItemRows.isEmpty && _lineItemsEnabled) {
@@ -265,10 +275,24 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
   }
 
   Future<void> _parseReceipt() async {
-    final bytes = widget.imageBytes;
+    final bytes = _imageBytes;
     if (bytes == null) return;
 
+    final consent = await _ensureAiReceiptConsent();
+    if (!mounted) return;
+    if (consent == _ConsentResult.cancelled) {
+      if (context.canPop()) {
+        context.pop();
+      }
+      return;
+    }
+    if (consent == _ConsentResult.failed) {
+      setState(() => _awaitingConsent = false);
+      return;
+    }
+
     setState(() {
+      _awaitingConsent = false;
       _parsing = true;
       _error = null;
     });
@@ -290,6 +314,46 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
         _selectedPayerId ??= ref.read(authProvider).user?.id;
         _parsing = false;
       });
+    }
+  }
+
+  /// Ensures the user has consented before uploading the receipt image.
+  Future<_ConsentResult> _ensureAiReceiptConsent() async {
+    final user = ref.read(authProvider).user;
+    if (user == null) return _ConsentResult.cancelled;
+
+    final storage = AiReceiptConsentStorage();
+    try {
+      if (await storage.hasConsent(user.id)) {
+        return _ConsentResult.granted;
+      }
+    } catch (_) {
+      // Fall through to DB / dialog if local prefs are unavailable.
+    }
+
+    if (user.hasAiReceiptConsent) {
+      try {
+        await storage.setConsent(user.id);
+      } catch (_) {}
+      return _ConsentResult.granted;
+    }
+
+    if (!mounted) return _ConsentResult.cancelled;
+    final confirmed = await showAiReceiptConsentDialog(context);
+    if (confirmed != true) return _ConsentResult.cancelled;
+
+    try {
+      await ref.read(authProvider.notifier).recordAiReceiptConsent();
+      try {
+        await storage.setConsent(user.id);
+      } catch (_) {}
+      return _ConsentResult.granted;
+    } catch (_) {
+      if (!mounted) return _ConsentResult.failed;
+      setState(() {
+        _error = 'Unable to save AI receipt consent. Please try again.';
+      });
+      return _ConsentResult.failed;
     }
   }
 
@@ -2677,44 +2741,48 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
   @override
   Widget build(BuildContext context) {
     final isEditing = widget.initialBill != null;
-    final isFromPhoto = widget.imageBytes != null && !isEditing;
+    final isFromPhoto = _imageBytes != null && !isEditing;
     final title = isEditing
         ? 'Edit bill'
         : isFromPhoto
         ? 'Add bill from receipt'
         : 'Add bill manually';
 
+    final isLoading = _awaitingConsent || _parsing || _loadingFriends;
+
     return Scaffold(
       appBar: AppBar(title: Text(title)),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AnimatedSize(
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeOutCubic,
-                alignment: Alignment.bottomCenter,
-                child: _error == null
-                    ? const SizedBox.shrink()
-                    : Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: Material(
-                          elevation: 6,
-                          shadowColor: Colors.black.withValues(alpha: 0.28),
-                          borderRadius: BorderRadius.circular(13),
-                          color: Colors.transparent,
-                          child: ErrorBanner(message: _error!),
-                        ),
-                      ),
+      bottomNavigationBar: isLoading
+          ? null
+          : SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeOutCubic,
+                      alignment: Alignment.bottomCenter,
+                      child: _error == null
+                          ? const SizedBox.shrink()
+                          : Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: Material(
+                                elevation: 6,
+                                shadowColor: Colors.black.withValues(alpha: 0.28),
+                                borderRadius: BorderRadius.circular(13),
+                                color: Colors.transparent,
+                                child: ErrorBanner(message: _error!),
+                              ),
+                            ),
+                    ),
+                    _buildSaveButton(isEditing),
+                  ],
+                ),
               ),
-              _buildSaveButton(isEditing),
-            ],
-          ),
-        ),
-      ),
-      body: _parsing || _loadingFriends
+            ),
+      body: isLoading
           ? LoadingView(
               message: _parsing ? 'Parsing receipt...' : 'Loading...',
             )

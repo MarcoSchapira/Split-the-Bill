@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:equishare/app.dart';
+import 'package:billcompass/app.dart';
 
 void main() {
   testWidgets('shows session restore loading', (tester) async {

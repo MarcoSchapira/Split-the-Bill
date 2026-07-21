@@ -65,7 +65,7 @@ export class ResendEmailTransport implements EmailTransport {
   async sendRegistrationCode(email: string, code: string): Promise<void> {
     await this.send(
       email,
-      "Your EquiShare verification code",
+      "Your BillCompass verification code",
       `
         <p>Your verification code is:</p>
         <p style="font-size: 24px; font-weight: bold; letter-spacing: 4px;">${code}</p>
@@ -77,9 +77,9 @@ export class ResendEmailTransport implements EmailTransport {
   async sendAccountDeletionCode(email: string, code: string): Promise<void> {
     await this.send(
       email,
-      "Your EquiShare account deletion code",
+      "Your BillCompass account deletion code",
       `
-        <p>We received a request to delete your EquiShare account. Your verification code is:</p>
+        <p>We received a request to delete your BillCompass account. Your verification code is:</p>
         <p style="font-size: 24px; font-weight: bold; letter-spacing: 4px;">${code}</p>
         <p>This code expires in 10 minutes. If you did not request account deletion, you can ignore this email and your account will not be affected.</p>
       `,
@@ -89,9 +89,9 @@ export class ResendEmailTransport implements EmailTransport {
   async sendAccountDeletedConfirmation(email: string): Promise<void> {
     await this.send(
       email,
-      "Your EquiShare account has been deleted",
+      "Your BillCompass account has been deleted",
       `
-        <p>Your EquiShare account has been permanently deleted and can no longer be accessed.</p>
+        <p>Your BillCompass account has been permanently deleted and can no longer be accessed.</p>
         <p>Certain de-identified shared records and temporary backups may remain as described in our <a href="https://split-the-bill.net/privacy">Privacy Policy</a>.</p>
         <p>If you did not request this deletion, contact <a href="mailto:privacy@split-the-bill.net">privacy@split-the-bill.net</a>.</p>
       `,

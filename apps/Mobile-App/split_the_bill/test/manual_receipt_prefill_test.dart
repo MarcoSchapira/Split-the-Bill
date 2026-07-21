@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:equishare/models/models.dart';
-import 'package:equishare/models/receipt.dart';
-import 'package:equishare/models/user.dart';
-import 'package:equishare/utils/manual_receipt_prefill.dart';
+import 'package:billcompass/models/models.dart';
+import 'package:billcompass/models/receipt.dart';
+import 'package:billcompass/models/user.dart';
+import 'package:billcompass/utils/manual_receipt_prefill.dart';
 
 void main() {
   const currentUser = User(

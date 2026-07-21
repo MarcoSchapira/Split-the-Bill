@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:equishare/models/models.dart';
-import 'package:equishare/models/user.dart';
-import 'package:equishare/utils/dashboard_people.dart';
+import 'package:billcompass/models/models.dart';
+import 'package:billcompass/models/user.dart';
+import 'package:billcompass/utils/dashboard_people.dart';
 
 User _user(String id, String email, {String? name}) {
   return User(

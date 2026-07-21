@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:equishare/models/models.dart';
-import 'package:equishare/models/user.dart';
-import 'package:equishare/theme/app_colors.dart';
-import 'package:equishare/utils/settlement_status.dart';
+import 'package:billcompass/models/models.dart';
+import 'package:billcompass/models/user.dart';
+import 'package:billcompass/theme/app_colors.dart';
+import 'package:billcompass/utils/settlement_status.dart';
 
 User _user(String id, {String? name}) {
   return User(

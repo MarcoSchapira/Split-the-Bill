@@ -32,6 +32,35 @@ enum _SplitTarget { solo, friends, group }
 
 enum _ConsentResult { granted, cancelled, failed }
 
+/// In-memory snapshot of Friends-mode split state so toggling Just me / Group
+/// does not lose work until Save.
+class _FriendsSplitDraft {
+  const _FriendsSplitDraft({
+    required this.selectedFriendIds,
+    required this.shareCentsByUserId,
+    required this.lineItemAssignments,
+    required this.splitMode,
+    required this.payerId,
+  });
+
+  final Set<String> selectedFriendIds;
+  final Map<String, int> shareCentsByUserId;
+  final Map<int, Set<String>> lineItemAssignments;
+  final _SplitMode splitMode;
+  final String? payerId;
+}
+
+/// In-memory snapshot of Group-mode split state.
+class _GroupSplitDraft {
+  const _GroupSplitDraft({
+    required this.groupId,
+    required this.payerId,
+  });
+
+  final String? groupId;
+  final String? payerId;
+}
+
 class _ManualLineItemRow {
   _ManualLineItemRow({
     String quantity = '1',
@@ -117,6 +146,8 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
   _AdjustmentInputMode _taxInputMode = _AdjustmentInputMode.percent;
   _AdjustmentInputMode _tipInputMode = _AdjustmentInputMode.percent;
   Map<int, Set<String>> _lineItemAssignments = <int, Set<String>>{};
+  _FriendsSplitDraft? _friendsDraft;
+  _GroupSplitDraft? _groupDraft;
   BillSource _billSource = BillSource.manual;
   DateTime? _incurredAt;
   bool _parsing = false;
@@ -187,28 +218,137 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
   }
 
   void _setSplitTarget(_SplitTarget target) {
+    if (target == _splitTarget) return;
+
     setState(() {
-      _splitTarget = target;
       _error = null;
-      if (target == _SplitTarget.solo) {
-        _selectedFriendIds = {};
-        _selectedGroupId = null;
-        _selectedGroupDetail = null;
-        _splitMode = _SplitMode.splitTotal;
-      } else if (target == _SplitTarget.friends) {
-        _selectedGroupId = null;
-        _selectedGroupDetail = null;
-      } else {
-        _selectedFriendIds = {};
-        _lineItemAssignments = {};
-        _splitMode = _SplitMode.splitTotal;
-        _selectedPayerId = _currentUser.id;
-        if (_selectedGroupId == null && _groups.isNotEmpty) {
-          _selectedGroupId = _groups.first.id;
-          _loadSelectedGroupDetail(_groups.first.id);
+
+      if (_splitTarget == _SplitTarget.friends) {
+        _friendsDraft = _captureFriendsDraft();
+        _clearLiveFriendsSplitState();
+      } else if (_splitTarget == _SplitTarget.group) {
+        _groupDraft = _captureGroupDraft();
+        _clearLiveGroupSplitState();
+      }
+
+      _splitTarget = target;
+
+      if (target == _SplitTarget.friends) {
+        final draft = _friendsDraft;
+        if (draft != null) {
+          _restoreFriendsDraft(draft);
+        } else {
+          _selectedPayerId = _currentUser.id;
+          _splitMode = _SplitMode.splitTotal;
         }
+      } else if (target == _SplitTarget.group) {
+        final draft = _groupDraft;
+        if (draft != null) {
+          _restoreGroupDraft(draft);
+        } else {
+          _selectedPayerId = _currentUser.id;
+          if (_groups.isNotEmpty) {
+            _selectedGroupId = _groups.first.id;
+            _loadSelectedGroupDetail(_groups.first.id);
+          }
+        }
+      } else {
+        _selectedPayerId = _currentUser.id;
+        _splitMode = _SplitMode.splitTotal;
       }
     });
+  }
+
+  _FriendsSplitDraft _captureFriendsDraft() {
+    return _FriendsSplitDraft(
+      selectedFriendIds: Set<String>.from(_selectedFriendIds),
+      shareCentsByUserId: {
+        for (final entry in _splitEntries) entry.user.id: entry.shareCents,
+      },
+      lineItemAssignments: {
+        for (final entry in _lineItemAssignments.entries)
+          entry.key: Set<String>.from(entry.value),
+      },
+      splitMode: _splitMode,
+      payerId: _selectedPayerId,
+    );
+  }
+
+  _GroupSplitDraft _captureGroupDraft() {
+    return _GroupSplitDraft(
+      groupId: _selectedGroupId,
+      payerId: _selectedPayerId,
+    );
+  }
+
+  void _clearLiveFriendsSplitState() {
+    _selectedFriendIds = {};
+    _splitEntries = [];
+    _lineItemAssignments = {};
+    _splitMode = _SplitMode.splitTotal;
+    for (final controller in _splitAmountControllers.values) {
+      controller.dispose();
+    }
+    _splitAmountControllers.clear();
+  }
+
+  void _clearLiveGroupSplitState() {
+    _selectedGroupId = null;
+    _selectedGroupDetail = null;
+  }
+
+  void _restoreFriendsDraft(_FriendsSplitDraft draft) {
+    _selectedFriendIds = Set<String>.from(draft.selectedFriendIds);
+    _splitMode = draft.splitMode;
+    _selectedPayerId = draft.payerId ?? _currentUser.id;
+    _lineItemAssignments = {
+      for (final entry in draft.lineItemAssignments.entries)
+        entry.key: Set<String>.from(entry.value),
+    };
+    _rebuildFriendsSplitEntries(draft.shareCentsByUserId);
+  }
+
+  void _rebuildFriendsSplitEntries(Map<String, int> shareCentsByUserId) {
+    final payerId = _selectedPayerId ?? _currentUser.id;
+    final selectedFriends = _friends
+        .where((friend) => _selectedFriendIds.contains(friend.id))
+        .toList();
+    final participants = [_currentUser, ...selectedFriends];
+    _splitEntries = participants
+        .where((user) => user.id != payerId)
+        .map(
+          (user) => ManualSplitEntry(
+            user: user,
+            shareCents: shareCentsByUserId[user.id] ?? 0,
+          ),
+        )
+        .toList();
+    for (final userId in _splitAmountControllers.keys.toList()) {
+      final stillNeeded = _splitEntries.any((entry) => entry.user.id == userId);
+      if (!stillNeeded) {
+        _splitAmountControllers.remove(userId)?.dispose();
+      }
+    }
+    for (final entry in _splitEntries) {
+      _controllerForUser(
+        entry.user.id,
+        initialCents: entry.shareCents,
+      ).text = entry.shareCents == 0
+          ? ''
+          : (entry.shareCents / 100).toStringAsFixed(2);
+    }
+    _normalizeLineItemAssignments();
+  }
+
+  void _restoreGroupDraft(_GroupSplitDraft draft) {
+    _selectedGroupId = draft.groupId;
+    _selectedPayerId = draft.payerId ?? _currentUser.id;
+    if (_selectedGroupId != null) {
+      _loadSelectedGroupDetail(_selectedGroupId!);
+    } else if (_groups.isNotEmpty) {
+      _selectedGroupId = _groups.first.id;
+      _loadSelectedGroupDetail(_groups.first.id);
+    }
   }
 
   void _applyPrefill(ManualReceiptPrefill prefill) {
@@ -535,6 +675,14 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
         _friends = friendships.map((friendship) => friendship.friend).toList()
           ..sort((a, b) => displayName(a).compareTo(displayName(b)));
         _loadingFriends = false;
+        if (_splitTarget == _SplitTarget.friends &&
+            _selectedFriendIds.isNotEmpty) {
+          final shareCentsByUserId = <String, int>{
+            if (_friendsDraft != null) ..._friendsDraft!.shareCentsByUserId,
+            for (final entry in _splitEntries) entry.user.id: entry.shareCents,
+          };
+          _rebuildFriendsSplitEntries(shareCentsByUserId);
+        }
       });
     } catch (e) {
       if (!mounted) return;
@@ -666,7 +814,8 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
       return _selectedGroupId != null &&
           (_selectedGroupDetail?.members.length ?? 0) >= 2;
     }
-    if (_selectedFriendIds.isNotEmpty) {
+    if (_splitTarget == _SplitTarget.friends &&
+        _selectedFriendIds.isNotEmpty) {
       if (_isSplitByLineItemMode) {
         return _lineItemAssignmentsComplete;
       }
@@ -1761,7 +1910,7 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
             spacing: 8,
             runSpacing: 8,
             children: _selectedGroupDetail!.members
-                .map(_buildGroupMemberPayerChip)
+                .map((member) => _buildPayerChip(member.user))
                 .toList(),
           ),
         ],
@@ -1769,18 +1918,16 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
     );
   }
 
-  Widget _buildGroupMemberPayerChip(GroupMemberDetail member) {
+  Widget _buildPayerChip(User user) {
     final payerId = _selectedPayerId ?? _currentUser.id;
-    final isPayer = member.user.id == payerId;
-    final label = member.user.id == _currentUser.id
-        ? 'You'
-        : displayName(member.user);
+    final isPayer = user.id == payerId;
+    final label = user.id == _currentUser.id ? 'You' : displayName(user);
 
     return FilterChip(
       label: Text(isPayer ? '$label · paid' : label),
       selected: isPayer,
       showCheckmark: false,
-      onSelected: (_) => _setPayer(member.user.id),
+      onSelected: (_) => _setPayer(user.id),
       selectedColor: AppColors.accentSoft,
       backgroundColor: AppColors.surface,
       labelStyle: TextStyle(
@@ -2083,6 +2230,8 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
         const SizedBox(height: 10),
         const Divider(height: 1, color: AppColors.border),
         const SizedBox(height: 20),
+        _buildWhoPaidSection(participants: participants),
+        const SizedBox(height: 16),
         if (_splittableLineItemEntries.isEmpty)
           Container(
             margin: const EdgeInsets.only(bottom: 8),
@@ -2121,6 +2270,36 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
           ),
         ],
       ],
+    );
+  }
+
+  Widget _buildWhoPaidSection({required List<User> participants}) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'Tap who paid for this expense',
+            style: TextStyle(
+              color: AppColors.text,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: participants.map(_buildPayerChip).toList(),
+          ),
+        ],
+      ),
     );
   }
 

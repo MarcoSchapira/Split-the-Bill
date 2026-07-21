@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:equishare/utils/even_split.dart';
+import 'package:billcompass/utils/even_split.dart';
 
 void main() {
   group('areShareAmountsEvenlySplit', () {

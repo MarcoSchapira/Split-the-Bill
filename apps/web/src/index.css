@@ -1,13 +1,14 @@
 :root {
-  --text: #64716e;
+  --text: #5f6d68;
   --text-h: #112824;
   --bg: #f7f8f4;
   --surface: #ffffff;
   --surface-muted: #f3f5f1;
   --border: #e0e6df;
-  --accent: #0e9375;
+  --control-border: #768a7e;
+  --accent: #08735b;
   --accent-soft: #dbf3ec;
-  --text-muted: #8a9693;
+  --text-muted: #5f6d68;
   --brand-soft: #8be0ca;
   --brand-gradient: linear-gradient(140deg, #102f2d 0%, #0d554c 58%, #0b745d 100%);
   --error: #af3939;

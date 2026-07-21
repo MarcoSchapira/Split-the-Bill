@@ -5,7 +5,6 @@ const billActivityTypes = new Set([
   'BILL_UPDATED',
   'BILL_SETTLED',
   'BILL_UNSETTLED',
-  'BILL_DELETED',
 ])
 
 const invitationActivityTypes = new Set([
@@ -24,7 +23,12 @@ export function activityRoute(event: ActivityEvent): string | null {
   }
 
   if (invitationActivityTypes.has(event.type)) {
-    return '/invitations'
+    return '/friends?tab=invitations'
+  }
+
+  const groupId = (event as ActivityEvent & { groupId?: string | null }).groupId
+  if (event.type.startsWith('GROUP_') && groupId && event.type !== 'GROUP_DELETED') {
+    return `/groups/${groupId}`
   }
 
   return null

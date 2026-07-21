@@ -6,7 +6,7 @@ export function ProtectedRoute() {
   const location = useLocation()
 
   if (auth.isLoading) {
-    return <div className="screen-message">Restoring your session...</div>
+    return <div className="bc-session-screen"><span className="bc-session-screen__mark" /><strong>BillCompass</strong><p>Restoring your session…</p></div>
   }
 
   if (!auth.isAuthenticated) {
@@ -20,7 +20,7 @@ export function PublicOnlyRoute() {
   const auth = useAuth()
 
   if (auth.isLoading) {
-    return <div className="screen-message">Restoring your session...</div>
+    return <div className="bc-session-screen"><span className="bc-session-screen__mark" /><strong>BillCompass</strong><p>Restoring your session…</p></div>
   }
 
   if (auth.isAuthenticated) {

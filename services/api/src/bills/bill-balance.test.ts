@@ -52,15 +52,15 @@ describe("userSummaryForBill", () => {
     });
   });
 
-  it("returns debtor share ids for group payer settlement", () => {
+  it("returns only debtor-marked share ids for group payer confirmation", () => {
     expect(
       sharesToSettle(
         {
           payerId: "user-a",
           shares: [
             { id: "share-a", userId: "user-a", shareCents: 1000, ...unsettled },
-            { id: "share-b", userId: "user-b", shareCents: 1000, ...unsettled },
-            { id: "share-c", userId: "user-c", shareCents: 1000, ...unsettled },
+            { id: "share-b", userId: "user-b", shareCents: 1000, payerMarkedAsPaid: true, lenderConfirmedPaid: false },
+            { id: "share-c", userId: "user-c", shareCents: 1000, payerMarkedAsPaid: true, lenderConfirmedPaid: false },
           ],
         },
         "user-a",
@@ -95,7 +95,7 @@ describe("userSummaryForBill", () => {
           payerId: "user-a",
           shares: [
             { id: "share-a", userId: "user-a", shareCents: 1000, ...unsettled },
-            { id: "share-b", userId: "user-b", shareCents: 700, ...unsettled },
+            { id: "share-b", userId: "user-b", shareCents: 700, payerMarkedAsPaid: true, lenderConfirmedPaid: false },
             { id: "share-c", userId: "user-c", shareCents: 300, payerMarkedAsPaid: false, lenderConfirmedPaid: true },
           ],
         },
@@ -120,6 +120,17 @@ describe("userSummaryForBill", () => {
         "user-a",
         undefined,
         "user-c",
+      ),
+    ).toEqual([]);
+  });
+
+  it("does not let the lender confirm before the debtor marks paid", () => {
+    expect(
+      sharesToSettle(
+        { payerId: "user-a", shares },
+        "user-a",
+        undefined,
+        "user-b",
       ),
     ).toEqual([]);
   });

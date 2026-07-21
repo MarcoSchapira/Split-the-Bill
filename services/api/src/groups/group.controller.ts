@@ -1,6 +1,7 @@
 import type { RequestHandler } from "express";
 import { currentUser } from "../auth/currentUser";
-import { withUserContext } from "../db/userContext";
+import { withAdminContext, withUserContext } from "../db/userContext";
+import { countAllGroupBills } from "./group-bill-sync";
 import {
   addGroupMemberSchema,
   createGroupSchema,
@@ -35,7 +36,20 @@ export const detail: RequestHandler = async (req, res) => {
   const userId = currentUser(req).id;
   const groupId = groupIdSchema.parse(req.params.groupId);
   const group = await withUserContext(userId, (tx) => getGroup(tx, userId, groupId));
-  res.json({ group });
+  const canDelete = group.creatorId === userId
+    ? await withAdminContext(async (tx) => (await countAllGroupBills(tx, groupId)) === 0)
+    : false;
+  res.json({
+    group: {
+      ...group,
+      permissions: {
+        canEdit: true,
+        canManageMembers: group.creatorId === userId,
+        canLeave: true,
+        canDelete,
+      },
+    },
+  });
 };
 
 export const update: RequestHandler = async (req, res) => {
@@ -49,7 +63,10 @@ export const update: RequestHandler = async (req, res) => {
 export const remove: RequestHandler = async (req, res) => {
   const userId = currentUser(req).id;
   const groupId = groupIdSchema.parse(req.params.groupId);
-  await withUserContext(userId, (tx) => deleteGroup(tx, userId, groupId));
+  // Deletion must see historical bills that the current (possibly transferred)
+  // creator was never a participant in. The service still enforces creator-only
+  // authorization before performing the destructive operation.
+  await withAdminContext((tx) => deleteGroup(tx, userId, groupId));
   res.status(204).send();
 };
 

@@ -9,6 +9,7 @@ import {
 } from '../api/authApi'
 import { AUTH_UNAUTHORIZED_EVENT } from '../api/client'
 import type { User } from '../api/types'
+import { queryClient } from '../api/queryClient'
 import { AuthContext } from './AuthContext'
 import { clearAuth, getStoredUser, saveUser } from './authStorage'
 
@@ -19,6 +20,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     const clearSession = () => {
       clearAuth()
+      queryClient.clear()
       setUser(null)
       setIsLoading(false)
     }
@@ -41,10 +43,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
         }
       })
       .catch(() => {
-        if (isActive) {
-          clearAuth()
-          setUser(null)
-        }
+        // A verified 401 is handled by AUTH_UNAUTHORIZED_EVENT after the
+        // single refresh attempt fails. Keep the last authenticated user for
+        // transient network and server errors so the app does not flash out.
       })
       .finally(() => {
         if (isActive) {
@@ -75,10 +76,18 @@ export function AuthProvider({ children }: PropsWithChildren) {
       async logout() {
         try {
           await logoutUser()
+        } catch {
+          // Local logout must still complete if the session was already
+          // revoked (for example by "log out all") or the network is down.
         } finally {
           clearAuth()
           setUser(null)
+          queryClient.clear()
         }
+      },
+      replaceUser(nextUser: User) {
+        saveUser(nextUser)
+        setUser(nextUser)
       },
     }),
     [isLoading, user],

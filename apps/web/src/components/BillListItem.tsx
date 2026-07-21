@@ -6,7 +6,6 @@ type BillListItemProps = {
   bill: Bill;
   expanded: boolean;
   onToggleExpanded: () => void;
-  onEdit: () => void;
   onDelete: () => void;
   onSettle: () => void;
 };
@@ -15,7 +14,6 @@ export function BillListItem({
   bill,
   expanded,
   onToggleExpanded,
-  onEdit,
   onDelete,
   onSettle,
 }: BillListItemProps) {
@@ -79,9 +77,9 @@ export function BillListItem({
           )}
           <div className="inline-actions">
             {bill.canEdit ? (
-              <button className="text-button" onClick={onEdit} type="button">
+              <Link className="text-button" to={`/bills/${bill.id}/edit`}>
                 Edit
-              </button>
+              </Link>
             ) : null}
             {bill.canDelete ? (
               <button className="text-button danger" onClick={onDelete} type="button">

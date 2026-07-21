@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { withUserContext } from "../db/userContext";
 import { ApiError } from "../http/errors";
-import { safeUserSelect } from "./auth.types";
+import { authenticatedUserSelect } from "./auth.types";
 import { ACCESS_COOKIE } from "./cookies";
 import { verifyJwt } from "./jwt";
 import { validateSession } from "./session.service";
@@ -50,16 +50,22 @@ export async function requireAuth(
     const user = await withUserContext(payload.userId, (tx) =>
       tx.user.findUnique({
         where: { id: payload.userId },
-        select: safeUserSelect,
+        select: { ...authenticatedUserSelect, authProvider: true },
       }),
     );
 
-    if (!user) {
+    if (!user || user.authProvider === "deleted") {
       next(new ApiError(401, "INVALID_TOKEN", "Invalid or expired authentication token"));
       return;
     }
 
-    req.user = user;
+    req.user = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      createdAt: user.createdAt,
+      aiReceiptConsentAt: user.aiReceiptConsentAt,
+    };
     req.sessionId = payload.sessionId;
     req.authSource = authSource;
     next();

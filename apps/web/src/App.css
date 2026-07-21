@@ -534,6 +534,10 @@
   gap: 18px;
 }
 
+.auth-card h2[tabindex='-1']:focus {
+  outline: none;
+}
+
 .stack-form label {
   color: var(--text-h);
   font-size: 14px;
@@ -544,7 +548,7 @@
 .stack-form input,
 .stack-form select {
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid var(--control-border);
   border-radius: 12px;
   box-sizing: border-box;
   color: var(--text-h);

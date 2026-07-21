@@ -4,10 +4,16 @@ import { billInclude, presentBill } from "../bills/bill.service";
 import { ApiError } from "../http/errors";
 import { createActivity } from "../activity/activity.service";
 import {
+  countAllGroupBills,
   countGroupBills,
   countUnsettledGroupBills,
 } from "./group-bill-sync";
 import { assertGroupMember, getGroupMemberIds } from "./group-access";
+import {
+  lockGroupMembershipMutation,
+  lockUserAccountMutation,
+  transferOrDeleteDepartingCreatorGroup,
+} from "./group-ownership";
 import type {
   AddGroupMemberInput,
   CreateGroupInput,
@@ -69,7 +75,7 @@ async function assertFriendship(
   }
 }
 
-function computeGroupNetBalanceCents(
+export function computeGroupNetBalanceCents(
   bills: Array<{
     payerId: string;
     totalCents: number;
@@ -95,7 +101,11 @@ function computeGroupNetBalanceCents(
     }
 
     const ownShare = bill.shares.find((share) => share.userId === userId);
-    if (ownShare && !ownShare.lenderConfirmedPaid) {
+    if (
+      ownShare &&
+      !ownShare.payerMarkedAsPaid &&
+      !ownShare.lenderConfirmedPaid
+    ) {
       netBalanceCents -= ownShare.shareCents;
     }
   }
@@ -186,6 +196,15 @@ export async function createGroup(
   actingUserId: string,
   input: CreateGroupInput,
 ) {
+  await lockUserAccountMutation(tx, actingUserId);
+  const activeUser = await tx.user.findUnique({
+    where: { id: actingUserId },
+    select: { authProvider: true },
+  });
+  if (!activeUser || activeUser.authProvider === "deleted") {
+    throw new ApiError(401, "INVALID_TOKEN", "Invalid or expired authentication token");
+  }
+
   const group = await tx.group.create({
     data: {
       name: input.name,
@@ -308,6 +327,8 @@ export async function updateGroup(
 }
 
 export async function deleteGroup(tx: PrismaTransaction, actingUserId: string, groupId: string) {
+  await lockGroupMembershipMutation(tx, groupId);
+
   const group = await tx.group.findUnique({
     where: { id: groupId },
     include: { members: { select: { userId: true } } },
@@ -321,7 +342,7 @@ export async function deleteGroup(tx: PrismaTransaction, actingUserId: string, g
     throw new ApiError(403, "GROUP_FORBIDDEN", "Only the group creator can delete the group");
   }
 
-  const activeBillCount = await countGroupBills(tx, groupId);
+  const activeBillCount = await countAllGroupBills(tx, groupId);
   if (activeBillCount > 0) {
     throw new ApiError(
       409,
@@ -348,6 +369,10 @@ export async function addGroupMember(
   groupId: string,
   input: AddGroupMemberInput,
 ) {
+  // Account deletion takes the same user-then-group lock order. This prevents
+  // a deleted account from being added after its membership cleanup commits.
+  await lockUserAccountMutation(tx, input.userId);
+  await lockGroupMembershipMutation(tx, groupId);
   const group = await getGroupOrThrow(tx, groupId, actingUserId);
 
   if (input.userId === actingUserId) {
@@ -359,6 +384,14 @@ export async function addGroupMember(
   }
 
   await assertFriendship(tx, actingUserId, input.userId);
+
+  const activeTarget = await tx.user.findUnique({
+    where: { id: input.userId },
+    select: { authProvider: true },
+  });
+  if (!activeTarget || activeTarget.authProvider === "deleted") {
+    throw new ApiError(404, "USER_NOT_FOUND", "User not found");
+  }
 
   await tx.groupMember.create({
     data: {
@@ -387,6 +420,7 @@ async function removeMemberFromGroup(
   groupId: string,
   memberUserId: string,
 ) {
+  await lockGroupMembershipMutation(tx, groupId);
   const group = await tx.group.findUnique({
     where: { id: groupId },
     include: groupInclude,
@@ -401,17 +435,10 @@ async function removeMemberFromGroup(
     throw new ApiError(404, "MEMBER_NOT_FOUND", "Member not found in this group");
   }
 
-  await tx.groupMember.delete({ where: { id: membership.id } });
-
   // Removed members keep their shares on existing bills; they are excluded from future ones.
   const remainingMemberIds = group.members
     .filter((member) => member.user.id !== memberUserId)
     .map((member) => member.user.id);
-
-  if (remainingMemberIds.length === 0) {
-    await tx.group.delete({ where: { id: groupId } });
-    return null;
-  }
 
   await createActivity(tx, {
     actorId: actingUserId,
@@ -420,6 +447,22 @@ async function removeMemberFromGroup(
     type: "GROUP_MEMBER_REMOVED",
     message: `removed a member from "${group.name}".`,
   });
+
+  const ownershipDeparture =
+    group.creatorId === memberUserId
+      ? await transferOrDeleteDepartingCreatorGroup(tx, groupId, memberUserId)
+      : { status: "not-owner" as const };
+
+  if (ownershipDeparture.status !== "deleted") {
+    await tx.groupMember.delete({ where: { id: membership.id } });
+  }
+
+  if (remainingMemberIds.length === 0) {
+    if (ownershipDeparture.status !== "deleted") {
+      await tx.group.delete({ where: { id: groupId } });
+    }
+    return null;
+  }
 
   // Leaving users are no longer members, so they cannot load group detail.
   if (actingUserId === memberUserId) {
@@ -435,6 +478,7 @@ export async function removeGroupMember(
   groupId: string,
   memberUserId: string,
 ) {
+  await lockGroupMembershipMutation(tx, groupId);
   const group = await tx.group.findUnique({
     where: { id: groupId },
     select: { creatorId: true },
@@ -458,6 +502,7 @@ export async function removeGroupMember(
 }
 
 export async function leaveGroup(tx: PrismaTransaction, actingUserId: string, groupId: string) {
+  await lockGroupMembershipMutation(tx, groupId);
   await assertGroupMemberForService(tx, groupId, actingUserId);
   return removeMemberFromGroup(tx, actingUserId, groupId, actingUserId);
 }

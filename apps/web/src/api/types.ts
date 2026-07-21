@@ -30,6 +30,7 @@ export type FriendshipDetail = FriendshipSummary & {
 export type BillShare = {
   id: string;
   shareCents: number;
+  lenderId: string;
   payerMarkedAsPaid: boolean;
   lenderConfirmedPaid: boolean;
   user: User;
@@ -86,12 +87,12 @@ export type Bill = {
   canRetarget: boolean;
   userSummary: BillUserSummary;
   lineItems: BillLineItem[];
-  isOneMainTotal?: boolean;
-  isSplitWithFriends?: boolean;
-  isSplitByFinalAmounts?: boolean;
-  isSplitWithGroup?: boolean;
-  groupId?: string | null;
-  group?: BillGroupSummary | null;
+  isOneMainTotal: boolean;
+  isSplitWithFriends: boolean;
+  isSplitByFinalAmounts: boolean;
+  isSplitWithGroup: boolean;
+  groupId: string | null;
+  group: BillGroupSummary | null;
   pairwise?: PairwiseSummary;
 };
 
@@ -157,6 +158,12 @@ export type GroupDetail = GroupSummary & {
   hasExistingBills: boolean;
   unsettledBillCount: number;
   totalGroupSpendCents: number;
+  permissions: {
+    canEdit: boolean;
+    canManageMembers: boolean;
+    canLeave: boolean;
+    canDelete: boolean;
+  };
 };
 
 export type GroupBalanceSummary = {
@@ -176,6 +183,8 @@ export type Dashboard = {
   totalOwedToYouCents: number;
   totalYouOweCents: number;
   netBalanceCents: number;
+  owedToYouPendingConfirmationPercent: number | null;
+  youOwePendingConfirmationPercent: number | null;
   balances: BalanceContact[];
   groupBalances: GroupBalanceSummary[];
 };
@@ -213,5 +222,6 @@ export type ActivityEvent = {
   billId: string | null;
   friendInvitationId: string | null;
   friendshipId: string | null;
+  groupId: string | null;
   bill: ActivityBillSummary | null;
 };

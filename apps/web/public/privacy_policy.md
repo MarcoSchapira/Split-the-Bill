@@ -5,28 +5,28 @@
 
 ## 1. Introduction
 
-This Privacy Policy explains how EquiShare collects, uses, discloses, stores, and protects personal information when you use the EquiShare mobile applications, web application, website, application programming interfaces, and related services collectively referred to as the **“Service.”**
+This Privacy Policy explains how BillCompass collects, uses, discloses, stores, and protects personal information when you use the BillCompass mobile applications, web application, website, application programming interfaces, and related services collectively referred to as the **“Service.”**
 
-EquiShare is operated by **Marco Schapira**, located in Toronto, Ontario, Canada. In this Privacy Policy, “EquiShare,” “we,” “us,” and “our” refer to Marco Schapira as the operator of the Service.
+BillCompass is operated by **Marco Schapira**, located in Toronto, Ontario, Canada. In this Privacy Policy, “BillCompass,” “we,” “us,” and “our” refer to Marco Schapira as the operator of the Service.
 
-EquiShare may use the name **Split-the-Bill**. That name may continue to appear in our website domain, software, infrastructure, cookies, internal systems, or older materials.
+BillCompass may use the name **Split-the-Bill**. That name may continue to appear in our website domain, software, infrastructure, cookies, internal systems, or older materials.
 
 This Privacy Policy applies to:
 
-* The EquiShare application for iOS;
-* The EquiShare application for Android;
-* The EquiShare web application;
+* The BillCompass application for iOS;
+* The BillCompass application for Android;
+* The BillCompass web application;
 * The website at https://split-the-bill.net/;
-* The EquiShare backend, APIs, and related online services; and
+* The BillCompass backend, APIs, and related online services; and
 * Communications you send to us regarding the Service.
 
-Certain features may differ between the mobile and web versions of EquiShare.
+Certain features may differ between the mobile and web versions of BillCompass.
 
 By using the Service, you acknowledge that you have received and reviewed this Privacy Policy. Where applicable law requires consent for a particular collection, use, or disclosure of personal information, we will request that consent at the appropriate time.
 
-## 2. What EquiShare Does
+## 2. What BillCompass Does
 
-EquiShare is an expense-sharing and bill-tracking application. Depending on the platform and available features, registered users may use EquiShare to:
+BillCompass is an expense-sharing and bill-tracking application. Depending on the platform and available features, registered users may use BillCompass to:
 
 * Create bills manually;
 * Photograph or select an image of a receipt;
@@ -42,9 +42,9 @@ EquiShare is an expense-sharing and bill-tracking application. Depending on the 
 * Confirm or reverse a payment status; and
 * View activity associated with shared bills, friends, and groups.
 
-EquiShare is a recordkeeping and coordination tool. EquiShare does not transfer, receive, process, hold, or verify money. A “paid,” “confirmed,” or “settled” status in the Service is a status entered or confirmed by a user and does not establish that an actual payment occurred.
+BillCompass is a recordkeeping and coordination tool. BillCompass does not transfer, receive, process, hold, or verify money. A “paid,” “confirmed,” or “settled” status in the Service is a status entered or confirmed by a user and does not establish that an actual payment occurred.
 
-EquiShare does not currently connect to bank accounts, access online banking, collect banking credentials, process payment cards, provide credit, make lending decisions, or provide financial, accounting, tax, banking, or legal advice.
+BillCompass does not currently connect to bank accounts, access online banking, collect banking credentials, process payment cards, provide credit, make lending decisions, or provide financial, accounting, tax, banking, or legal advice.
 
 ## 3. Personal Information We Collect
 
@@ -52,7 +52,7 @@ The information we collect depends on how you use the Service.
 
 ### 3.1 Account information
 
-When you create or maintain an EquiShare account, we may collect:
+When you create or maintain a BillCompass account, we may collect:
 
 * Your email address;
 * Your optional display name;
@@ -66,13 +66,13 @@ When you create or maintain an EquiShare account, we may collect:
 
 Passwords are not stored in readable form.
 
-EquiShare currently uses email-and-password authentication. We do not currently offer social login or OAuth login.
+BillCompass currently uses email-and-password authentication. We do not currently offer social login or OAuth login.
 
 We do not request a telephone number, date of birth, home address, government-issued identification, profile photograph, bank information, or full payment-card information when you register.
 
 ### 3.2 Email-verification information
 
-When you register, EquiShare may send a verification code to your email address. We process information such as:
+When you register, BillCompass may send a verification code to your email address. We process information such as:
 
 * Your email address;
 * A cryptographic representation of the verification code;
@@ -85,7 +85,7 @@ The readable verification code is delivered through our transactional email prov
 
 ### 3.3 Friends and invitation information
 
-EquiShare allows registered users to connect with other registered users.
+BillCompass allows registered users to connect with other registered users.
 
 We may collect and store:
 
@@ -95,7 +95,7 @@ We may collect and store:
 * Invitation, acceptance, decline, cancellation, and removal dates; and
 * Related activity records.
 
-Friend invitations are intended for existing EquiShare users. EquiShare does not currently send invitation emails to people who do not have an EquiShare account.
+Friend invitations are intended for existing BillCompass users. BillCompass does not currently send invitation emails to people who do not have a BillCompass account.
 
 Friends may be able to see each other’s:
 
@@ -189,7 +189,7 @@ When you use receipt extraction, the receipt and extracted information may conta
 * Payment-method description; and
 * The last four digits of a payment card if they are visible on the receipt.
 
-EquiShare does not intentionally request or use:
+BillCompass does not intentionally request or use:
 
 * Full payment-card numbers;
 * Card security codes;
@@ -208,24 +208,24 @@ Receipt recognition is currently available through supported mobile features.
 
 When you photograph or select a receipt:
 
-1. The image is uploaded to the EquiShare backend.
+1. The image is uploaded to the BillCompass backend.
 2. The image is temporarily processed by our backend.
 3. The image and receipt-extraction instructions are transmitted to the Google Gemini API.
 4. Google processes the image and returns suggested structured receipt information.
 5. The suggested information is returned to you for review and editing.
 6. Structured receipt information is saved only if you choose to save the bill.
 
-EquiShare does not intentionally retain the original receipt image after extraction is complete. The image may exist temporarily in application memory, network systems, and service-provider systems while the request is processed.
+BillCompass does not intentionally retain the original receipt image after extraction is complete. The image may exist temporarily in application memory, network systems, and service-provider systems while the request is processed.
 
-As of the Effective Date of this Privacy Policy, EquiShare uses a billing-enabled Gemini API service. Under Google’s applicable paid-service terms as of that date, Google states that prompts, associated files, and responses are not used to improve Google’s products. Google’s terms may change. Google may still process, log, cache, or temporarily retain receipt content for security, abuse monitoring, policy enforcement, service operation, caching, or legal purposes in accordance with Google’s applicable terms and data-processing commitments.
+As of the Effective Date of this Privacy Policy, BillCompass uses a billing-enabled Gemini API service. Under Google’s applicable paid-service terms as of that date, Google states that prompts, associated files, and responses are not used to improve Google’s products. Google’s terms may change. Google may still process, log, cache, or temporarily retain receipt content for security, abuse monitoring, policy enforcement, service operation, caching, or legal purposes in accordance with Google’s applicable terms and data-processing commitments.
 
-EquiShare does not use receipt images to train an EquiShare artificial-intelligence model, for advertising, or for marketing.
+BillCompass does not use receipt images to train a BillCompass artificial-intelligence model, for advertising, or for marketing.
 
 Automated receipt extraction may be inaccurate. You are responsible for reviewing and correcting extracted information before saving or sharing a bill.
 
 ### 3.8 Activity information
 
-EquiShare may create records describing actions taken in the Service, such as:
+BillCompass may create records describing actions taken in the Service, such as:
 
 * A bill being created, edited, or deleted;
 * A share being marked as paid;
@@ -278,7 +278,7 @@ The mobile application may request access to:
 * Your camera, when you choose to photograph a receipt; and
 * Your photo library or system photo picker, when you choose an existing receipt image.
 
-EquiShare does not currently request access to your contacts, precise device location, microphone, calendar, Bluetooth, health information, biometric information, or advertising identifier.
+BillCompass does not currently request access to your contacts, precise device location, microphone, calendar, Bluetooth, health information, biometric information, or advertising identifier.
 
 You may revoke camera or photo access through your device settings. Manual bill creation remains available without granting receipt-related permissions.
 
@@ -293,11 +293,11 @@ When you contact us, we may collect:
 * Information needed to verify your identity; and
 * Records of our response and any action taken.
 
-EquiShare currently uses email for transactional purposes such as account verification and for responding to user inquiries. We do not currently send marketing newsletters or promotional email campaigns.
+BillCompass currently uses email for transactional purposes such as account verification and for responding to user inquiries. We do not currently send marketing newsletters or promotional email campaigns.
 
 ### 3.12 Information provided by other users
 
-Because EquiShare is collaborative, another registered user may create information relating to you. For example, another user may:
+Because BillCompass is collaborative, another registered user may create information relating to you. For example, another user may:
 
 * Add you to a bill or group;
 * Assign a line item or amount to you;
@@ -326,14 +326,14 @@ We may use personal information to:
 * Process account, access, correction, and deletion requests;
 * Detect, prevent, and investigate unauthorized access, abuse, fraud, security incidents, or violations of our terms;
 * Troubleshoot errors and maintain the Service;
-* Protect the rights, safety, and property of EquiShare, our users, and others;
+* Protect the rights, safety, and property of BillCompass, our users, and others;
 * Establish, exercise, or defend legal claims;
 * Comply with legal and regulatory obligations; and
 * Improve the reliability, security, functionality, and user experience of the Service.
 
-EquiShare does not use personal information for behavioural advertising, advertising profiles, or tracking across unrelated applications or websites.
+BillCompass does not use personal information for behavioural advertising, advertising profiles, or tracking across unrelated applications or websites.
 
-EquiShare does not make decisions that produce legal or similarly significant effects based solely on automated processing. Receipt extraction is an assistance feature and does not determine financial liability or confirm payment.
+BillCompass does not make decisions that produce legal or similarly significant effects based solely on automated processing. Receipt extraction is an assistance feature and does not determine financial liability or confirm payment.
 
 ## 5. Legal Bases for Processing
 
@@ -376,7 +376,7 @@ We may process or retain information where necessary to comply with applicable l
 
 We may disclose personal information in the circumstances described below.
 
-### 6.1 Other EquiShare users
+### 6.1 Other BillCompass users
 
 Information is disclosed to other users when necessary for the collaborative features you use.
 
@@ -402,7 +402,7 @@ Neon provides database hosting for account, authentication, friendship, group, b
 
 **Google Cloud**
 
-Google Cloud hosts the EquiShare backend and may process API traffic, authentication requests, application operations, temporary receipt images, technical information, and server logs.
+Google Cloud hosts the BillCompass backend and may process API traffic, authentication requests, application operations, temporary receipt images, technical information, and server logs.
 
 **Cloudflare**
 
@@ -416,14 +416,14 @@ Resend delivers transactional registration-verification emails. Resend receives 
 
 The Google Gemini API performs automated receipt extraction. Google receives the receipt image, extraction instructions, requested output information, and related technical information.
 
-As of the Effective Date of this Privacy Policy, EquiShare uses a billing-enabled Gemini API service. Under Google’s applicable paid-service terms as of that date, Google states that prompts, associated files, and responses are not used to improve Google’s products. Google’s terms may change. Google may nevertheless process, log, cache, or temporarily retain data for service operation, security, abuse monitoring, policy enforcement, caching, or legal purposes in accordance with its applicable terms and data-processing commitments.
+As of the Effective Date of this Privacy Policy, BillCompass uses a billing-enabled Gemini API service. Under Google’s applicable paid-service terms as of that date, Google states that prompts, associated files, and responses are not used to improve Google’s products. Google’s terms may change. Google may nevertheless process, log, cache, or temporarily retain data for service operation, security, abuse monitoring, policy enforcement, caching, or legal purposes in accordance with its applicable terms and data-processing commitments.
 
 
 ### 6.3 Apple and Google app stores
 
-Apple and Google may independently process information when you download, install, update, purchase through, review, or manage EquiShare through their respective app stores.
+Apple and Google may independently process information when you download, install, update, purchase through, review, or manage BillCompass through their respective app stores.
 
-Their processing is governed by their own privacy policies and account settings. EquiShare does not control information collected independently by an app-store operator.
+Their processing is governed by their own privacy policies and account settings. BillCompass does not control information collected independently by an app-store operator.
 
 ### 6.4 Legal and safety disclosures
 
@@ -432,14 +432,14 @@ We may disclose information where we reasonably believe disclosure is necessary 
 * Comply with applicable law, regulation, legal process, or enforceable governmental request;
 * Respond to a court order, subpoena, warrant, or similar request;
 * Detect, investigate, or prevent fraud, abuse, security incidents, or unlawful conduct;
-* Protect the rights, property, or safety of EquiShare, our users, or another person; or
+* Protect the rights, property, or safety of BillCompass, our users, or another person; or
 * Establish, exercise, or defend legal claims.
 
 Where legally permitted, we may object to requests we believe are excessive, invalid, or unlawful.
 
 ### 6.5 Business transactions
 
-If EquiShare or the Service is involved in a merger, acquisition, financing, reorganization, sale of assets, transfer, insolvency proceeding, or similar transaction, information may be disclosed to advisers and potential or actual transaction participants.
+If BillCompass or the Service is involved in a merger, acquisition, financing, reorganization, sale of assets, transfer, insolvency proceeding, or similar transaction, information may be disclosed to advisers and potential or actual transaction participants.
 
 Any recipient would be required to handle personal information consistently with applicable law. Where required, we will provide notice before personal information becomes subject to materially different privacy practices.
 
@@ -449,7 +449,7 @@ We may disclose information for another purpose when you direct us to do so or p
 
 ## 7. No Sale, Advertising, or Cross-Context Behavioural Tracking
 
-EquiShare does not currently:
+BillCompass does not currently:
 
 * Sell personal information;
 * Rent personal information;
@@ -461,7 +461,7 @@ EquiShare does not currently:
 * Use receipt information for marketing; or
 * Create advertising profiles from your activity.
 
-Where terms such as “sell” or “share” have specific definitions under applicable United States privacy laws, EquiShare does not knowingly sell or share personal information for monetary consideration or cross-context behavioural advertising.
+Where terms such as “sell” or “share” have specific definitions under applicable United States privacy laws, BillCompass does not knowingly sell or share personal information for monetary consideration or cross-context behavioural advertising.
 
 If these practices change, we will update this Privacy Policy and provide any legally required choices before beginning the new processing.
 
@@ -501,7 +501,7 @@ Retention depends on the type of information and the reason it is processed.
 
 Examples include:
 
-* Receipt images are not intentionally retained by EquiShare after the receipt-extraction request is completed;
+* Receipt images are not intentionally retained by BillCompass after the receipt-extraction request is completed;
 * Email-verification codes and authentication credentials are short-lived and become unusable after they expire or are revoked;
 * Related verification and session records may remain until removed by account deletion, security processes, or later cleanup;
 * Active account, bill, friendship, group, and activity information may be retained while the account remains active;
@@ -518,7 +518,7 @@ When information is no longer reasonably required, we take steps to delete, anon
 
 You may initiate account deletion:
 
-* Through the account settings in the EquiShare mobile application;
+* Through the account settings in the BillCompass mobile application;
 * Through the public account-deletion page at https://split-the-bill.net/delete-account; or
 * By contacting [privacy@split-the-bill.net](mailto:privacy@split-the-bill.net).
 
@@ -536,7 +536,7 @@ When an account-deletion request is completed, the result for each category is:
 * **Solo bills** — Deleted. Bills created by the user that were not shared with friends or a group are deleted.
 * **Shared bills** — Retained for other participants. The deleted user’s identity on those bills is shown as “Deleted Account” (or similar); amounts, shares, settlement status, and bill history remain available to other participants.
 * **Activity records** — Removed from the deleted user’s feed. Activity that other users still need (for example activity tied to retained shared bills) may remain and will show the de-identified “Deleted Account” identity rather than the original email or name.
-* **Backups and logs** — Account deletion does not immediately purge backups, disaster-recovery copies, or operational/security logs held by EquiShare or its providers. Those copies are isolated from ordinary product use and are deleted or overwritten according to applicable retention cycles.
+* **Backups and logs** — Account deletion does not immediately purge backups, disaster-recovery copies, or operational/security logs held by BillCompass or its providers. Those copies are isolated from ordinary product use and are deleted or overwritten according to applicable retention cycles.
 
 After deletion is completed, login with the deleted account is disabled. Registering again with the same email address creates a new account.
 
@@ -565,7 +565,7 @@ You are responsible for maintaining the confidentiality of your password and for
 
 ## 12. International and Cross-Border Processing
 
-EquiShare is operated from Canada. Our service providers may process or store information in Canada, the United States, and other countries where they or their subcontractors maintain facilities.
+BillCompass is operated from Canada. Our service providers may process or store information in Canada, the United States, and other countries where they or their subcontractors maintain facilities.
 
 As a result, personal information may be subject to the laws of a jurisdiction outside your province, state, or country. Government authorities, courts, law-enforcement agencies, or regulators in those jurisdictions may be able to access information where permitted by applicable law.
 
@@ -590,7 +590,7 @@ These rights may include the right to:
 
 You may update certain information and manage bills, friendships, groups, sessions, and settlement statuses directly through the Service.
 
-EquiShare does not currently provide a fully automated data-export tool. Access, correction, portability, and copy requests may be handled manually.
+BillCompass does not currently provide a fully automated data-export tool. Access, correction, portability, and copy requests may be handled manually.
 
 To exercise a privacy right, contact:
 
@@ -623,13 +623,13 @@ You may also have the right to complain to the data-protection authority in the 
 
 ### United States users
 
-Where an applicable United States state privacy law applies to EquiShare, eligible residents may have rights to request access, correction, deletion, or portability and to receive information about categories of personal information collected, used, and disclosed.
+Where an applicable United States state privacy law applies to BillCompass, eligible residents may have rights to request access, correction, deletion, or portability and to receive information about categories of personal information collected, used, and disclosed.
 
-EquiShare does not sell personal information or share it for cross-context behavioural advertising, so we do not currently provide a separate sale or behavioural-advertising opt-out mechanism.
+BillCompass does not sell personal information or share it for cross-context behavioural advertising, so we do not currently provide a separate sale or behavioural-advertising opt-out mechanism.
 
 ## 14. Children and Minimum Age
 
-EquiShare is intended only for people who are at least **18 years old**.
+BillCompass is intended only for people who are at least **18 years old**.
 
 We do not knowingly collect personal information from anyone under 18. We do not request a date of birth and do not currently operate a separate age-verification system.
 
@@ -662,7 +662,7 @@ Your continued use of the Service after an updated Privacy Policy takes effect c
 
 ## 17. Contact Information
 
-EquiShare is operated by:
+BillCompass is operated by:
 
 **Marco Schapira**
 15 Pendrith St.
@@ -674,4 +674,4 @@ Canada
 **Account-deletion page:** https://split-the-bill.net/delete-account
 **Recommended policy location:** https://split-the-bill.net/privacy
 
-Marco Schapira is the person responsible for privacy inquiries concerning EquiShare.
+Marco Schapira is the person responsible for privacy inquiries concerning BillCompass.

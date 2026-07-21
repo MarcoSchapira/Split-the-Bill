@@ -1,4 +1,4 @@
-import axios from 'axios'
+import axios, { type InternalAxiosRequestConfig } from 'axios'
 import { clearAuth, getCsrfToken } from '../auth/authStorage'
 
 export const AUTH_UNAUTHORIZED_EVENT = 'equisplit:unauthorized'
@@ -29,33 +29,66 @@ apiClient.interceptors.request.use((config) => {
   return config
 })
 
-let logoutInFlight = false
+type RetriableRequest = InternalAxiosRequestConfig & {
+  _billCompassRetried?: boolean;
+}
+
+let refreshInFlight: Promise<void> | null = null
+
+const noRefreshPaths = [
+  '/auth/login',
+  '/auth/register',
+  '/auth/register/send-code',
+  '/auth/refresh',
+  '/auth/logout',
+  '/auth/account/send-delete-code',
+  '/auth/account/verify-delete-code',
+  '/auth/account/confirm-delete',
+]
+
+function shouldAttemptRefresh(config: RetriableRequest | undefined): boolean {
+  if (!config || config._billCompassRetried) return false
+  const requestPath = config.url?.split('?')[0]
+  return !noRefreshPaths.includes(requestPath ?? '')
+}
+
+function announceUnauthorized() {
+  clearAuth()
+  window.dispatchEvent(new Event(AUTH_UNAUTHORIZED_EVENT))
+}
+
+export async function refreshBrowserSession(): Promise<void> {
+  if (!refreshInFlight) {
+    refreshInFlight = (async () => {
+      try {
+        await apiClient.post('/auth/refresh')
+      } catch (refreshError) {
+        announceUnauthorized()
+        throw refreshError
+      } finally {
+        refreshInFlight = null
+      }
+    })()
+  }
+  return refreshInFlight
+}
 
 apiClient.interceptors.response.use(
   (response) => response,
   async (error: unknown) => {
-    if (
-      axios.isAxiosError(error) &&
-      error.response?.status === 401 &&
-      !error.config?.url?.includes('/auth/login') &&
-      !error.config?.url?.includes('/auth/register') &&
-      !error.config?.url?.includes('/auth/register/send-code') &&
-      !error.config?.url?.includes('/auth/account/send-delete-code') &&
-      !error.config?.url?.includes('/auth/account/verify-delete-code') &&
-      !error.config?.url?.includes('/auth/account/confirm-delete') &&
-      !logoutInFlight
-    ) {
-      logoutInFlight = true
+    if (axios.isAxiosError(error) && error.response?.status === 401) {
+      const config = error.config as RetriableRequest | undefined
+
+      if (!config || !shouldAttemptRefresh(config)) {
+        return Promise.reject(error)
+      }
+
+      config._billCompassRetried = true
       try {
-        await apiClient.post('/auth/logout', undefined, {
-          headers: { 'X-CSRF-Token': getCsrfToken() ?? '' },
-        })
-      } catch {
-        clearAuth()
-      } finally {
-        logoutInFlight = false
-        clearAuth()
-        window.dispatchEvent(new Event(AUTH_UNAUTHORIZED_EVENT))
+        await refreshBrowserSession()
+        return apiClient.request(config)
+      } catch (refreshError) {
+        return Promise.reject(refreshError)
       }
     }
 

@@ -1,94 +1,47 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
+import {
+  Activity,
+  ChevronRight,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Plus,
+  ReceiptText,
+  Settings,
+  Shapes,
+  UsersRound,
+  WalletCards,
+} from 'lucide-react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { apiErrorMessage } from '../api/client'
-import { inviteFriend, listFriends } from '../api/friendsApi'
-import type { FriendshipSummary } from '../api/types'
 import { useAuth } from '../auth/useAuth'
-import { BillForm } from '../components/BillForm'
-import { Modal } from '../components/Modal'
-import { DATA_CHANGED_EVENT, notifyDataChanged } from '../utils/events'
+import { displayName } from '../utils/format'
 
-const navigation = [
-  { to: '/dashboard', label: 'Dashboard' },
-  { to: '/activity', label: 'Recent Activity' },
-  { to: '/bills', label: 'Bills' },
-  { to: '/friends', label: 'Friends' },
-  { to: '/invitations', label: 'Invitations' },
+const primaryNavigation = [
+  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/bills', label: 'Bills', icon: ReceiptText },
+  { to: '/requests', label: 'Requests', icon: WalletCards },
+  { to: '/groups', label: 'Groups', icon: Shapes },
+  { to: '/friends', label: 'People', icon: UsersRound },
+  { to: '/activity', label: 'Activity', icon: Activity },
 ]
 
+const mobileNavigation = primaryNavigation.slice(0, 4)
+
+function Brand() {
+  return (
+    <Link aria-label="BillCompass dashboard" className="bc-brand" to="/dashboard">
+      <span className="bc-brand__mark"><ReceiptText aria-hidden="true" size={20} /></span>
+      <span>
+        <strong>BillCompass</strong>
+        <small>Shared expenses, clear</small>
+      </span>
+    </Link>
+  )
+}
+
 export function AppLayout() {
-  const [dialog, setDialog] = useState<'friend' | null>(null)
-  const [showBillForm, setShowBillForm] = useState(false)
-  const [friends, setFriends] = useState<FriendshipSummary[]>([])
-  const [email, setEmail] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
-  const [isSaving, setIsSaving] = useState(false)
   const auth = useAuth()
   const navigate = useNavigate()
-
-  const loadBillFormData = useCallback(async () => {
-    const nextFriends = await listFriends()
-    setFriends(nextFriends)
-  }, [])
-
-  useEffect(() => {
-    const reload = () => {
-      if (showBillForm) {
-        void loadBillFormData()
-      }
-    }
-    window.addEventListener(DATA_CHANGED_EVENT, reload)
-    return () => window.removeEventListener(DATA_CHANGED_EVENT, reload)
-  }, [loadBillFormData, showBillForm])
-
-  useEffect(() => {
-    if (!notice) {
-      return
-    }
-
-    const timeoutId = window.setTimeout(() => setNotice(null), 4000)
-    return () => window.clearTimeout(timeoutId)
-  }, [notice])
-
-  function openFriendDialog() {
-    setError(null)
-    setDialog('friend')
-  }
-
-  function closeDialog() {
-    setDialog(null)
-    setError(null)
-    setEmail('')
-  }
-
-  async function openBillForm() {
-    setError(null)
-    try {
-      await loadBillFormData()
-      setShowBillForm(true)
-    } catch (requestError) {
-      setNotice(apiErrorMessage(requestError, 'Unable to open bill form.'))
-    }
-  }
-
-  async function submitFriend(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setError(null)
-    setIsSaving(true)
-
-    try {
-      await inviteFriend(email)
-      setNotice('Friend invitation sent.')
-      notifyDataChanged()
-      closeDialog()
-      navigate('/invitations')
-    } catch (requestError) {
-      setError(apiErrorMessage(requestError, 'Unable to send invitation.'))
-    } finally {
-      setIsSaving(false)
-    }
-  }
 
   async function logout() {
     await auth.logout()
@@ -96,93 +49,93 @@ export function AppLayout() {
   }
 
   return (
-    <div className="workspace-shell">
-      <aside className="sidebar">
-        <div className="sidebar-brand">
-          <p className="eyebrow">EquiShare</p>
-          <strong>Split the Bill</strong>
-        </div>
-        <nav className="sidebar-nav" aria-label="Primary navigation">
-          {navigation.map((item) => (
-            <NavLink
-              className={({ isActive }) => `nav-tab${isActive ? ' active' : ''}`}
-              key={item.to}
-              to={item.to}
-            >
-              {item.label}
+    <div className="bc-workspace">
+      <a className="bc-skip-link" href="#main-content">Skip to main content</a>
+      <aside className="bc-sidebar">
+        <Brand />
+        <Link className="bc-button bc-button--primary bc-sidebar__create" to="/bills/new">
+          <Plus aria-hidden="true" size={18} />
+          New bill
+        </Link>
+        <nav aria-label="Primary navigation" className="bc-nav">
+          {primaryNavigation.map(({ icon: Icon, label, to }) => (
+            <NavLink className={({ isActive }) => `bc-nav__link${isActive ? ' is-active' : ''}`} key={to} to={to}>
+              <Icon aria-hidden="true" size={19} />
+              <span>{label}</span>
             </NavLink>
           ))}
         </nav>
-        <div className="sidebar-account">
-          <div className="sidebar-account-info">
-            <div className="sidebar-account-ident">
-              <strong>{auth.user?.name ?? 'Your account'}</strong>
-              <span>{auth.user?.email}</span>
-            </div>
-            <Link
-              aria-label="Settings"
-              className="icon-button sidebar-settings-button"
-              to="/settings"
-            >
-              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <circle cx="12" cy="12" r="3" />
-                <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
-              </svg>
-            </Link>
+        <div className="bc-sidebar__account">
+          <div className="bc-avatar" aria-hidden="true">
+            {(auth.user?.name?.trim()[0] ?? auth.user?.email[0] ?? '?').toUpperCase()}
           </div>
-          <button className="quiet-button" onClick={logout} type="button">
-            Log out
-          </button>
+          <div className="bc-sidebar__identity">
+            <strong>{displayName(auth.user)}</strong>
+            <span>{auth.user?.email}</span>
+          </div>
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger aria-label="Open account menu" className="bc-icon-button">
+              <ChevronRight aria-hidden="true" size={18} />
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Portal>
+              <DropdownMenu.Content align="end" className="bc-menu" sideOffset={10}>
+                <DropdownMenu.Item asChild>
+                  <Link className="bc-menu__item" to="/settings"><Settings size={17} />Settings</Link>
+                </DropdownMenu.Item>
+                <DropdownMenu.Separator className="bc-menu__separator" />
+                <DropdownMenu.Item className="bc-menu__item bc-menu__item--danger" onSelect={() => void logout()}>
+                  <LogOut size={17} />Log out
+                </DropdownMenu.Item>
+              </DropdownMenu.Content>
+            </DropdownMenu.Portal>
+          </DropdownMenu.Root>
         </div>
       </aside>
-      <main className="workspace-main">
-        <div className="floating-actions">
-          {notice ? <span className="floating-notice">{notice}</span> : null}
-          <div className="floating-actions-buttons">
-            <button className="secondary-button floating-button" onClick={openFriendDialog} type="button">
-              + Add friend
-            </button>
-            <button className="primary-button compact floating-button" onClick={() => void openBillForm()} type="button">
-              + New bill
-            </button>
-          </div>
+
+      <header className="bc-mobile-header">
+        <Brand />
+        <div className="bc-mobile-header__actions">
+          <Link aria-label="Create a new bill" className="bc-icon-button bc-icon-button--accent" to="/bills/new">
+            <Plus aria-hidden="true" size={20} />
+          </Link>
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger aria-label="Open menu" className="bc-icon-button">
+              <Menu aria-hidden="true" size={21} />
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Portal>
+              <DropdownMenu.Content align="end" className="bc-menu" sideOffset={10}>
+                <DropdownMenu.Label className="bc-menu__label">{displayName(auth.user)}</DropdownMenu.Label>
+                <DropdownMenu.Item asChild>
+                  <Link className="bc-menu__item" to="/friends"><UsersRound size={17} />People</Link>
+                </DropdownMenu.Item>
+                <DropdownMenu.Item asChild>
+                  <Link className="bc-menu__item" to="/activity"><Activity size={17} />Activity</Link>
+                </DropdownMenu.Item>
+                <DropdownMenu.Item asChild>
+                  <Link className="bc-menu__item" to="/settings"><Settings size={17} />Settings</Link>
+                </DropdownMenu.Item>
+                <DropdownMenu.Separator className="bc-menu__separator" />
+                <DropdownMenu.Item className="bc-menu__item bc-menu__item--danger" onSelect={() => void logout()}>
+                  <LogOut size={17} />Log out
+                </DropdownMenu.Item>
+              </DropdownMenu.Content>
+            </DropdownMenu.Portal>
+          </DropdownMenu.Root>
         </div>
+      </header>
+
+      <main className="bc-main" id="main-content" tabIndex={-1}>
         <Outlet />
       </main>
-      {dialog === 'friend' ? (
-        <Modal onClose={closeDialog} title="Add a friend">
-          <p className="muted">Send an invitation to an existing EquiShare account.</p>
-          <form className="stack-form" onSubmit={submitFriend}>
-            <label>
-              Registered email
-              <input
-                autoFocus
-                required
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-              />
-            </label>
-            {error ? <p className="form-error">{error}</p> : null}
-            <button className="primary-button" disabled={isSaving} type="submit">
-              {isSaving ? 'Sending...' : 'Send invitation'}
-            </button>
-          </form>
-        </Modal>
-      ) : null}
-      {showBillForm ? (
-        <Modal onClose={() => setShowBillForm(false)} title="Add a bill">
-          <BillForm
-            friends={friends}
-            onCancel={() => setShowBillForm(false)}
-            onSaved={() => {
-              setShowBillForm(false)
-              setNotice('Bill saved.')
-              notifyDataChanged()
-            }}
-          />
-        </Modal>
-      ) : null}
+
+      <nav aria-label="Mobile navigation" className="bc-bottom-nav">
+        {mobileNavigation.map(({ icon: Icon, label, to }) => (
+          <NavLink className={({ isActive }) => `bc-bottom-nav__link${isActive ? ' is-active' : ''}`} key={to} to={to}>
+            <Icon aria-hidden="true" size={20} />
+            <span>{label}</span>
+          </NavLink>
+        ))}
+      </nav>
     </div>
   )
 }

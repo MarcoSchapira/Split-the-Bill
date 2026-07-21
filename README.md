@@ -1,10 +1,10 @@
-# Split-the-Bill (EquiShare)
+# BillCompass
 
-Full-stack expense-sharing platform.
+Full-stack CAD expense-sharing platform with web, iOS, Android, and API clients.
 
 ## Prerequisites
 
-- Node.js 18+
+- Node.js 20.19+ or 22.12+
 
 ## Local development
 
@@ -30,18 +30,17 @@ The Vite dev server proxies `/api` to `http://localhost:3000` so HttpOnly auth c
 
 ## Application features
 
-The API supports session-based JWT authentication (HttpOnly cookies in the browser, Bearer tokens for tests/CLI), invitation-based connections, groups, and CAD bill splitting:
+The API supports session-based JWT authentication (HttpOnly cookies in the browser, Bearer tokens for mobile/tests), invitation-based connections, groups, receipt extraction, and integer-cent bill splitting. The responsive web workspace includes Dashboard, Bills, Requests, People, Groups, Activity, and Settings.
 
 - `POST /auth/register`, `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`, and protected `GET /auth/me`
-- Protected `POST /groups`, `GET /groups`, and `GET /groups/:groupId`
-- `POST /friend-invitations`, `POST /groups/:groupId/invitations`, `GET /invitations`,
-  and invitation accept/decline `PATCH` endpoints
+- Group creation, details, membership, leave, ownership transfer, and deletion endpoints
+- Friend invitation send/accept/decline/cancel endpoints
 - `GET /friends`, `POST /bills`, `PATCH /bills/:billId`, `DELETE /bills/:billId`,
-  `GET /dashboard`, and `GET /activity`
+  settlement routes, `GET /dashboard`, `GET /activity`, and `POST /receipts/parse`
 
-Creating a group adds only its creator immediately. Friends and additional group
-members must accept an in-app invitation before bills can include them. Invitations
-to unregistered emails are stored as pending and delivered when the recipient signs up.
+Creating a group adds its creator immediately. Existing friends can then be added as
+members; membership changes affect future group bills only. Friend invitations are
+limited to existing accounts and require acceptance before direct shared bills.
 
 ## Environment configuration
 
@@ -115,5 +114,5 @@ Integration tests deliberately require a separate resettable PostgreSQL database
 ```bash
 npm run test:integration          # Bearer suite (requires ALLOW_AUTH_TOKEN_RESPONSE=true)
 npm run test:integration:cookie   # Cookie + CSRF suite
-npm test                          # unit + Bearer integration
+npm test                          # unit + Bearer integration + cookie/CSRF integration
 ```

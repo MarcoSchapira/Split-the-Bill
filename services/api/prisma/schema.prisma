@@ -241,7 +241,7 @@ model ActivityEvent {
   actor            User                @relation("ActivityActor", fields: [actorId], references: [id], onDelete: Cascade)
   bill             Bill?               @relation(fields: [billId], references: [id], onDelete: Cascade)
   friendInvitation FriendInvitation?   @relation(fields: [friendInvitationId], references: [id], onDelete: Cascade)
-  group            Group?              @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  group            Group?              @relation(fields: [groupId], references: [id], onDelete: SetNull)
   recipients       ActivityRecipient[]
 
   @@index([actorId])

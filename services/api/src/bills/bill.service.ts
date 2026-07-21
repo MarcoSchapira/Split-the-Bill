@@ -6,6 +6,7 @@ import { buildSharesFromInput, sharesWithLenderId } from "./bill-split";
 import { toBillShareBalanceLike, userSummaryForBill } from "./bill-balance";
 import { pairwiseSummaryForBill } from "./bill-pairwise";
 import type { BillInput, BillListQuery } from "./bill.types";
+import { lockGroupMembershipMutations } from "../groups/group-ownership";
 import {
   assertGroupBillAllowed,
   assertParticipantsAllowed,
@@ -135,8 +136,8 @@ function defaultIncurredAt(input: BillInput) {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 }
 
-function resolvePayerId(input: BillInput, actingUserId: string, participantIds: string[]) {
-  const payerId = input.payerId ?? actingUserId;
+function resolvePayerId(input: BillInput, fallbackPayerId: string, participantIds: string[]) {
+  const payerId = input.payerId ?? fallbackPayerId;
   assertPayerIsParticipant(payerId, participantIds);
   return payerId;
 }
@@ -157,6 +158,67 @@ type ResolvedBillContext = {
   lineItemsInput: BillInput["lineItems"];
 };
 
+type ExistingBillTarget = {
+  creatorId: string;
+  payerId: string;
+  participantIds: string[];
+  isSplitWithFriends: boolean;
+  isSplitWithGroup: boolean;
+  groupId: string | null;
+};
+
+function sameParticipantIds(first: string[], second: string[]) {
+  const firstKey = sortedParticipantKey(first);
+  const secondKey = sortedParticipantKey(second);
+  return (
+    firstKey.length === secondKey.length &&
+    firstKey.every((id, index) => id === secondKey[index])
+  );
+}
+
+function normalizedRequestedTarget(input: BillInput, existing: ExistingBillTarget) {
+  const participantIds = input.participantIds?.length
+    ? sortedParticipantKey(input.participantIds)
+    : sortedParticipantKey(existing.participantIds);
+  const isSplitWithGroup = input.isSplitWithGroup ?? existing.isSplitWithGroup;
+
+  return {
+    participantIds,
+    payerId: input.payerId ?? existing.payerId,
+    isSplitWithFriends: input.isSplitWithFriends ?? existing.isSplitWithFriends,
+    isSplitWithGroup,
+    groupId: isSplitWithGroup
+      ? (input.groupId !== undefined ? input.groupId : existing.groupId)
+      : null,
+  };
+}
+
+function assertRetargetAllowed(
+  actingUserId: string,
+  input: BillInput,
+  existing: ExistingBillTarget,
+) {
+  if (existing.creatorId === actingUserId) {
+    return;
+  }
+
+  const requested = normalizedRequestedTarget(input, existing);
+  const targetChanged =
+    !sameParticipantIds(requested.participantIds, existing.participantIds) ||
+    requested.payerId !== existing.payerId ||
+    requested.isSplitWithFriends !== existing.isSplitWithFriends ||
+    requested.isSplitWithGroup !== existing.isSplitWithGroup ||
+    requested.groupId !== existing.groupId;
+
+  if (targetChanged) {
+    throw new ApiError(
+      403,
+      "BILL_RETARGET_FORBIDDEN",
+      "Only the bill creator can change its payer, participants, or target",
+    );
+  }
+}
+
 function stripLineItemAssignments(input: BillInput): BillInput["lineItems"] {
   return input.lineItems.map((item) => ({
     ...item,
@@ -168,9 +230,9 @@ async function resolveBillContext(
   tx: PrismaTransaction,
   actingUserId: string,
   input: BillInput,
-  existingParticipantIds?: string[],
+  existing?: ExistingBillTarget,
 ): Promise<ResolvedBillContext> {
-  const isSplitWithGroup = input.isSplitWithGroup ?? false;
+  const isSplitWithGroup = input.isSplitWithGroup ?? existing?.isSplitWithGroup ?? false;
   const normalizedInput = isSplitWithGroup
     ? {
         ...input,
@@ -185,16 +247,37 @@ async function resolveBillContext(
   let groupId: string | null = null;
 
   if (isSplitWithGroup) {
-    if (!input.groupId) {
+    groupId = input.groupId !== undefined ? input.groupId : existing?.groupId ?? null;
+    const isUnchangedGroup = existing?.isSplitWithGroup === true && existing.groupId === groupId;
+
+    if (!groupId && !isUnchangedGroup) {
       throw new ApiError(400, "INVALID_GROUP", "groupId is required for group bills");
     }
 
-    groupId = input.groupId;
-    participantIds = await assertGroupBillAllowed(tx, actingUserId, groupId);
+    const requested = input.participantIds?.length
+      ? sortedParticipantKey(input.participantIds)
+      : null;
 
-    if (input.participantIds && input.participantIds.length > 0) {
-      const requested = sortedParticipantKey(input.participantIds);
-      if (requested.join(",") !== participantIds.join(",")) {
+    if (
+      isUnchangedGroup &&
+      (!requested || sameParticipantIds(requested, existing.participantIds))
+    ) {
+      // Membership changes only affect future group bills. Editing an existing
+      // group bill must keep its historical participant snapshot unless the
+      // creator explicitly submits the current member set as a retarget.
+      participantIds = sortedParticipantKey(existing.participantIds);
+    } else {
+      if (!groupId) {
+        throw new ApiError(
+          400,
+          "INVALID_GROUP",
+          "A bill whose group was deleted cannot be retargeted as a group bill",
+        );
+      }
+      const currentMemberIds = await assertGroupBillAllowed(tx, actingUserId, groupId);
+      participantIds = currentMemberIds;
+
+      if (requested && !sameParticipantIds(requested, currentMemberIds)) {
         throw new ApiError(
           400,
           "INVALID_PARTICIPANTS",
@@ -203,14 +286,37 @@ async function resolveBillContext(
       }
     }
   } else {
-    participantIds = resolveParticipantIds(actingUserId, normalizedInput, existingParticipantIds);
-    await assertParticipantsAllowed(tx, actingUserId, participantIds, {
-      isSplitWithGroup: false,
-    });
+    participantIds = resolveParticipantIds(
+      actingUserId,
+      normalizedInput,
+      existing?.participantIds,
+    );
+    const isUnchangedParticipantSet =
+      existing != null &&
+      !existing.isSplitWithGroup &&
+      sameParticipantIds(participantIds, existing.participantIds);
+
+    // Historical direct bills remain editable after a friendship is removed.
+    // Only a real participant retarget needs current friendship validation.
+    if (!isUnchangedParticipantSet) {
+      await assertParticipantsAllowed(tx, actingUserId, participantIds, {
+        isSplitWithGroup: false,
+      });
+    }
   }
 
-  const payerId = resolvePayerId(normalizedInput, actingUserId, participantIds);
-  const modeFlags = resolveBillModeFlags(normalizedInput, participantIds, isSplitWithGroup, groupId);
+  const payerId = resolvePayerId(
+    normalizedInput,
+    existing?.payerId ?? actingUserId,
+    participantIds,
+  );
+  const modeFlags = resolveBillModeFlags(
+    normalizedInput,
+    participantIds,
+    isSplitWithGroup,
+    groupId,
+    existing,
+  );
 
   return {
     participantIds,
@@ -226,15 +332,21 @@ function resolveBillModeFlags(
   participantIds: string[],
   isSplitWithGroup: boolean,
   groupId: string | null,
+  existing?: ExistingBillTarget,
 ): ResolvedBillModeFlags {
   const hasLineItems = input.lineItems.length > 0;
   const hasLineItemAssignments = input.lineItems.some(
     (item) => item.assignedUserIds.length > 0,
   );
   const isOneMainTotal = input.isOneMainTotal ?? !hasLineItems;
+  const targetParticipantsUnchanged =
+    existing != null &&
+    existing.isSplitWithGroup === isSplitWithGroup &&
+    sameParticipantIds(participantIds, existing.participantIds);
   const isSplitWithFriends = isSplitWithGroup
     ? true
-    : (input.isSplitWithFriends ?? participantIds.length > 1);
+    : (input.isSplitWithFriends ??
+      (targetParticipantsUnchanged ? existing.isSplitWithFriends : participantIds.length > 1));
   const isSplitByFinalAmounts = isSplitWithGroup
     ? true
     : (input.isSplitByFinalAmounts ?? !hasLineItemAssignments);
@@ -367,10 +479,19 @@ export async function findVisibleBill(tx: PrismaTransaction, userId: string, bil
 }
 
 export async function createBill(tx: PrismaTransaction, actingUserId: string, input: BillInput) {
+  if (input.isSplitWithGroup && input.groupId) {
+    await lockGroupMembershipMutations(tx, [input.groupId]);
+  }
+
   const { participantIds, payerId, modeFlags, sharesInput, lineItemsInput } =
     await resolveBillContext(tx, actingUserId, input);
   const incurredAt = defaultIncurredAt(input);
-  const shares = buildSharesFromInput(input.totalCents, participantIds, sharesInput);
+  const shares = buildSharesFromInput(
+    input.totalCents,
+    participantIds,
+    sharesInput,
+    payerId,
+  );
   const recipientIds = shares.map((share) => share.userId);
   const lineItems = normalizeLineItems(lineItemsInput, participantIds, modeFlags);
 
@@ -457,12 +578,50 @@ export async function updateBill(
   billId: string,
   input: BillInput,
 ) {
+  await tx.$executeRaw`
+    SELECT pg_advisory_xact_lock(hashtextextended(${`billcompass-bill:${billId}`}, 0))
+  `;
   const bill = await findVisibleBill(tx, actingUserId, billId);
-  const existingParticipantIds = bill.shares.map((share) => share.user.id);
+  const requestedUsesGroup = input.isSplitWithGroup ?? bill.isSplitWithGroup;
+  const requestedGroupId = requestedUsesGroup
+    ? (input.groupId !== undefined ? input.groupId : bill.groupId)
+    : null;
+  await lockGroupMembershipMutations(
+    tx,
+    [bill.groupId, requestedGroupId].filter((groupId): groupId is string => groupId !== null),
+  );
+  const existingTarget: ExistingBillTarget = {
+    creatorId: bill.creatorId,
+    payerId: bill.payerId,
+    participantIds: bill.shares.map((share) => share.user.id),
+    isSplitWithFriends: bill.isSplitWithFriends,
+    isSplitWithGroup: bill.isSplitWithGroup,
+    groupId: bill.groupId,
+  };
+  assertRetargetAllowed(actingUserId, input, existingTarget);
   const { participantIds, payerId, modeFlags, sharesInput, lineItemsInput } =
-    await resolveBillContext(tx, actingUserId, input, existingParticipantIds);
+    await resolveBillContext(tx, actingUserId, input, existingTarget);
   const incurredAt = defaultIncurredAt(input);
-  const shares = buildSharesFromInput(input.totalCents, participantIds, sharesInput);
+  const participantSetUnchanged = sameParticipantIds(
+    participantIds,
+    existingTarget.participantIds,
+  );
+  const preserveImplicitShares =
+    sharesInput === undefined &&
+    participantSetUnchanged &&
+    input.totalCents === bill.totalCents &&
+    payerId === bill.payerId;
+  const shares = preserveImplicitShares
+    ? bill.shares.map((share) => ({
+        userId: share.user.id,
+        shareCents: share.shareCents,
+      }))
+    : buildSharesFromInput(
+        input.totalCents,
+        participantIds,
+        sharesInput,
+        payerId,
+      );
   const lineItems = normalizeLineItems(lineItemsInput, participantIds, modeFlags);
   const recipientIds = [
     ...new Set([...bill.shares.map((share) => share.user.id), ...shares.map((share) => share.userId)]),
@@ -473,9 +632,15 @@ export async function updateBill(
       (share) =>
         [
           share.user.id,
-          { payerMarkedAsPaid: share.payerMarkedAsPaid, lenderConfirmedPaid: share.lenderConfirmedPaid },
+          {
+            payerMarkedAsPaid: share.payerMarkedAsPaid,
+            lenderConfirmedPaid: share.lenderConfirmedPaid,
+          },
         ] as const,
     ),
+  );
+  const existingShareByUserId = new Map(
+    bill.shares.map((share) => [share.user.id, share] as const),
   );
 
   const updated = await tx.bill.update({
@@ -503,15 +668,25 @@ export async function updateBill(
       taxCents: input.taxCents,
       tipCents: input.tipCents,
       payerId,
-      shares: {
-        deleteMany: {},
-        create: shares.map((share) => ({
-          userId: share.userId,
-          shareCents: share.shareCents,
-          lenderId: payerId,
-          ...(settledByUserId.get(share.userId) ?? {}),
-        })),
-      },
+      shares: participantSetUnchanged
+        ? {
+            update: shares.map((share) => ({
+              where: { id: existingShareByUserId.get(share.userId)!.id },
+              data: {
+                shareCents: share.shareCents,
+                lenderId: payerId,
+              },
+            })),
+          }
+        : {
+            deleteMany: {},
+            create: shares.map((share) => ({
+              userId: share.userId,
+              shareCents: share.shareCents,
+              lenderId: payerId,
+              ...(settledByUserId.get(share.userId) ?? {}),
+            })),
+          },
       lineItems: {
         deleteMany: {},
         create: lineItems,

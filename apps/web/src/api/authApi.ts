@@ -1,4 +1,4 @@
-import { apiClient } from './client'
+import { apiClient, refreshBrowserSession } from './client'
 import type { AuthResponse, User } from './types'
 
 export type LoginInput = {
@@ -54,5 +54,27 @@ export async function confirmDeleteAccount(deletionToken: string): Promise<void>
 }
 
 export async function refreshSession(): Promise<void> {
-  await apiClient.post('/auth/refresh')
+  await refreshBrowserSession()
+}
+
+export async function updateCurrentUser(name: string): Promise<User> {
+  const response = await apiClient.patch<{ user: User }>('/auth/me', { name })
+  return response.data.user
+}
+
+export async function recordAiReceiptConsent(): Promise<User> {
+  const response = await apiClient.post<{ user: User }>('/auth/ai-receipt-consent')
+  return response.data.user
+}
+
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  await apiClient.post('/auth/change-password', { currentPassword, newPassword })
+}
+
+export async function logoutAllSessions(): Promise<void> {
+  await apiClient.post('/auth/logout-all')
+}
+
+export async function deleteAuthenticatedAccount(): Promise<void> {
+  await apiClient.delete('/auth/account')
 }

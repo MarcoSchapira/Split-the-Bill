@@ -1,11 +1,9 @@
-import { useState } from 'react'
 import { deleteBill, settleBill } from '../api/billsApi'
 import { apiErrorMessage } from '../api/client'
+import { invalidateBillData } from '../api/queryClient'
 import type { Bill, FriendshipSummary, PairwiseSummary, User } from '../api/types'
-import { BillForm } from './BillForm'
 import { BillListItem } from './BillListItem'
-import { Modal } from './Modal'
-import { notifyDataChanged } from '../utils/events'
+import { useState } from 'react'
 
 type BillListBill = Bill & { pairwise?: PairwiseSummary };
 
@@ -19,12 +17,10 @@ type BillListProps = {
 
 export function BillList({
   bills,
-  friends,
   friend,
   emptyMessage = 'No bills recorded here yet.',
   onChanged,
 }: BillListProps) {
-  const [editing, setEditing] = useState<Bill | null>(null)
   const [expandedBillIds, setExpandedBillIds] = useState<Set<string>>(() => new Set())
   const [error, setError] = useState<string | null>(null)
 
@@ -48,7 +44,7 @@ export function BillList({
     setError(null)
     try {
       await deleteBill(bill.id)
-      notifyDataChanged()
+      void invalidateBillData()
       onChanged()
     } catch (requestError) {
       setError(apiErrorMessage(requestError, 'Unable to delete bill.'))
@@ -59,7 +55,7 @@ export function BillList({
     setError(null)
     try {
       await settleBill(bill.id, friend?.id)
-      notifyDataChanged()
+      void invalidateBillData()
       onChanged()
     } catch (requestError) {
       setError(apiErrorMessage(requestError, 'Unable to settle this bill.'))
@@ -80,25 +76,11 @@ export function BillList({
             expanded={expandedBillIds.has(bill.id)}
             key={bill.id}
             onDelete={() => void remove(bill)}
-            onEdit={() => setEditing(bill)}
             onSettle={() => void settle(bill)}
             onToggleExpanded={() => toggleExpanded(bill.id)}
           />
         ))}
       </div>
-      {editing ? (
-        <Modal onClose={() => setEditing(null)} title="Edit bill">
-          <BillForm
-            bill={editing}
-            friends={friends}
-            onCancel={() => setEditing(null)}
-            onSaved={() => {
-              setEditing(null)
-              onChanged()
-            }}
-          />
-        </Modal>
-      ) : null}
     </>
   )
 }

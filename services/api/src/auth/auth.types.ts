@@ -74,11 +74,14 @@ export type LoginInput = z.infer<typeof loginSchema>;
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 
-export type AuthenticatedUser = {
+export type PublicUser = {
   id: string;
   email: string;
   name: string | null;
   createdAt: Date;
+};
+
+export type AuthenticatedUser = PublicUser & {
   aiReceiptConsentAt: Date | null;
 };
 
@@ -109,10 +112,16 @@ export type LegacyTokenAuthJson = {
   token: string;
 };
 
+/** User fields that are safe to embed in collaborator-facing resources. */
 export const safeUserSelect = {
   id: true,
   email: true,
   name: true,
   createdAt: true,
+} as const;
+
+/** The private projection returned only by authenticated account endpoints. */
+export const authenticatedUserSelect = {
+  ...safeUserSelect,
   aiReceiptConsentAt: true,
 } as const;

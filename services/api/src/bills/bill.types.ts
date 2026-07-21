@@ -26,15 +26,15 @@ const nullableStringSchema = z
   });
 
 const nullableIntSchema = z
-  .union([z.number().int(), z.null()])
+  .union([z.number().int().nonnegative().max(100_000_000), z.null()])
   .optional()
   .transform((value) => value ?? null);
 
 const billLineItemInputSchema = z.object({
   name: z.string().trim().min(1).max(200),
   quantity: z.number().positive().max(999_999),
-  unitPriceCents: z.number().int().max(100_000_000),
-  totalPriceCents: z.number().int().max(100_000_000),
+  unitPriceCents: z.number().int().nonnegative().max(100_000_000),
+  totalPriceCents: z.number().int().nonnegative().max(100_000_000),
   assignedUserIds: z.array(z.string().uuid()).optional().default([]),
 });
 
@@ -70,13 +70,9 @@ export const billInputSchema = z
   .superRefine((value, ctx) => {
     const isSplitWithGroup = value.isSplitWithGroup ?? false;
 
-    if (isSplitWithGroup && !value.groupId) {
-      ctx.addIssue({
-        code: "custom",
-        message: "groupId is required when isSplitWithGroup is true",
-        path: ["groupId"],
-      });
-    }
+    // The service requires groupId for new/retargeted group bills, but an
+    // existing historical group bill can legitimately have a null groupId
+    // after its now-empty group is deleted.
 
     if (!isSplitWithGroup && value.groupId) {
       ctx.addIssue({

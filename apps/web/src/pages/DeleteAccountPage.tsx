@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import {
   confirmDeleteAccount,
@@ -9,9 +9,11 @@ import { apiErrorMessage, AUTH_UNAUTHORIZED_EVENT } from '../api/client'
 import { clearAuth } from '../auth/authStorage'
 
 const RESEND_COOLDOWN_SECONDS = 60
+const DELETE_ACCOUNT_ERROR_ID = 'delete-account-form-error'
+const DELETE_ACCOUNT_INFO_ID = 'delete-account-form-info'
 
 const SENT_MESSAGE =
-  'If an EquiShare account exists for this email address, a verification code has been sent.'
+  'If a BillCompass account exists for this email address, a verification code has been sent.'
 
 type Step = 'email' | 'code' | 'confirm' | 'done'
 
@@ -26,6 +28,14 @@ export function DeleteAccountPage() {
   const [isSendingCode, setIsSendingCode] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [resendCooldown, setResendCooldown] = useState(0)
+  const stepHeadingRef = useRef<HTMLHeadingElement>(null)
+  const previousStepRef = useRef(step)
+
+  useEffect(() => {
+    if (previousStepRef.current === step) return
+    previousStepRef.current = step
+    stepHeadingRef.current?.focus()
+  }, [step])
 
   useEffect(() => {
     if (resendCooldown <= 0) {
@@ -135,8 +145,8 @@ export function DeleteAccountPage() {
   return (
     <main className="auth-shell">
       <section className="brand-panel">
-        <p className="eyebrow">EquiShare</p>
-        <h1>Delete your EquiShare account</h1>
+        <p className="eyebrow">BillCompass</p>
+        <h1>Delete your BillCompass account</h1>
         <p>
           This page lets you permanently delete your account without the app
           installed. Read our <Link to="/privacy">Privacy Policy</Link> for
@@ -147,23 +157,29 @@ export function DeleteAccountPage() {
         {step === 'email' ? (
           <>
             <p className="eyebrow">Account deletion</p>
-            <h2>Delete your EquiShare account</h2>
-            <form className="stack-form" onSubmit={handleSendCode}>
+            <h2 ref={stepHeadingRef} tabIndex={-1}>Delete your BillCompass account</h2>
+            <form
+              aria-describedby={error ? DELETE_ACCOUNT_ERROR_ID : undefined}
+              className="stack-form"
+              onSubmit={handleSendCode}
+            >
               <p className="delete-account-copy">
-                Enter the email address associated with your EquiShare account.
+                Enter the email address associated with your BillCompass account.
                 We will send you a verification code to confirm your identity.
               </p>
               <label>
                 Email
                 <input
                   autoComplete="email"
+                  aria-describedby={error ? DELETE_ACCOUNT_ERROR_ID : undefined}
+                  aria-invalid={Boolean(error)}
                   required
                   type="email"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                 />
               </label>
-              {error ? <p className="form-error">{error}</p> : null}
+              {error ? <p className="form-error" id={DELETE_ACCOUNT_ERROR_ID} role="alert">{error}</p> : null}
               <button className="primary-button" disabled={isSendingCode} type="submit">
                 {isSendingCode ? 'Sending code...' : 'Send verification code'}
               </button>
@@ -174,13 +190,18 @@ export function DeleteAccountPage() {
         {step === 'code' ? (
           <>
             <p className="eyebrow">Account deletion</p>
-            <h2>Enter your verification code</h2>
+            <h2 ref={stepHeadingRef} tabIndex={-1}>Enter your verification code</h2>
             <form className="stack-form" onSubmit={handleVerifyCode}>
-              {info ? <p className="form-info">{info}</p> : null}
+              {info ? <p aria-live="polite" className="form-info" id={DELETE_ACCOUNT_INFO_ID} role="status">{info}</p> : null}
               <label>
                 Verification code
                 <input
                   autoComplete="one-time-code"
+                  aria-describedby={[
+                    info ? DELETE_ACCOUNT_INFO_ID : null,
+                    error ? DELETE_ACCOUNT_ERROR_ID : null,
+                  ].filter(Boolean).join(' ') || undefined}
+                  aria-invalid={Boolean(error)}
                   className="verification-code-input"
                   inputMode="numeric"
                   maxLength={6}
@@ -212,7 +233,7 @@ export function DeleteAccountPage() {
                   Change email
                 </button>
               </div>
-              {error ? <p className="form-error">{error}</p> : null}
+              {error ? <p className="form-error" id={DELETE_ACCOUNT_ERROR_ID} role="alert">{error}</p> : null}
               <button className="primary-button" disabled={isSubmitting} type="submit">
                 {isSubmitting ? 'Verifying...' : 'Continue'}
               </button>
@@ -223,7 +244,7 @@ export function DeleteAccountPage() {
         {step === 'confirm' ? (
           <>
             <p className="eyebrow">Account deletion</p>
-            <h2>Permanently delete your account?</h2>
+            <h2 ref={stepHeadingRef} tabIndex={-1}>Permanently delete your account?</h2>
             <div className="delete-account-summary">
               <p className="delete-account-copy">Deleting your account will:</p>
               <ul>
@@ -248,7 +269,7 @@ export function DeleteAccountPage() {
                 />
                 I understand that deleting my account is permanent.
               </label>
-              {error ? <p className="form-error">{error}</p> : null}
+              {error ? <p className="form-error" id={DELETE_ACCOUNT_ERROR_ID} role="alert">{error}</p> : null}
               <div className="delete-account-actions">
                 <button className="secondary-button" type="button" onClick={handleCancel}>
                   Cancel
@@ -271,7 +292,7 @@ export function DeleteAccountPage() {
         {step === 'done' ? (
           <>
             <p className="eyebrow">Account deletion</p>
-            <h2>Your EquiShare account has been deleted</h2>
+            <h2 ref={stepHeadingRef} tabIndex={-1}>Your BillCompass account has been deleted</h2>
             <p className="delete-account-copy">
               Your account can no longer be accessed. Certain de-identified shared
               records and temporary backups may remain as described in the{' '}
@@ -281,7 +302,7 @@ export function DeleteAccountPage() {
               A confirmation email has been sent to your email address.
             </p>
             <p className="auth-link">
-              <Link to="/">Return to the EquiShare homepage</Link>
+              <Link to="/">Return to the BillCompass homepage</Link>
             </p>
           </>
         ) : null}

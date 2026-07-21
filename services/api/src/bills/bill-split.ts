@@ -13,7 +13,11 @@ export function sharesWithLenderId(
   return shares.map((share) => ({ ...share, lenderId: payerId }));
 }
 
-export function equalShares(totalCents: number, participantIds: string[]): BillShareInput[] {
+export function equalShares(
+  totalCents: number,
+  participantIds: string[],
+  remainderUserId?: string,
+): BillShareInput[] {
   const ordered = [...new Set(participantIds)].sort();
 
   if (ordered.length === 0) {
@@ -25,7 +29,15 @@ export function equalShares(totalCents: number, participantIds: string[]): BillS
 
   return ordered.map((userId, index) => ({
     userId,
-    shareCents: baseShare + (index < remainder ? 1 : 0),
+    shareCents:
+      baseShare +
+      (remainderUserId && ordered.includes(remainderUserId)
+        ? userId === remainderUserId
+          ? remainder
+          : 0
+        : index < remainder
+          ? 1
+          : 0),
   }));
 }
 
@@ -33,11 +45,12 @@ export function buildSharesFromInput(
   totalCents: number,
   memberIds: string[],
   shares: BillShareInput[] | undefined,
+  remainderUserId?: string,
 ): BillShareInput[] {
   const requiredMemberIds = [...new Set(memberIds)].sort();
 
   if (!shares) {
-    return equalShares(totalCents, requiredMemberIds);
+    return equalShares(totalCents, requiredMemberIds, remainderUserId);
   }
 
   if (shares.length === 0) {

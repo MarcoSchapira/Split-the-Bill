@@ -37,6 +37,7 @@ function canLenderSettle(
   return (
     bill.payerId === actingUserId &&
     share.userId !== bill.payerId &&
+    share.payerMarkedAsPaid &&
     !share.lenderConfirmedPaid
   );
 }

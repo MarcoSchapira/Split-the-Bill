@@ -27,3 +27,7 @@ export async function settleFriend(friendshipId: string): Promise<{ settledCount
   )
   return response.data
 }
+
+export async function removeFriend(friendshipId: string): Promise<void> {
+  await apiClient.delete(`/friends/${friendshipId}`)
+}

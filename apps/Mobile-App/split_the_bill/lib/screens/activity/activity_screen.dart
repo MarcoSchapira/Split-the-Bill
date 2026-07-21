@@ -102,9 +102,9 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen> {
             ),
             const SizedBox(height: 16),
             if (_error != null) ...[ErrorBanner(message: _error!), const SizedBox(height: 12)],
-            if (_events.isEmpty)
+            if (_events.isEmpty && _error == null)
               const EmptyState(message: 'No activity yet.')
-            else
+            else if (_events.isNotEmpty)
               ..._events.map((event) {
                 final deleting = _deletingIds.contains(event.id);
                 return Card(

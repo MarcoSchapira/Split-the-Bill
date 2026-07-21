@@ -18,6 +18,7 @@ export type MemberSplitState = {
 export function equalShareCents(
   totalCents: number,
   participantIds: string[],
+  remainderUserId?: string,
 ): BillShareDraft[] {
   const ordered = [...new Set(participantIds)].sort()
   if (ordered.length === 0) {
@@ -29,8 +30,101 @@ export function equalShareCents(
 
   return ordered.map((userId, index) => ({
     userId,
-    shareCents: baseShare + (index < remainder ? 1 : 0),
+    shareCents:
+      baseShare +
+      (remainderUserId && ordered.includes(remainderUserId)
+        ? userId === remainderUserId
+          ? remainder
+          : 0
+        : index < remainder
+          ? 1
+          : 0),
   }))
+}
+
+export type LineItemAllocationInput = {
+  totalPriceCents: number;
+  assignedUserIds: string[];
+}
+
+export function allocateItemizedShares(options: {
+  totalCents: number;
+  payerId: string;
+  participantIds: string[];
+  lineItems: LineItemAllocationInput[];
+}): { shares: BillShareDraft[]; error: string | null } {
+  const participantIds = [...new Set(options.participantIds)].sort()
+  const allowedParticipants = new Set(participantIds)
+  const amounts = new Map(participantIds.map((userId) => [userId, 0]))
+
+  for (const item of options.lineItems) {
+    const assignees = [...new Set(item.assignedUserIds)]
+      .filter((userId) => allowedParticipants.has(userId))
+      .sort()
+    if (assignees.length === 0) {
+      return { shares: [], error: 'Assign every line item to at least one person.' }
+    }
+
+    const base = Math.floor(item.totalPriceCents / assignees.length)
+    const remainder = item.totalPriceCents % assignees.length
+    assignees.forEach((userId, index) => {
+      amounts.set(userId, (amounts.get(userId) ?? 0) + base + (index < remainder ? 1 : 0))
+    })
+  }
+
+  const assignedSubtotal = [...amounts.values()].reduce((sum, cents) => sum + cents, 0)
+  const adjustments = options.totalCents - assignedSubtotal
+  if (adjustments < 0) {
+    return { shares: [], error: 'Assigned item totals cannot exceed the final bill total.' }
+  }
+
+  if (adjustments > 0 && assignedSubtotal > 0) {
+    let allocated = 0
+    for (const userId of participantIds) {
+      const base = amounts.get(userId) ?? 0
+      const extra = Math.floor((adjustments * base) / assignedSubtotal)
+      amounts.set(userId, base + extra)
+      allocated += extra
+    }
+    amounts.set(options.payerId, (amounts.get(options.payerId) ?? 0) + adjustments - allocated)
+  } else if (adjustments > 0) {
+    amounts.set(options.payerId, (amounts.get(options.payerId) ?? 0) + adjustments)
+  }
+
+  return {
+    shares: participantIds.map((userId) => ({
+      userId,
+      shareCents: amounts.get(userId) ?? 0,
+    })),
+    error: null,
+  }
+}
+
+export function sharesAreApproximatelyEqual(shares: BillShareDraft[]): boolean {
+  if (shares.length < 2 || shares.some((share) => share.shareCents < 0)) {
+    return false
+  }
+  const values = shares.map((share) => share.shareCents)
+  return Math.max(...values) - Math.min(...values) <= 1
+}
+
+export function sharesMatchEqualSplit(
+  totalCents: number,
+  shares: BillShareDraft[],
+  payerId: string,
+): boolean {
+  const expected = equalShareCents(
+    totalCents,
+    shares.map((share) => share.userId),
+    payerId,
+  )
+  const expectedByUser = new Map(
+    expected.map((share) => [share.userId, share.shareCents]),
+  )
+  return (
+    shares.length === expected.length &&
+    shares.every((share) => expectedByUser.get(share.userId) === share.shareCents)
+  )
 }
 
 export function allocateFromPercents(

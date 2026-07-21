@@ -1,125 +1,118 @@
-import { useCallback, useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useMemo, useRef } from 'react'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import { ArrowUpRight, Clock3, Trash2 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { deleteActivity, listActivity } from '../api/activityApi'
 import { apiErrorMessage } from '../api/client'
+import { queryClient, queryKeys } from '../api/queryClient'
 import type { ActivityEvent } from '../api/types'
-import { activityIsNavigable, activityRoute } from '../utils/activityNavigation'
-import { DATA_CHANGED_EVENT } from '../utils/events'
+import { useToast } from '../components/ui/useToast'
+import { activityRoute } from '../utils/activityNavigation'
 import { displayName } from '../utils/format'
+import '../styles/activity.css'
+
+function dateLabel(value: string) {
+  const date = new Date(value)
+  const today = new Date()
+  const yesterday = new Date(today)
+  yesterday.setDate(today.getDate() - 1)
+  const key = date.toDateString()
+  if (key === today.toDateString()) return 'Today'
+  if (key === yesterday.toDateString()) return 'Yesterday'
+  return date.toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+}
 
 export function ActivityPage() {
-  const navigate = useNavigate()
-  const [activity, setActivity] = useState<ActivityEvent[]>([])
-  const [error, setError] = useState<string | null>(null)
-  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
-
-  const load = useCallback(async () => {
-    try {
-      setActivity(await listActivity())
-    } catch (requestError) {
-      setError(apiErrorMessage(requestError, 'Unable to load recent activity.'))
-    }
-  }, [])
-
-  useEffect(() => {
-    const initialLoad = window.setTimeout(() => void load(), 0)
-    const reload = () => void load()
-    window.addEventListener(DATA_CHANGED_EVENT, reload)
-    return () => {
-      window.clearTimeout(initialLoad)
-      window.removeEventListener(DATA_CHANGED_EVENT, reload)
-    }
-  }, [load])
-
-  async function removeActivity(eventId: string) {
-    setError(null)
-    setDeletingIds((current) => new Set(current).add(eventId))
-
-    try {
-      await deleteActivity(eventId)
-      setActivity((current) => current.filter((event) => event.id !== eventId))
-    } catch (requestError) {
-      setError(apiErrorMessage(requestError, 'Unable to remove activity.'))
-    } finally {
-      setDeletingIds((current) => {
-        const next = new Set(current)
-        next.delete(eventId)
-        return next
+  const { showToast } = useToast()
+  const dismissalFocusRef = useRef<HTMLElement | null>(null)
+  const activityQuery = useQuery({ queryKey: queryKeys.activity, queryFn: listActivity })
+  const dismissMutation = useMutation({
+    mutationFn: deleteActivity,
+    onSuccess: async (_, eventId) => {
+      queryClient.setQueryData<ActivityEvent[]>(queryKeys.activity, (current) => current?.filter((event) => event.id !== eventId) ?? [])
+      await queryClient.invalidateQueries({ queryKey: queryKeys.dashboard })
+      showToast('Activity dismissed.')
+      window.requestAnimationFrame(() => {
+        const target = dismissalFocusRef.current
+        if (target?.isConnected) {
+          target.focus()
+          return
+        }
+        document.querySelector<HTMLElement>('#main-content h1')?.focus()
       })
-    }
-  }
+    },
+    onError: (error) => showToast(apiErrorMessage(error, 'Unable to dismiss activity.'), 'error'),
+  })
 
-  function openActivity(event: ActivityEvent) {
-    const route = activityRoute(event)
-    if (!route) {
-      return
+  const groups = useMemo(() => {
+    const grouped = new Map<string, ActivityEvent[]>()
+    for (const event of activityQuery.data ?? []) {
+      const label = dateLabel(event.createdAt)
+      grouped.set(label, [...(grouped.get(label) ?? []), event])
     }
-    navigate(route)
-  }
+    return [...grouped.entries()]
+  }, [activityQuery.data])
 
   return (
-    <section className="page">
-      <header className="page-header">
-        <div>
-          <p className="eyebrow">Ledger updates</p>
-          <h1>Recent Activity</h1>
-          <p>Bill changes and invitation responses involving you.</p>
+    <section className="bc-page">
+      <header className="bc-page-header">
+        <div className="bc-page-header__copy">
+          <p className="bc-eyebrow">Ledger updates</p>
+          <h1 className="bc-page-title">Activity</h1>
+          <p className="bc-page-subtitle">A chronological record of bills, invitations, groups, and settlements.</p>
         </div>
       </header>
-      <section className="panel">
-        {error ? <p className="form-error">{error}</p> : null}
-        {activity.length === 0 ? (
-          <div className="empty-state-panel">
-            <strong>No activity yet</strong>
-            <p className="muted">Bill updates and invitation responses will show up here.</p>
-          </div>
-        ) : (
-          <div className="activity-list">
-            {activity.map((event) => {
-              const navigable = activityIsNavigable(event)
-              return (
-                <article
-                  className={`activity-row${navigable ? ' is-clickable' : ''}`}
-                  key={event.id}
-                  onClick={navigable ? () => openActivity(event) : undefined}
-                  onKeyDown={
-                    navigable
-                      ? (keyboardEvent) => {
-                          if (keyboardEvent.key === 'Enter' || keyboardEvent.key === ' ') {
-                            keyboardEvent.preventDefault()
-                            openActivity(event)
-                          }
-                        }
-                      : undefined
-                  }
-                  role={navigable ? 'button' : undefined}
-                  tabIndex={navigable ? 0 : undefined}
-                >
-                  <div className="activity-mark" />
-                  <p>
-                    <strong>{displayName(event.actor)}</strong> {event.message}
-                    <span>{new Date(event.createdAt).toLocaleString()}</span>
-                  </p>
-                  <button
-                    aria-label="Remove activity"
-                    className="activity-delete-button"
-                    disabled={deletingIds.has(event.id)}
-                    onClick={(clickEvent) => {
-                      clickEvent.stopPropagation()
-                      void removeActivity(event.id)
-                    }}
-                    type="button"
-                  >
-                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                      <path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M10 11v7M14 11v7M6 7l1 13a1 1 0 0 0 1 .9h8a1 1 0 0 0 1-.9l1-13" />
-                    </svg>
-                  </button>
-                </article>
-              )
-            })}
-          </div>
-        )}
-      </section>
+
+      {activityQuery.isPending ? (
+        <section className="bc-card bc-stack"><div className="bc-skeleton" /><div className="bc-skeleton" /><div className="bc-skeleton" /></section>
+      ) : activityQuery.isError ? (
+        <div className="bc-error">{apiErrorMessage(activityQuery.error, 'Unable to load activity.')}</div>
+      ) : groups.length === 0 ? (
+        <div className="bc-card bc-empty"><Clock3 size={26} /><strong>No activity yet</strong><p>Updates from shared bills, friends, and groups will appear here.</p></div>
+      ) : (
+        <div className="bc-activity-groups">
+          {groups.map(([label, events]) => (
+            <section className="bc-activity-group" key={label}>
+              <h2>{label}</h2>
+              <div className="bc-card bc-activity-list">
+                {events.map((event) => {
+                  const route = activityRoute(event)
+                  const content = (
+                    <>
+                      <span className="bc-activity-dot" />
+                      <span className="bc-activity-copy">
+                        <strong>{displayName(event.actor)}</strong>
+                        <span>{event.message}</span>
+                        <time dateTime={event.createdAt}>{new Date(event.createdAt).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit' })}</time>
+                      </span>
+                      {route ? <ArrowUpRight aria-hidden="true" className="bc-activity-arrow" size={17} /> : null}
+                    </>
+                  )
+                  return (
+                    <article className="bc-activity-row" data-activity-id={event.id} key={event.id}>
+                      {route ? <Link className="bc-activity-target" to={route}>{content}</Link> : <div className="bc-activity-target">{content}</div>}
+                      <button
+                        aria-label={`Dismiss activity from ${displayName(event.actor)}`}
+                        className="bc-icon-button bc-activity-dismiss"
+                        disabled={dismissMutation.isPending && dismissMutation.variables === event.id}
+                        onClick={(clickEvent) => {
+                          const row = clickEvent.currentTarget.closest<HTMLElement>('[data-activity-id]')
+                          const adjacentRow = row?.nextElementSibling ?? row?.previousElementSibling
+                          dismissalFocusRef.current = adjacentRow?.querySelector<HTMLElement>('a, button') ?? null
+                          dismissMutation.mutate(event.id)
+                        }}
+                        type="button"
+                      >
+                        <Trash2 aria-hidden="true" size={16} />
+                      </button>
+                    </article>
+                  )
+                })}
+              </div>
+            </section>
+          ))}
+        </div>
+      )}
     </section>
   )
 }

@@ -1,5 +1,6 @@
 import type { Prisma } from "../generated/prisma/client";
 import type { PrismaTransaction } from "../db/userContext";
+import { prismaAdmin } from "../db/prisma";
 import { safeUserSelect } from "../auth/auth.types";
 import { ApiError } from "../http/errors";
 
@@ -126,7 +127,8 @@ export async function listActivity(tx: PrismaTransaction, userId: string) {
       createdAt: true,
       billId: true,
       friendInvitationId: true,
-      actor: { select: safeUserSelect },
+      groupId: true,
+      actorId: true,
       bill: {
         select: {
           id: true,
@@ -141,14 +143,36 @@ export async function listActivity(tx: PrismaTransaction, userId: string) {
     },
   });
 
+  // Actors may not be visible under users RLS (pending invites, removed friends,
+  // former group members). Load them with the admin client, matching invitations.
+  const actorIds = [...new Set(events.map((event) => event.actorId))];
+  const actors =
+    actorIds.length === 0
+      ? []
+      : await prismaAdmin.user.findMany({
+          where: { id: { in: actorIds } },
+          select: safeUserSelect,
+        });
+  const actorsById = new Map(actors.map((actor) => [actor.id, actor]));
+
   return Promise.all(
     events.map(async (event) => {
+      const actor = actorsById.get(event.actorId);
+      if (!actor) {
+        return null;
+      }
+
       let friendshipId: string | null = null;
 
       if (event.type === "FRIEND_SETTLED") {
-        const otherUserId = event.recipients.find(
-          (recipient) => recipient.userId !== userId,
-        )?.userId;
+        // A recipient can only read their own ActivityRecipient row under RLS.
+        // The actor is therefore the reliable counterpart for recipients; the
+        // actor can inspect recipient rows to find the other person.
+        const otherUserId =
+          event.actorId !== userId
+            ? event.actorId
+            : event.recipients.find((recipient) => recipient.userId !== userId)
+                ?.userId;
         if (otherUserId) {
           const friendship = await tx.friendship.findUnique({
             where: { userAId_userBId: friendshipUsers(userId, otherUserId) },
@@ -168,11 +192,12 @@ export async function listActivity(tx: PrismaTransaction, userId: string) {
         billId: event.billId,
         friendInvitationId: event.friendInvitationId,
         friendshipId,
+        groupId: event.groupId,
         bill: presentActivityBill(bill),
-        actor: event.actor,
+        actor,
       };
     }),
-  );
+  ).then((rows) => rows.filter((row) => row !== null));
 }
 
 export async function dismissActivity(

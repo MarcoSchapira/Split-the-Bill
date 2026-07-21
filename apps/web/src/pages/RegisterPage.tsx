@@ -1,10 +1,14 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { sendRegistrationCode } from '../api/authApi'
 import { apiErrorMessage } from '../api/client'
 import { useAuth } from '../auth/useAuth'
 
 const RESEND_COOLDOWN_SECONDS = 60
+const REGISTRATION_ERROR_ID = 'registration-form-error'
+const REGISTRATION_INFO_ID = 'registration-form-info'
+
+type RegistrationErrorField = 'email' | 'code' | 'password' | 'confirmPassword' | 'form'
 
 export function RegisterPage() {
   const [step, setStep] = useState<'email' | 'details'>('email')
@@ -14,12 +18,21 @@ export function RegisterPage() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [errorField, setErrorField] = useState<RegistrationErrorField | null>(null)
   const [info, setInfo] = useState<string | null>(null)
   const [isSendingCode, setIsSendingCode] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [resendCooldown, setResendCooldown] = useState(0)
   const auth = useAuth()
   const navigate = useNavigate()
+  const stepHeadingRef = useRef<HTMLHeadingElement>(null)
+  const previousStepRef = useRef(step)
+
+  useEffect(() => {
+    if (previousStepRef.current === step) return
+    previousStepRef.current = step
+    stepHeadingRef.current?.focus()
+  }, [step])
 
   useEffect(() => {
     if (resendCooldown <= 0) {
@@ -38,6 +51,7 @@ export function RegisterPage() {
   async function handleSendCode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError(null)
+    setErrorField(null)
     setInfo(null)
     setIsSendingCode(true)
 
@@ -48,6 +62,7 @@ export function RegisterPage() {
       setResendCooldown(RESEND_COOLDOWN_SECONDS)
     } catch (requestError) {
       setError(apiErrorMessage(requestError, 'Unable to send verification code.'))
+      setErrorField('email')
     } finally {
       setIsSendingCode(false)
     }
@@ -59,6 +74,7 @@ export function RegisterPage() {
     }
 
     setError(null)
+    setErrorField(null)
     setInfo(null)
     setIsSendingCode(true)
 
@@ -68,6 +84,7 @@ export function RegisterPage() {
       setResendCooldown(RESEND_COOLDOWN_SECONDS)
     } catch (requestError) {
       setError(apiErrorMessage(requestError, 'Unable to resend verification code.'))
+      setErrorField('form')
     } finally {
       setIsSendingCode(false)
     }
@@ -76,19 +93,23 @@ export function RegisterPage() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError(null)
+    setErrorField(null)
 
     if (!/^\d{6}$/.test(code)) {
       setError('Enter the 6-digit verification code from your email.')
+      setErrorField('code')
       return
     }
 
     if (password.length < 8) {
       setError('Password must be at least 8 characters.')
+      setErrorField('password')
       return
     }
 
     if (password !== confirmPassword) {
       setError('Passwords do not match.')
+      setErrorField('confirmPassword')
       return
     }
 
@@ -104,6 +125,7 @@ export function RegisterPage() {
       navigate('/dashboard', { replace: true })
     } catch (requestError) {
       setError(apiErrorMessage(requestError, 'Unable to create your account.'))
+      setErrorField('form')
     } finally {
       setIsSubmitting(false)
     }
@@ -112,7 +134,7 @@ export function RegisterPage() {
   return (
     <main className="auth-shell">
       <section className="brand-panel">
-        <p className="eyebrow">EquiShare</p>
+        <p className="eyebrow">BillCompass</p>
         <h1>Start a fair tab.</h1>
         <p>
           Invite registered friends and keep every shared cost
@@ -121,40 +143,55 @@ export function RegisterPage() {
       </section>
       <section className="auth-card">
         <p className="eyebrow">Get started</p>
-        <h2>Create account</h2>
+        <h2 ref={stepHeadingRef} tabIndex={-1}>{step === 'email' ? 'Create account' : 'Finish your account'}</h2>
         <div aria-label="Registration progress" className="register-steps">
-          <span className={step === 'email' ? 'register-step is-active' : 'register-step is-complete'}>
+          <span aria-current={step === 'email' ? 'step' : undefined} className={step === 'email' ? 'register-step is-active' : 'register-step is-complete'}>
             1. Verify email
           </span>
-          <span className={step === 'details' ? 'register-step is-active' : 'register-step'}>
+          <span aria-current={step === 'details' ? 'step' : undefined} className={step === 'details' ? 'register-step is-active' : 'register-step'}>
             2. Account details
           </span>
         </div>
 
         {step === 'email' ? (
-          <form className="stack-form" onSubmit={handleSendCode}>
+          <form
+            aria-describedby={error ? REGISTRATION_ERROR_ID : undefined}
+            className="stack-form"
+            onSubmit={handleSendCode}
+          >
             <label>
               Email
               <input
                 autoComplete="email"
+                aria-describedby={error ? REGISTRATION_ERROR_ID : undefined}
+                aria-invalid={Boolean(error)}
                 required
                 type="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
               />
             </label>
-            {error ? <p className="form-error">{error}</p> : null}
+            {error ? <p className="form-error" id={REGISTRATION_ERROR_ID} role="alert">{error}</p> : null}
             <button className="primary-button" disabled={isSendingCode} type="submit">
               {isSendingCode ? 'Sending code...' : 'Send verification code'}
             </button>
           </form>
         ) : (
-          <form className="stack-form" onSubmit={handleSubmit}>
-            <p className="form-info">{info}</p>
+          <form
+            aria-describedby={error && errorField === 'form' ? REGISTRATION_ERROR_ID : undefined}
+            className="stack-form"
+            onSubmit={handleSubmit}
+          >
+            <p aria-live="polite" className="form-info" id={REGISTRATION_INFO_ID} role="status">{info}</p>
             <label>
               Verification code
               <input
                 autoComplete="one-time-code"
+                aria-describedby={[
+                  REGISTRATION_INFO_ID,
+                  error && errorField === 'code' ? REGISTRATION_ERROR_ID : null,
+                ].filter(Boolean).join(' ')}
+                aria-invalid={errorField === 'code'}
                 className="verification-code-input"
                 inputMode="numeric"
                 maxLength={6}
@@ -187,6 +224,7 @@ export function RegisterPage() {
                   setStep('email')
                   setCode('')
                   setError(null)
+                  setErrorField(null)
                   setInfo(null)
                 }}
               >
@@ -207,6 +245,8 @@ export function RegisterPage() {
               Password
               <input
                 autoComplete="new-password"
+                aria-describedby={error && errorField === 'password' ? REGISTRATION_ERROR_ID : undefined}
+                aria-invalid={errorField === 'password'}
                 minLength={8}
                 required
                 type="password"
@@ -218,6 +258,8 @@ export function RegisterPage() {
               Confirm password
               <input
                 autoComplete="new-password"
+                aria-describedby={error && errorField === 'confirmPassword' ? REGISTRATION_ERROR_ID : undefined}
+                aria-invalid={errorField === 'confirmPassword'}
                 minLength={8}
                 required
                 type="password"
@@ -225,7 +267,7 @@ export function RegisterPage() {
                 onChange={(event) => setConfirmPassword(event.target.value)}
               />
             </label>
-            {error ? <p className="form-error">{error}</p> : null}
+            {error ? <p className="form-error" id={REGISTRATION_ERROR_ID} role="alert">{error}</p> : null}
             <button className="primary-button" disabled={isSubmitting} type="submit">
               {isSubmitting ? 'Creating account...' : 'Create account'}
             </button>

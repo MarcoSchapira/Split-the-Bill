@@ -1,73 +1,50 @@
-# React + TypeScript + Vite
+# BillCompass web
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+The responsive BillCompass workspace mirrors the shipped mobile workflows for bills, payment requests, people, groups, activity, and account settings. Public landing and authentication routes remain available alongside the authenticated app.
 
-Currently, two official plugins are available:
+## Local development
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+The browser always calls the same-origin `/api` path. In development, Vite proxies that path to `VITE_DEV_API_PROXY_TARGET` (or `http://localhost:3000` by default). Do not set `VITE_API_URL` for the normal HttpOnly-cookie/CSRF deployment model.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Copy `.env.example` to `.env.local` when a custom API target is needed. Never commit credentials or review-account details.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Quality checks
+
+```bash
+npm run check
+npm run test:e2e
 ```
+
+`npm run check` runs ESLint, Vitest/Testing Library/MSW tests, TypeScript, and the production Vite build. Playwright runs the mocked authenticated route and accessibility matrix at 390, 768, 1024, and 1440 pixels, plus the rich-bill replacement-payload regression.
+
+The optional real-session smoke test uses a local or deployed same-origin target without changing account data:
+
+```bash
+BILLCOMPASS_TEST_EMAIL='review@example.com' \
+BILLCOMPASS_TEST_PASSWORD='...' \
+PLAYWRIGHT_BASE_URL='http://localhost:5173' \
+npm run test:e2e -- authenticated-readonly.spec.ts --project=chromium-1440
+```
+
+That smoke test verifies login, access-token refresh through the HttpOnly refresh cookie, all primary routes, responsive navigation, browser/API errors, and CSRF-protected logout.
+
+## Primary routes
+
+- `/dashboard`
+- `/bills`, `/bills/new`, `/bills/:billId`, `/bills/:billId/edit`
+- `/requests`
+- `/friends`, `/friends/:friendshipId` (shown as **People**)
+- `/groups`, `/groups/:groupId`
+- `/activity`
+- `/settings`
+
+`/invitations` remains as a compatibility redirect to the invitations tab under People.
+
+## Release notes
+
+Cloudflare Pages should proxy `/api/*` to Cloud Run so cookies remain first-party. Before release, apply the API migrations, run API integration tests against a dedicated disposable test database, and smoke-test the deployed Pages URL. API integration tests intentionally refuse to run without an explicit `services/api/.env.test` because they erase test rows.

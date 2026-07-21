@@ -1,0 +1,43 @@
+.viewport {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  width: min(390px, calc(100vw - 36px));
+  display: grid;
+  gap: 10px;
+  z-index: 200;
+}
+
+.toast {
+  padding: 13px 13px 13px 15px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--bc-line-strong);
+  border-radius: 14px;
+  color: var(--bc-ink);
+  background: var(--bc-surface);
+  box-shadow: var(--bc-shadow-md);
+}
+
+.success > svg {
+  color: var(--bc-accent);
+}
+
+.info > svg {
+  color: var(--bc-copy);
+}
+
+.error {
+  border-color: var(--bc-danger);
+}
+
+.error > svg {
+  color: var(--bc-danger);
+}
+
+.message {
+  font-size: 0.86rem;
+  font-weight: 600;
+}

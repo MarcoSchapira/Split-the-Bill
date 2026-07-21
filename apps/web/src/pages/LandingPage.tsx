@@ -14,7 +14,7 @@ export function LandingPage() {
             <span className="landing-title-accent">Track Expenses</span>
           </h1>
           <p className="landing-lede">
-            EquiShare keeps friends, bills, and balances in one calm place so
+            BillCompass keeps friends, bills, and balances in one calm place so
             everyone knows where things stand.
           </p>
           <div className="landing-actions">
@@ -30,7 +30,7 @@ export function LandingPage() {
           <img
             className="hero-image"
             src="/dashboard.png"
-            alt="EquiShare dashboard showing balances and people"
+            alt="BillCompass dashboard showing balances and people"
           />
         </div>
       </section>

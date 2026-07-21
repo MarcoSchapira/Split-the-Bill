@@ -32,7 +32,8 @@ const nullableIntSchema = z
 
 const billLineItemInputSchema = z.object({
   name: z.string().trim().min(1).max(200),
-  quantity: z.number().positive().max(999_999),
+  // Coerce so Prisma Decimal strings ("2.000") from clients still validate.
+  quantity: z.coerce.number().positive().max(999_999),
   unitPriceCents: z.number().int().nonnegative().max(100_000_000),
   totalPriceCents: z.number().int().nonnegative().max(100_000_000),
   assignedUserIds: z.array(z.string().uuid()).optional().default([]),

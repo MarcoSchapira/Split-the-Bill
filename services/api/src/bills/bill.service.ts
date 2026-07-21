@@ -77,14 +77,30 @@ type BillWithShares = {
   }>;
 };
 
+type BillLineItemLike = {
+  quantity: unknown;
+};
+
+function presentLineItems<T extends BillLineItemLike>(lineItems: T[]) {
+  return lineItems.map((item) => ({
+    ...item,
+    // Prisma Decimal serializes as a string over JSON; expose a real number to clients.
+    quantity: Number(item.quantity),
+  }));
+}
+
 export function presentBill<T extends BillWithShares>(
   bill: T,
   userId: string,
   friendUserId?: string,
 ) {
   const shareBalance = toBillShareBalanceLike(bill.shares);
+  const billWithItems = bill as T & { lineItems?: BillLineItemLike[] };
   const presented = {
     ...withPermissions(bill, userId),
+    ...(billWithItems.lineItems
+      ? { lineItems: presentLineItems(billWithItems.lineItems) }
+      : {}),
     userSummary: userSummaryForBill(
       { payerId: bill.payerId, shares: shareBalance },
       userId,
@@ -336,7 +352,7 @@ function resolveBillModeFlags(
 ): ResolvedBillModeFlags {
   const hasLineItems = input.lineItems.length > 0;
   const hasLineItemAssignments = input.lineItems.some(
-    (item) => item.assignedUserIds.length > 0,
+    (item) => (item.assignedUserIds?.length ?? 0) > 0,
   );
   const isOneMainTotal = input.isOneMainTotal ?? !hasLineItems;
   const targetParticipantsUnchanged =
@@ -643,6 +659,67 @@ export async function updateBill(
     bill.shares.map((share) => [share.user.id, share] as const),
   );
 
+  let shareUpdate:
+    | {
+        update: Array<{
+          where: { id: string };
+          data: { shareCents: number; lenderId: string };
+        }>;
+      }
+    | {
+        deleteMany: Record<string, never>;
+        create: Array<{
+          userId: string;
+          shareCents: number;
+          lenderId: string;
+          payerMarkedAsPaid?: boolean;
+          lenderConfirmedPaid?: boolean;
+        }>;
+      };
+
+  if (participantSetUnchanged) {
+    const updates: Array<{
+      where: { id: string };
+      data: { shareCents: number; lenderId: string };
+    }> = [];
+    let canUpdateInPlace = true;
+    for (const share of shares) {
+      const existing = existingShareByUserId.get(share.userId);
+      if (!existing) {
+        canUpdateInPlace = false;
+        break;
+      }
+      updates.push({
+        where: { id: existing.id },
+        data: {
+          shareCents: share.shareCents,
+          lenderId: payerId,
+        },
+      });
+    }
+    shareUpdate = canUpdateInPlace
+      ? { update: updates }
+      : {
+          deleteMany: {},
+          create: shares.map((share) => ({
+            userId: share.userId,
+            shareCents: share.shareCents,
+            lenderId: payerId,
+            ...(settledByUserId.get(share.userId) ?? {}),
+          })),
+        };
+  } else {
+    shareUpdate = {
+      deleteMany: {},
+      create: shares.map((share) => ({
+        userId: share.userId,
+        shareCents: share.shareCents,
+        lenderId: payerId,
+        ...(settledByUserId.get(share.userId) ?? {}),
+      })),
+    };
+  }
+
   const updated = await tx.bill.update({
     where: { id: billId },
     data: {
@@ -668,25 +745,7 @@ export async function updateBill(
       taxCents: input.taxCents,
       tipCents: input.tipCents,
       payerId,
-      shares: participantSetUnchanged
-        ? {
-            update: shares.map((share) => ({
-              where: { id: existingShareByUserId.get(share.userId)!.id },
-              data: {
-                shareCents: share.shareCents,
-                lenderId: payerId,
-              },
-            })),
-          }
-        : {
-            deleteMany: {},
-            create: shares.map((share) => ({
-              userId: share.userId,
-              shareCents: share.shareCents,
-              lenderId: payerId,
-              ...(settledByUserId.get(share.userId) ?? {}),
-            })),
-          },
+      shares: shareUpdate,
       lineItems: {
         deleteMany: {},
         create: lineItems,

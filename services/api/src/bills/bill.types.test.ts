@@ -31,4 +31,19 @@ describe("billInputSchema", () => {
       }],
     })).toThrow();
   });
+
+  it("coerces Decimal-like quantity strings from clients", () => {
+    const parsed = billInputSchema.parse({
+      ...validBill,
+      isOneMainTotal: false,
+      lineItems: [{
+        name: "Soup",
+        quantity: "2.000",
+        unitPriceCents: 500,
+        totalPriceCents: 1000,
+        assignedUserIds: [],
+      }],
+    });
+    expect(parsed.lineItems[0]?.quantity).toBe(2);
+  });
 });

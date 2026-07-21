@@ -2032,6 +2032,113 @@ describe("groups API", () => {
     expectShareLenderIdsMatchPayer(updated.body.bill);
   });
 
+  it("updates a friends line-item assignment bill in place", async () => {
+    const owner = await register("line-item-edit-owner@example.com");
+    const friend = await register("line-item-edit-friend@example.com");
+    await becomeFriends(owner, friend);
+
+    const created = await request(app).post("/bills").set(bearer(owner.token)).send({
+      description: "Sushi",
+      incurredAt: "2026-05-25",
+      totalCents: 3300,
+      payerId: owner.user.id,
+      participantIds: [owner.user.id, friend.user.id],
+      isOneMainTotal: false,
+      isSplitWithFriends: true,
+      isSplitByFinalAmounts: false,
+      subtotalCents: 3000,
+      taxCents: 300,
+      tipCents: 0,
+      otherFeesCents: null,
+      lineItems: [
+        {
+          name: "Roll A",
+          quantity: 1,
+          unitPriceCents: 1800,
+          totalPriceCents: 1800,
+          assignedUserIds: [owner.user.id],
+        },
+        {
+          name: "Roll B",
+          quantity: 2,
+          unitPriceCents: 600,
+          totalPriceCents: 1200,
+          assignedUserIds: [friend.user.id],
+        },
+      ],
+      shares: [
+        { userId: owner.user.id, shareCents: 1980, lenderId: owner.user.id },
+        { userId: friend.user.id, shareCents: 1320, lenderId: owner.user.id },
+      ],
+    });
+
+    expect(created.status).toBe(201);
+
+    const updated = await request(app)
+      .patch(`/bills/${created.body.bill.id as string}`)
+      .set(bearer(owner.token))
+      .send({
+        description: "Sushi night",
+        incurredAt: "2026-05-25T19:30:00.000Z",
+        totalCents: 3300,
+        payerId: owner.user.id,
+        source: "capture",
+        isOneMainTotal: false,
+        isSplitWithFriends: true,
+        isSplitWithGroup: false,
+        groupId: null,
+        isSplitByFinalAmounts: false,
+        participantIds: [owner.user.id, friend.user.id],
+        storeName: "Sushi Place",
+        storeAddress: null,
+        receiptNumber: null,
+        receiptDate: null,
+        receiptTime: null,
+        paymentMethod: null,
+        cardLast4: null,
+        itemCount: 2,
+        subtotalCents: 3000,
+        otherFeesCents: null,
+        taxCents: 300,
+        tipCents: 0,
+        lineItems: [
+          {
+            name: "Roll A",
+            quantity: 1,
+            unitPriceCents: 1800,
+            totalPriceCents: 1800,
+            assignedUserIds: [owner.user.id],
+          },
+          {
+            name: "Roll B",
+            quantity: "2.000",
+            unitPriceCents: 600,
+            totalPriceCents: 1200,
+            assignedUserIds: [friend.user.id],
+          },
+        ],
+        shares: [
+          { userId: owner.user.id, shareCents: 1980, lenderId: owner.user.id },
+          { userId: friend.user.id, shareCents: 1320, lenderId: owner.user.id },
+        ],
+      });
+
+    expect(updated.status).toBe(200);
+    expect(updated.body.bill.description).toBe("Sushi night");
+    expect(updated.body.bill.isSplitByFinalAmounts).toBe(false);
+    expect(updated.body.bill.lineItems).toHaveLength(2);
+    expect(updated.body.bill.lineItems[1].quantity).toBe(2);
+    expect(
+      updated.body.bill.lineItems.map(
+        (item: { assignments: Array<{ user: { id: string } }> }) =>
+          item.assignments.map((assignment) => assignment.user.id).sort(),
+      ),
+    ).toEqual([[owner.user.id], [friend.user.id]]);
+    expect(updated.body.bill.shares.map((share: { shareCents: number }) => share.shareCents).sort())
+      .toEqual([1320, 1980]);
+    expectShareLenderIdsMatchPayer(updated.body.bill);
+  });
+
   it("forbids non-creator from removing members but allows any member to edit", async () => {
     const owner = await register("group-perm-owner@example.com");
     const friend = await register("group-perm-friend@example.com");

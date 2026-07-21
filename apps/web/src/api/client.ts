@@ -108,6 +108,21 @@ export function apiErrorMessage(
     return 'Unable to connect to the server.'
   }
 
-  const data = error.response.data as { error?: { message?: string; code?: string } }
-  return data.error?.message ?? fallback
+  const data = error.response.data as {
+    error?: { message?: string; code?: string; issues?: Array<{ path: string; message: string }> };
+  }
+  const message = data.error?.message ?? fallback
+  const firstIssue = data.error?.issues?.[0]
+  if (firstIssue?.message) {
+    const path = firstIssue.path ? `${firstIssue.path}: ` : ''
+    return `${message} (${path}${firstIssue.message})`
+  }
+  if (
+    import.meta.env.DEV &&
+    data.error?.code &&
+    data.error.code !== 'INTERNAL_SERVER_ERROR'
+  ) {
+    return `${message} [${data.error.code}]`
+  }
+  return message
 }

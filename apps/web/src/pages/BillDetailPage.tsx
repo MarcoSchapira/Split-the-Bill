@@ -27,8 +27,10 @@ function shareStatusCopy(status: ShareStatus) {
   return 'Payment outstanding'
 }
 
-function formatQuantity(quantity: number) {
-  return Number.isInteger(quantity) ? String(quantity) : quantity.toFixed(3).replace(/\.?0+$/, '')
+function formatQuantity(quantity: number | string) {
+  const value = Number(quantity)
+  if (!Number.isFinite(value)) return '—'
+  return Number.isInteger(value) ? String(value) : value.toFixed(3).replace(/\.?0+$/, '')
 }
 
 export function BillDetailPage() {

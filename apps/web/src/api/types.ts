@@ -50,7 +50,8 @@ export type BillLineItemAssignment = {
 export type BillLineItem = {
   id: string;
   name: string;
-  quantity: number;
+  /** Prisma Decimal may serialize as a string over JSON until the API normalizes it. */
+  quantity: number | string;
   unitPriceCents: number;
   totalPriceCents: number;
   sortOrder: number;

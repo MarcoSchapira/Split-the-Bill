@@ -105,14 +105,18 @@ function billLineItems(bill?: Bill): LineItemDraft[] {
   if (!bill) return []
   return [...bill.lineItems]
     .sort((left, right) => left.sortOrder - right.sortOrder)
-    .map((item) => ({
-      key: lineItemKey(),
-      name: item.name,
-      quantity: String(item.quantity),
-      unitPrice: moneyValue(item.unitPriceCents),
-      totalPrice: moneyValue(item.totalPriceCents),
-      assignedUserIds: item.assignments.map((assignment) => assignment.user.id),
-    }))
+    .map((item) => {
+      const quantity = Number(item.quantity)
+      return {
+        key: lineItemKey(),
+        name: item.name,
+        // Prisma Decimal may arrive as "2.000"; normalize before editing/saving.
+        quantity: Number.isFinite(quantity) ? String(quantity) : '1',
+        unitPrice: moneyValue(item.unitPriceCents),
+        totalPrice: moneyValue(item.totalPriceCents),
+        assignedUserIds: item.assignments.map((assignment) => assignment.user.id),
+      }
+    })
 }
 
 function datePart(value?: string | null): string {

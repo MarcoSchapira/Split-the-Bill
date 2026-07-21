@@ -7,6 +7,7 @@ import '../../models/user.dart';
 import '../../providers/providers.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/format.dart';
+import '../../utils/line_item_split.dart';
 import '../../utils/request_items.dart';
 import '../../widgets/bill_list/bill_list.dart';
 import '../../widgets/common_widgets.dart';
@@ -830,7 +831,15 @@ class _BillDetailScreenState extends ConsumerState<BillDetailScreen> {
                       );
                       final itemsSubtotalCents = group.items.fold<int>(
                         0,
-                        (sum, item) => sum + item.totalPriceCents,
+                        (sum, item) =>
+                            sum +
+                            lineItemShareForUser(
+                              item.totalPriceCents,
+                              item.assignments
+                                  .map((a) => a.user.id)
+                                  .toList(),
+                              group.userId,
+                            ),
                       );
                       final deltaCents = group.shareCents - itemsSubtotalCents;
                       final useExpandableTiles = _hasFriends(bill) &&
@@ -945,18 +954,28 @@ class _BillDetailScreenState extends ConsumerState<BillDetailScreen> {
                                     ),
                                   )
                                 else
-                                  ...group.items.map(
-                                    (item) => ListTile(
+                                  ...group.items.map((item) {
+                                    final isShared =
+                                        item.assignments.length > 1;
+                                    final userPortionCents =
+                                        lineItemShareForUser(
+                                      item.totalPriceCents,
+                                      item.assignments
+                                          .map((a) => a.user.id)
+                                          .toList(),
+                                      group.userId,
+                                    );
+                                    return ListTile(
                                       dense: true,
                                       title: Text(item.name),
                                       subtitle: Text(
-                                        '${_formatQuantity(item.quantity)} × ${formatCad(item.unitPriceCents)}${item.assignments.length > 1 ? ' · shared' : ''}',
+                                        '${_formatQuantity(item.quantity)} × ${formatCad(item.unitPriceCents)}${isShared ? ' · shared by ${item.assignments.length}' : ''}',
                                       ),
                                       trailing: Text(
-                                        formatCad(item.totalPriceCents),
+                                        formatCad(userPortionCents),
                                       ),
-                                    ),
-                                  ),
+                                    );
+                                  }),
                                 Padding(
                                   padding:
                                       const EdgeInsets.fromLTRB(16, 0, 16, 12),

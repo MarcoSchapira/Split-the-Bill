@@ -191,7 +191,7 @@ class SettingsScreen extends ConsumerWidget {
     final confirmed = await showConfirmDialog(
       context,
       title: 'Log out?',
-      message: 'You will need to sign in again to use EquiShare on this device.',
+      message: 'You will need to sign in again to use BillCompass on this device.',
       confirmLabel: 'Log out',
     );
     if (confirmed != true || !context.mounted) return;

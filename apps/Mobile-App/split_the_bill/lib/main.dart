@@ -6,5 +6,5 @@ import 'app.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   GoogleFonts.config.allowRuntimeFetching = false;
-  runApp(const ProviderScope(child: EquiShareApp()));
+  runApp(const ProviderScope(child: BillCompassApp()));
 }

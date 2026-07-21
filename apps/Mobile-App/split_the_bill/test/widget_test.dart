@@ -4,7 +4,7 @@ import 'package:equishare/app.dart';
 
 void main() {
   testWidgets('shows session restore loading', (tester) async {
-    await tester.pumpWidget(const ProviderScope(child: EquiShareApp()));
-    expect(find.text('Restoring your session...'), findsOneWidget);
+    await tester.pumpWidget(const ProviderScope(child: BillCompassApp()));
+    expect(find.text('Loading'), findsOneWidget);
   });
 }

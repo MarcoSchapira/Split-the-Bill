@@ -65,18 +65,6 @@ class _ManualLineItemRow {
       quantityController.text.trim() != '1';
 }
 
-class _LineItemSelectionOption {
-  const _LineItemSelectionOption({
-    required this.sourceIndex,
-    required this.title,
-    required this.totalCents,
-  });
-
-  final int sourceIndex;
-  final String title;
-  final int totalCents;
-}
-
 class ManualReceiptScreen extends ConsumerStatefulWidget {
   const ManualReceiptScreen({
     super.key,
@@ -682,10 +670,12 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
       if (_isSplitByLineItemMode) {
         return _lineItemAssignmentsComplete;
       }
+      // Friends are allowed to owe 0 (the initial payer covers their portion),
+      // so the only requirement is that the friend shares don't exceed the
+      // total. The payer absorbs whatever remainder is left over.
       final payerShare = _payerShareCents;
       if (payerShare == null || payerShare < 0) return false;
       if (_friendSplitTotalCents > total) return false;
-      if (_splitEntries.any((entry) => entry.shareCents <= 0)) return false;
     }
     return true;
   }
@@ -893,6 +883,30 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
     });
   }
 
+  /// Toggles between an even split (everyone pays an equal share) and the
+  /// initial payer covering the whole bill while every friend is marked as 0.
+  void _toggleSplitEvenly() {
+    if (_areFriendAmountsEven) {
+      _setPayerPaysEverything();
+    } else {
+      _splitEvenlyBetweenFriends();
+    }
+  }
+
+  void _setPayerPaysEverything() {
+    if (_selectedFriendIds.isEmpty) return;
+    setState(() {
+      _splitEntries = [
+        for (final entry in _splitEntries)
+          ManualSplitEntry(user: entry.user, shareCents: 0),
+      ];
+      for (final entry in _splitEntries) {
+        _controllerForUser(entry.user.id, initialCents: 0).text = '';
+      }
+      _error = null;
+    });
+  }
+
   void _setPayer(String payerId) {
     if (payerId == _selectedPayerId) return;
 
@@ -968,20 +982,7 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
   }
 
   Widget _buildSectionCard({required String title, required Widget child}) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: AppColors.border, width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.textH.withValues(alpha: 0.07),
-            blurRadius: 28,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
+    return _buildGradientBorderedCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -1003,6 +1004,31 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
             child: child,
           ),
         ],
+      ),
+    );
+  }
+
+  /// Wraps a gradient-headed section in a matching gradient border that
+  /// continues the dark brand gradient all the way around the white body.
+  Widget _buildGradientBorderedCard({required Widget child}) {
+    const borderWidth = 2.0;
+    const outerRadius = 22.0;
+    return Container(
+      decoration: BoxDecoration(
+        gradient: AppColors.brandGradient,
+        borderRadius: BorderRadius.circular(outerRadius),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.textH.withValues(alpha: 0.07),
+            blurRadius: 28,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(borderWidth),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(outerRadius - borderWidth),
+        child: ColoredBox(color: AppColors.surface, child: child),
       ),
     );
   }
@@ -1051,20 +1077,7 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
   }
 
   Widget _buildFinalAmountCard() {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: AppColors.border, width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.textH.withValues(alpha: 0.07),
-            blurRadius: 28,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
+    return _buildGradientBorderedCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -2047,9 +2060,10 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _buildSplitEvenlyButton(),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
         const Divider(height: 1, color: AppColors.border),
+        const SizedBox(height: 20),
+        _buildSplitEvenlyButton(),
         const SizedBox(height: 12),
         ...participants.map(
           (participant) => _buildSplitParticipantRow(
@@ -2066,6 +2080,9 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        const SizedBox(height: 10),
+        const Divider(height: 1, color: AppColors.border),
+        const SizedBox(height: 20),
         if (_splittableLineItemEntries.isEmpty)
           Container(
             margin: const EdgeInsets.only(bottom: 8),
@@ -2085,9 +2102,9 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
           )
         else ...[
           const Padding(
-            padding: EdgeInsets.only(bottom: 10),
+            padding: EdgeInsets.only(bottom: 14),
             child: Text(
-              'Assign each line item to one or more participants.',
+              'Tap a person to assign them an item. Highlighted people share it.',
               style: TextStyle(
                 color: AppColors.text,
                 fontSize: 13,
@@ -2095,169 +2112,236 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
               ),
             ),
           ),
-          ...participants.map(_buildLineItemAssignmentParticipantRow),
+          ..._splittableLineItemEntries.map(
+            (entry) => _buildLineItemAssignmentCard(
+              sourceIndex: entry.sourceIndex,
+              row: entry.row,
+              participants: participants,
+            ),
+          ),
         ],
       ],
     );
   }
 
-  Widget _buildLineItemAssignmentParticipantRow(User participant) {
-    final payerId = _selectedPayerId ?? _currentUser.id;
-    final isPayer = participant.id == payerId;
-    final assignedEntries = _splittableLineItemEntries
-        .where(
-          (entry) =>
-              (_lineItemAssignments[entry.sourceIndex] ?? const <String>{})
-                  .contains(participant.id),
-        )
-        .toList();
-    final summary = assignedEntries.isEmpty
-        ? 'No line items assigned'
-        : '${assignedEntries.length} item${assignedEntries.length == 1 ? '' : 's'} assigned';
+  Widget _buildLineItemAssignmentCard({
+    required int sourceIndex,
+    required _ManualLineItemRow row,
+    required List<User> participants,
+  }) {
+    final assigned = _lineItemAssignments[sourceIndex] ?? const <String>{};
+    final activeIds = _activeParticipantIds;
+    final needsAssignment = !assigned.any(activeIds.contains);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: needsAssignment ? AppColors.errorBorder : AppColors.border,
+          width: needsAssignment ? 1.5 : 1,
+        ),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  participant.id == _currentUser.id
-                      ? 'You'
-                      : displayName(participant),
-                  style: const TextStyle(
-                    color: AppColors.textH,
-                    fontWeight: FontWeight.w700,
-                  ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 3,
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  summary,
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceMuted,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Text(
+                  _lineItemQuantityLabel(row),
                   style: const TextStyle(
                     color: AppColors.text,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w700,
                     fontSize: 12,
                   ),
                 ),
-                if (assignedEntries.isNotEmpty) ...[
-                  const SizedBox(height: 5),
-                  Text(
-                    assignedEntries
-                        .take(2)
-                        .map(
-                          (entry) => _lineItemDisplayName(
-                            entry.row,
-                            entry.sourceIndex,
-                          ),
-                        )
-                        .join(' • '),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: AppColors.text, fontSize: 12),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  _lineItemDisplayName(row, sourceIndex),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.textH,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                    height: 1.2,
                   ),
-                ],
-                const SizedBox(height: 4),
-                if (isPayer)
-                  const Text(
-                    'Initial payer',
-                    style: TextStyle(
-                      color: AppColors.accent,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 12,
-                    ),
-                  )
-                else
-                  TextButton(
-                    onPressed: () => _setPayer(participant.id),
-                    style: TextButton.styleFrom(
-                      padding: EdgeInsets.zero,
-                      minimumSize: const Size(0, 0),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      foregroundColor: AppColors.accent,
-                      textStyle: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 12,
-                      ),
-                    ),
-                    child: const Text('Mark as initial payer'),
-                  ),
-              ],
-            ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                formatCad(row.lineTotalCents),
+                style: const TextStyle(
+                  color: AppColors.textH,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 15,
+                ),
+              ),
+            ],
           ),
-          IconButton(
-            onPressed: _splittableLineItemEntries.isEmpty
-                ? null
-                : () => _openLineItemPicker(participant),
-            style: IconButton.styleFrom(
-              backgroundColor: AppColors.surfaceMuted,
-              side: const BorderSide(color: AppColors.border),
-            ),
-            icon: const Icon(Icons.add_rounded, color: AppColors.accent),
-            tooltip: 'Assign line items',
+          const SizedBox(height: 16),
+          _buildParticipantAvatarGrid(
+            sourceIndex: sourceIndex,
+            participants: participants,
+            assigned: assigned,
           ),
         ],
       ),
     );
   }
 
-  Future<void> _openLineItemPicker(User participant) async {
-    final options = _splittableLineItemEntries
-        .map(
-          (entry) => _LineItemSelectionOption(
-            sourceIndex: entry.sourceIndex,
-            title: _lineItemDisplayName(entry.row, entry.sourceIndex),
-            totalCents: entry.row.lineTotalCents,
-          ),
-        )
-        .toList();
-    if (options.isEmpty) return;
+  Widget _buildParticipantAvatarGrid({
+    required int sourceIndex,
+    required List<User> participants,
+    required Set<String> assigned,
+  }) {
+    const perRow = 4;
+    const spacing = 12.0;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cellWidth =
+            (constraints.maxWidth - spacing * (perRow - 1)) / perRow;
+        return Wrap(
+          spacing: spacing,
+          runSpacing: 16,
+          children: participants
+              .map(
+                (participant) => SizedBox(
+                  width: cellWidth,
+                  child: _buildParticipantAvatarCell(
+                    sourceIndex: sourceIndex,
+                    participant: participant,
+                    isAssigned: assigned.contains(participant.id),
+                  ),
+                ),
+              )
+              .toList(),
+        );
+      },
+    );
+  }
 
-    final selectedByUser = {
-      for (final option in options)
-        if ((_lineItemAssignments[option.sourceIndex] ?? const <String>{})
-            .contains(participant.id))
-          option.sourceIndex,
-    };
+  Widget _buildParticipantAvatarCell({
+    required int sourceIndex,
+    required User participant,
+    required bool isAssigned,
+  }) {
+    final name = participant.id == _currentUser.id
+        ? 'You'
+        : displayName(participant);
 
-    final picked = await showModalBottomSheet<Set<int>>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => _LineItemPickerSheet(
-        participantName: participant.id == _currentUser.id
-            ? 'You'
-            : displayName(participant),
-        options: options,
-        initiallySelected: selectedByUser,
+    return Semantics(
+      button: true,
+      selected: isAssigned,
+      label: name,
+      child: InkResponse(
+        onTap: () => _toggleLineItemAssignment(sourceIndex, participant.id),
+        radius: 36,
+        containedInkWell: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOutCubic,
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isAssigned ? AppColors.accent : AppColors.surfaceMuted,
+                border: Border.all(
+                  color: isAssigned ? AppColors.accent : AppColors.border,
+                  width: isAssigned ? 2 : 1,
+                ),
+                boxShadow: isAssigned
+                    ? [
+                        BoxShadow(
+                          color: AppColors.accent.withValues(alpha: 0.30),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ]
+                    : null,
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                _initialsFromLabel(name),
+                style: TextStyle(
+                  color: isAssigned ? Colors.white : AppColors.text,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 17,
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              name,
+              maxLines: 2,
+              textAlign: TextAlign.center,
+              softWrap: true,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: isAssigned ? AppColors.textH : AppColors.text,
+                fontWeight: isAssigned ? FontWeight.w700 : FontWeight.w600,
+                fontSize: 12,
+                height: 1.15,
+              ),
+            ),
+          ],
+        ),
       ),
     );
-    if (picked == null) return;
+  }
 
+  void _toggleLineItemAssignment(int sourceIndex, String userId) {
+    HapticFeedback.selectionClick();
     setState(() {
-      for (final option in options) {
-        final assigned = {
-          ...(_lineItemAssignments[option.sourceIndex] ?? <String>{}),
-        };
-        assigned.remove(participant.id);
-        if (picked.contains(option.sourceIndex)) {
-          assigned.add(participant.id);
-        }
-        _lineItemAssignments[option.sourceIndex] = assigned;
+      final assigned = {...(_lineItemAssignments[sourceIndex] ?? <String>{})};
+      if (assigned.contains(userId)) {
+        assigned.remove(userId);
+      } else {
+        assigned.add(userId);
       }
+      _lineItemAssignments[sourceIndex] = assigned;
       _error = null;
       _normalizeLineItemAssignments();
     });
+  }
+
+  String _lineItemQuantityLabel(_ManualLineItemRow row) {
+    final parsed = double.tryParse(row.quantityController.text.trim()) ?? 1;
+    final qty = parsed <= 0 ? 1.0 : parsed;
+    final isWhole = qty == qty.roundToDouble();
+    final qtyText = isWhole ? qty.toInt().toString() : qty.toString();
+    return '$qtyText\u00D7';
+  }
+
+  String _initialsFromLabel(String label) {
+    final trimmed = label.trim();
+    if (trimmed.isEmpty) return '?';
+    final parts = trimmed
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .toList();
+    if (parts.length >= 2) {
+      return '${parts.first[0]}${parts[1][0]}'.toUpperCase();
+    }
+    return parts.first[0].toUpperCase();
   }
 
   Widget _buildSplitEvenlyButton() {
@@ -2265,55 +2349,69 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: _splitEvenlyBetweenFriends,
+        onTap: _toggleSplitEvenly,
         borderRadius: BorderRadius.circular(12),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
           decoration: BoxDecoration(
             color: AppColors.surfaceMuted,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isActive ? AppColors.accent : AppColors.border,
-              width: isActive ? 2 : 1,
-            ),
+            border: Border.all(color: AppColors.border, width: 1),
           ),
           child: Row(
             children: [
-              SizedBox(
-                width: 20,
-                child: isActive
-                    ? const Icon(
-                        Icons.check_rounded,
-                        size: 16,
-                        color: AppColors.accent,
-                      )
-                    : const SizedBox.shrink(),
+              const SizedBox(width: 2),
+              const Icon(
+                Icons.balance_rounded,
+                size: 16,
+                color: AppColors.textH,
               ),
-              Expanded(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
-                    Icon(
-                      Icons.balance_rounded,
-                      size: 16,
-                      color: AppColors.textH,
-                    ),
-                    SizedBox(width: 6),
-                    Text(
-                      'Split evenly between friends',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textH,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Split evenly between friends',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textH,
+                    fontSize: 13,
+                  ),
                 ),
               ),
-              const SizedBox(width: 20),
+              const SizedBox(width: 10),
+              _buildSplitEvenlyStatePill(isActive),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildSplitEvenlyStatePill(bool isActive) {
+    final background = isActive ? AppColors.accentSoft : AppColors.errorBg;
+    final foreground = isActive ? AppColors.accent : AppColors.error;
+    final borderColor = isActive
+        ? AppColors.accent.withValues(alpha: 0.35)
+        : AppColors.errorBorder;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: borderColor, width: 1),
+      ),
+      child: AnimatedDefaultTextStyle(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutCubic,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.8,
+          color: foreground,
+        ),
+        child: Text(isActive ? 'ON' : 'OFF'),
       ),
     );
   }
@@ -2796,133 +2894,6 @@ class _ManualReceiptScreenState extends ConsumerState<ManualReceiptScreen> {
                 ],
               ),
             ),
-    );
-  }
-}
-
-class _LineItemPickerSheet extends StatefulWidget {
-  const _LineItemPickerSheet({
-    required this.participantName,
-    required this.options,
-    required this.initiallySelected,
-  });
-
-  final String participantName;
-  final List<_LineItemSelectionOption> options;
-  final Set<int> initiallySelected;
-
-  @override
-  State<_LineItemPickerSheet> createState() => _LineItemPickerSheetState();
-}
-
-class _LineItemPickerSheetState extends State<_LineItemPickerSheet> {
-  late final Set<int> _selected;
-
-  @override
-  void initState() {
-    super.initState();
-    _selected = {...widget.initiallySelected};
-  }
-
-  void _toggle(int sourceIndex) {
-    setState(() {
-      if (_selected.contains(sourceIndex)) {
-        _selected.remove(sourceIndex);
-      } else {
-        _selected.add(sourceIndex);
-      }
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 20,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppColors.border,
-                borderRadius: BorderRadius.circular(999),
-              ),
-            ),
-          ),
-          const SizedBox(height: 14),
-          Text(
-            'Assign line items to ${widget.participantName}',
-            style: const TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: 16,
-              color: AppColors.textH,
-            ),
-          ),
-          const SizedBox(height: 10),
-          ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(context).size.height * 0.45,
-            ),
-            child: ListView.separated(
-              shrinkWrap: true,
-              itemCount: widget.options.length,
-              separatorBuilder: (context, _) =>
-                  const Divider(height: 1, color: AppColors.border),
-              itemBuilder: (context, index) {
-                final option = widget.options[index];
-                final checked = _selected.contains(option.sourceIndex);
-                return InkWell(
-                  onTap: () => _toggle(option.sourceIndex),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    child: Row(
-                      children: [
-                        Checkbox(
-                          value: checked,
-                          activeColor: AppColors.accent,
-                          onChanged: (_) => _toggle(option.sourceIndex),
-                        ),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                option.title,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.textH,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                formatCad(option.totalCents),
-                                style: const TextStyle(color: AppColors.text),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 14),
-          PrimaryButton(
-            label: 'Apply',
-            onPressed: () => Navigator.pop(context, _selected),
-          ),
-        ],
-      ),
     );
   }
 }

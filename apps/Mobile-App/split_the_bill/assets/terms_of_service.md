@@ -1,19 +1,19 @@
-# EQUISHARE TERMS OF SERVICE
+# BILLCOMPASS TERMS OF SERVICE
 
 **Effective date: July 20, 2026**
 **Last updated: July 20, 2026**
 
-These Terms of Service (“Terms”) form a legally binding agreement between you and **Marco Schapira, an individual operating under the name EquiShare** (“EquiShare,” “we,” “us,” or “our”).
+These Terms of Service (“Terms”) form a legally binding agreement between you and **Marco Schapira, an individual operating under the name BillCompass** (“BillCompass,” “we,” “us,” or “our”).
 
-EquiShare may use the name **Split-the-Bill**. That name may continue to appear in our website domain, software, infrastructure, or related materials.
+BillCompass may use the name **Split-the-Bill**. That name may continue to appear in our website domain, software, infrastructure, or related materials.
 
 These Terms govern your access to and use of:
 
-* The EquiShare mobile application for Android;
-* The EquiShare mobile application for iOS, except where Apple’s Standard End User License Agreement governs the licence to the iOS application;
-* The EquiShare web application;
+* The BillCompass mobile application for Android;
+* The BillCompass mobile application for iOS, except where Apple’s Standard End User License Agreement governs the licence to the iOS application;
+* The BillCompass web application;
 * The website located at https://split-the-bill.net/;
-* EquiShare accounts, servers, APIs, receipt-processing tools, and related services; and
+* BillCompass accounts, servers, APIs, receipt-processing tools, and related services; and
 * Any other features or services that link to these Terms.
 
 Together, these are called the “Service.”
@@ -26,23 +26,23 @@ If you do not agree to these Terms, do not create an account or use the Service.
 
 ### 1.1 Apple Standard EULA
 
-The EquiShare iOS application is made available through Apple’s App Store.
+The BillCompass iOS application is made available through Apple’s App Store.
 
-EquiShare does not provide a custom end-user licence agreement for the iOS application. Your licence to download and use the iOS application is therefore governed by Apple’s Standard End User License Agreement, as made available by Apple and amended by Apple from time to time.
+BillCompass does not provide a custom end-user licence agreement for the iOS application. Your licence to download and use the iOS application is therefore governed by Apple’s Standard End User License Agreement, as made available by Apple and amended by Apple from time to time.
 
-These Terms separately govern your EquiShare account and your access to and use of the EquiShare services, servers, accounts, content, and functionality.
+These Terms separately govern your BillCompass account and your access to and use of the BillCompass services, servers, accounts, content, and functionality.
 
-If Apple’s Standard End User License Agreement conflicts with these Terms regarding the licence to the iOS application, Apple’s Standard End User License Agreement will govern that licence to the extent of the conflict. These Terms will otherwise continue to govern your relationship with EquiShare.
+If Apple’s Standard End User License Agreement conflicts with these Terms regarding the licence to the iOS application, Apple’s Standard End User License Agreement will govern that licence to the extent of the conflict. These Terms will otherwise continue to govern your relationship with BillCompass.
 
 ### 1.2 Other platform terms
 
-Your downloading or use of EquiShare through Apple’s App Store, Google Play, or another distribution platform may also be subject to the terms, policies, and rules of that platform.
+Your downloading or use of BillCompass through Apple’s App Store, Google Play, or another distribution platform may also be subject to the terms, policies, and rules of that platform.
 
-Apple, Google, and other platform operators are not parties to these Terms and are not responsible for operating the EquiShare Service, except to the extent expressly provided under their own terms.
+Apple, Google, and other platform operators are not parties to these Terms and are not responsible for operating the BillCompass Service, except to the extent expressly provided under their own terms.
 
 ## 2. Eligibility
 
-You must be at least **18 years old** to use EquiShare.
+You must be at least **18 years old** to use BillCompass.
 
 By using the Service, you represent and warrant that:
 
@@ -51,11 +51,11 @@ By using the Service, you represent and warrant that:
 3. Your use of the Service is not prohibited by applicable law; and
 4. You will comply with these Terms and all applicable laws.
 
-EquiShare is not intended for children under 18. Do not create an account for a person under 18.
+BillCompass is not intended for children under 18. Do not create an account for a person under 18.
 
 ## 3. Your Account
 
-Certain features require an EquiShare account.
+Certain features require an BillCompass account.
 
 When creating and maintaining an account, you agree to:
 
@@ -69,13 +69,13 @@ When creating and maintaining an account, you agree to:
 
 You are responsible for activities performed through your account to the extent permitted by applicable law.
 
-EquiShare may rely on actions taken through an authenticated account as having been authorized by the account holder unless we receive notice of unauthorized access.
+BillCompass may rely on actions taken through an authenticated account as having been authorized by the account holder unless we receive notice of unauthorized access.
 
 We do not guarantee that we will be able to recover an account, reverse an account action, restore deleted information, or compensate you for unauthorized account activity.
 
-## 4. What EquiShare Does
+## 4. What BillCompass Does
 
-EquiShare is an expense-sharing, receipt-processing, and bill-recordkeeping tool.
+BillCompass is an expense-sharing, receipt-processing, and bill-recordkeeping tool.
 
 Depending on the platform and version, the Service may allow users to:
 
@@ -83,7 +83,7 @@ Depending on the platform and version, the Service may allow users to:
 * Photograph or upload receipts;
 * Extract suggested receipt information using automated tools;
 * Review and edit extracted information;
-* Add registered EquiShare users as friends;
+* Add registered BillCompass users as friends;
 * Create groups;
 * Identify who paid a bill;
 * Divide bills evenly;
@@ -97,11 +97,11 @@ Depending on the platform and version, the Service may allow users to:
 
 Features may differ between the iOS, Android, and web versions. The availability of a feature on one platform does not guarantee that the feature is or will become available on another platform.
 
-## 5. EquiShare Is Not a Payment Service
+## 5. BillCompass Is Not a Payment Service
 
-EquiShare is a recordkeeping and coordination tool. It is not a bank, payment processor, money-transfer service, escrow service, lender, credit provider, accountant, debt collector, or financial institution.
+BillCompass is a recordkeeping and coordination tool. It is not a bank, payment processor, money-transfer service, escrow service, lender, credit provider, accountant, debt collector, or financial institution.
 
-EquiShare does not currently:
+BillCompass does not currently:
 
 * Transfer money;
 * Receive or hold funds;
@@ -118,18 +118,18 @@ EquiShare does not currently:
 * Provide accounting, tax, legal, banking, investment, or financial advice; or
 * Guarantee the financial accuracy of any bill, balance, or calculation.
 
-A bill, balance, “paid” status, “confirmed” status, settlement status, or other record displayed by EquiShare is based on information entered, selected, or confirmed by users.
+A bill, balance, “paid” status, “confirmed” status, settlement status, or other record displayed by BillCompass is based on information entered, selected, or confirmed by users.
 
 Such a status:
 
 * Is not independent proof that money was transferred;
 * Is not a bank record or payment receipt;
-* Does not create a guarantee by EquiShare;
+* Does not create a guarantee by BillCompass;
 * Does not necessarily establish a legally enforceable debt;
 * May be incomplete, inaccurate, disputed, or entered without proper authority; and
 * Should not be relied upon as the sole record of an important transaction.
 
-Users are solely responsible for arranging and completing payments outside EquiShare and for independently confirming that those payments were successfully completed.
+Users are solely responsible for arranging and completing payments outside BillCompass and for independently confirming that those payments were successfully completed.
 
 ## 6. User Responsibility for Bills and Calculations
 
@@ -156,15 +156,15 @@ This includes responsibility for checking:
 * Payment statuses; and
 * Any other information associated with the bill.
 
-EquiShare may calculate or display amounts based on information supplied by users or generated by automated systems. Those calculations may contain errors because of incorrect inputs, software defects, rounding, incomplete information, receipt-recognition errors, or other causes.
+BillCompass may calculate or display amounts based on information supplied by users or generated by automated systems. Those calculations may contain errors because of incorrect inputs, software defects, rounding, incomplete information, receipt-recognition errors, or other causes.
 
 You must review the results and make any necessary corrections.
 
-You should maintain your own copies of important receipts, payment confirmations, bank records, agreements, and other financial records. EquiShare should not be your only recordkeeping system.
+You should maintain your own copies of important receipts, payment confirmations, bank records, agreements, and other financial records. BillCompass should not be your only recordkeeping system.
 
 ## 7. Relationships and Disputes Between Users
 
-EquiShare does not supervise or control relationships between users.
+BillCompass does not supervise or control relationships between users.
 
 You are solely responsible for:
 
@@ -175,17 +175,17 @@ You are solely responsible for:
 * Resolving disagreements about purchases, amounts, assignments, or payments;
 * Determining whether another user has authority to add you to a bill;
 * Determining whether an expense was authorized; and
-* Collecting or paying any amount outside EquiShare.
+* Collecting or paying any amount outside BillCompass.
 
-EquiShare is not a party to any agreement, purchase, reimbursement arrangement, debt, payment, or dispute between users.
+BillCompass is not a party to any agreement, purchase, reimbursement arrangement, debt, payment, or dispute between users.
 
-You release EquiShare from claims arising from or relating to disputes between you and another user to the maximum extent permitted by applicable law.
+You release BillCompass from claims arising from or relating to disputes between you and another user to the maximum extent permitted by applicable law.
 
-EquiShare is not required to mediate, investigate, decide, or resolve a disagreement between users.
+BillCompass is not required to mediate, investigate, decide, or resolve a disagreement between users.
 
 ## 8. Receipt Processing and Automated Extraction
 
-EquiShare may allow you to photograph or upload a receipt and use automated systems, including third-party artificial-intelligence services, to suggest structured receipt information.
+BillCompass may allow you to photograph or upload a receipt and use automated systems, including third-party artificial-intelligence services, to suggest structured receipt information.
 
 Automated receipt extraction may misread, omit, invent, duplicate, or incorrectly interpret information. Examples may include:
 
@@ -204,7 +204,7 @@ Automated receipt extraction may misread, omit, invent, duplicate, or incorrectl
 
 Automated output is only a suggestion. You must review and correct it before saving or sharing the bill.
 
-By submitting a receipt, you authorize EquiShare and its service providers to process the receipt for the purpose of providing the requested functionality, subject to our Privacy Policy.
+By submitting a receipt, you authorize BillCompass and its service providers to process the receipt for the purpose of providing the requested functionality, subject to our Privacy Policy.
 
 You represent and warrant that:
 
@@ -215,7 +215,7 @@ You represent and warrant that:
 
 You should redact information that is not needed to divide the bill. Do not upload full payment-card numbers, card security codes, bank-account numbers, online-banking credentials, passwords, government identification numbers, or other highly sensitive credentials.
 
-EquiShare does not guarantee that receipt processing will be available, accurate, secure, successful, or compatible with every receipt or image.
+BillCompass does not guarantee that receipt processing will be available, accurate, secure, successful, or compatible with every receipt or image.
 
 ## 9. User Content
 
@@ -238,11 +238,11 @@ User Content may include:
 
 ### 9.1 Ownership
 
-As between you and EquiShare, you retain any ownership rights you have in your User Content.
+As between you and BillCompass, you retain any ownership rights you have in your User Content.
 
-### 9.2 Licence to EquiShare
+### 9.2 Licence to BillCompass
 
-You grant EquiShare a worldwide, non-exclusive, royalty-free licence to host, store, reproduce, process, format, transmit, display, and otherwise use your User Content only as reasonably necessary to:
+You grant BillCompass a worldwide, non-exclusive, royalty-free licence to host, store, reproduce, process, format, transmit, display, and otherwise use your User Content only as reasonably necessary to:
 
 * Operate and provide the Service;
 * Display shared information to relevant friends, group members, and bill participants;
@@ -294,7 +294,7 @@ Do not submit User Content that you do not want the relevant participants to see
 
 ## 10. Prohibited Conduct and Content
 
-You must not use EquiShare to:
+You must not use BillCompass to:
 
 1. Violate any applicable law or regulation;
 2. Commit, facilitate, promote, or conceal fraud;
@@ -310,13 +310,13 @@ You must not use EquiShare to:
 12. Attempt to gain unauthorized access to an account, system, database, server, API, or network;
 13. Probe, scan, test, or bypass a security or authentication measure without written authorization;
 14. Interfere with, disrupt, overload, or damage the Service;
-15. Use automated systems to scrape, harvest, copy, or extract information except as expressly permitted by EquiShare;
+15. Use automated systems to scrape, harvest, copy, or extract information except as expressly permitted by BillCompass;
 16. Reverse engineer, decompile, disassemble, or attempt to derive source code except where applicable law does not permit that restriction;
 17. Circumvent a suspension, restriction, rate limit, or access control;
 18. Send spam, repeated unwanted invitations, or abusive communications;
 19. Collect information about other users for advertising, surveillance, profiling, or an unrelated purpose;
 20. Sell, rent, sublicense, or commercially exploit access to the Service without permission;
-21. Use the Service to develop or train a competing product using unauthorized access to EquiShare systems or data;
+21. Use the Service to develop or train a competing product using unauthorized access to BillCompass systems or data;
 22. Upload full payment credentials, banking credentials, passwords, or other unnecessary highly sensitive information; or
 23. Encourage or assist another person in doing any of the above.
 
@@ -328,7 +328,7 @@ If you encounter content or behaviour that violates these Terms, contact:
 
 Your report should identify the relevant account, group, bill, content, and reason for the report. Do not include unnecessary sensitive information.
 
-EquiShare may, but is not obligated to:
+BillCompass may, but is not obligated to:
 
 * Review a report;
 * Request additional information;
@@ -342,7 +342,7 @@ EquiShare may, but is not obligated to:
 * Cooperate with service providers or authorities; or
 * Take any other action we consider reasonably necessary.
 
-EquiShare is not obligated to monitor all User Content before it is posted.
+BillCompass is not obligated to monitor all User Content before it is posted.
 
 Our decision not to remove particular content does not mean that we approve, verify, or endorse that content.
 
@@ -350,17 +350,17 @@ Removing another user as a friend does not necessarily delete shared bills, hist
 
 ## 12. Privacy
 
-Our collection, use, disclosure, storage, and deletion of personal information are described in the EquiShare Privacy Policy:
+Our collection, use, disclosure, storage, and deletion of personal information are described in the BillCompass Privacy Policy:
 
 https://split-the-bill.net/privacy
 
 The Privacy Policy forms part of your use of the Service, but these Terms and the Privacy Policy serve different purposes.
 
-By using EquiShare, you acknowledge that information may be processed by service providers and in countries other than the country where you live, as described in the Privacy Policy.
+By using BillCompass, you acknowledge that information may be processed by service providers and in countries other than the country where you live, as described in the Privacy Policy.
 
 ## 13. Account Deletion
 
-You may request or initiate account deletion through the account-deletion functionality made available by EquiShare or at:
+You may request or initiate account deletion through the account-deletion functionality made available by BillCompass or at:
 
 https://split-the-bill.net/delete-account
 
@@ -377,13 +377,13 @@ You acknowledge that deleting your account does not entitle you to alter or dele
 
 Certain information may also be retained temporarily or for longer periods where reasonably necessary for backups, security, fraud prevention, dispute resolution, enforcing these Terms, or complying with law, as described in the Privacy Policy.
 
-Account deletion may be irreversible. EquiShare does not guarantee that a deleted account or deleted solo bill can be restored.
+Account deletion may be irreversible. BillCompass does not guarantee that a deleted account or deleted solo bill can be restored.
 
 Retain your own copies of any information you need before deleting your account.
 
 ## 14. Suspension and Termination
 
-EquiShare may restrict, suspend, disable, or terminate your account or access to all or part of the Service if we reasonably believe that:
+BillCompass may restrict, suspend, disable, or terminate your account or access to all or part of the Service if we reasonably believe that:
 
 * You violated these Terms;
 * You created a security, legal, or operational risk;
@@ -391,7 +391,7 @@ EquiShare may restrict, suspend, disable, or terminate your account or access to
 * Your conduct could harm another user;
 * Your activity may be fraudulent or unlawful;
 * Suspension is required by a platform operator, service provider, court, regulator, or government authority;
-* Your continued access may expose EquiShare or another person to liability; or
+* Your continued access may expose BillCompass or another person to liability; or
 * The Service or relevant feature is being discontinued.
 
 Where reasonably practical, we may provide notice or an opportunity to correct the issue. We are not required to provide advance notice where immediate action is reasonably necessary to address security, fraud, abuse, legal risk, or harm.
@@ -402,35 +402,35 @@ You may terminate these Terms by stopping use of the Service and deleting your a
 
 Sections that by their nature should continue after termination will survive, including provisions concerning ownership, User Content, retained shared bills, disclaimers, liability limitations, indemnification, disputes, and general legal terms.
 
-## 15. Ownership of EquiShare
+## 15. Ownership of BillCompass
 
-The Service, including its software, interface, design, branding, code, databases, documentation, graphics, text, and other materials provided by EquiShare, is owned by Marco Schapira or the applicable licensors.
+The Service, including its software, interface, design, branding, code, databases, documentation, graphics, text, and other materials provided by BillCompass, is owned by Marco Schapira or the applicable licensors.
 
 These Terms do not transfer ownership of the Service to you.
 
-“EquiShare,” its logos, and associated branding may not be copied or used in a manner that suggests endorsement, affiliation, or ownership without permission.
+“BillCompass,” its logos, and associated branding may not be copied or used in a manner that suggests endorsement, affiliation, or ownership without permission.
 
 Third-party and open-source components remain subject to their respective licences.
 
 ## 16. Limited Licence
 
-Subject to your compliance with these Terms, EquiShare grants you a limited, personal, revocable, non-exclusive, non-transferable, and non-sublicensable right to access and use the Android application, web application, and Service for lawful personal use.
+Subject to your compliance with these Terms, BillCompass grants you a limited, personal, revocable, non-exclusive, non-transferable, and non-sublicensable right to access and use the Android application, web application, and Service for lawful personal use.
 
 The licence to the iOS application is governed by Apple’s Standard End User License Agreement.
 
-You may not reproduce, distribute, sell, rent, lease, sublicense, modify, or commercially exploit the Service except as expressly permitted by EquiShare or applicable law.
+You may not reproduce, distribute, sell, rent, lease, sublicense, modify, or commercially exploit the Service except as expressly permitted by BillCompass or applicable law.
 
-EquiShare may revoke this licence when your access is suspended or terminated.
+BillCompass may revoke this licence when your access is suspended or terminated.
 
 ## 17. Feedback
 
-If you provide an idea, suggestion, feature request, design, correction, or other feedback about EquiShare, you grant us a worldwide, perpetual, irrevocable, royalty-free right to use, adapt, implement, reproduce, publish, and commercialize that feedback without compensation or obligation to you.
+If you provide an idea, suggestion, feature request, design, correction, or other feedback about BillCompass, you grant us a worldwide, perpetual, irrevocable, royalty-free right to use, adapt, implement, reproduce, publish, and commercialize that feedback without compensation or obligation to you.
 
 Do not submit feedback that you are not authorized to provide.
 
 ## 18. Third-Party Services
 
-EquiShare depends on third-party services for functions such as:
+BillCompass depends on third-party services for functions such as:
 
 * Application distribution;
 * Web hosting;
@@ -444,15 +444,15 @@ EquiShare depends on third-party services for functions such as:
 
 Third-party services may experience outages, errors, security incidents, policy changes, service limitations, or discontinuation.
 
-EquiShare does not control and is not responsible for third-party services, websites, software, content, terms, privacy practices, availability, or conduct.
+BillCompass does not control and is not responsible for third-party services, websites, software, content, terms, privacy practices, availability, or conduct.
 
 Your use of a third-party service may be governed by separate terms between you and that provider.
 
-The identification or use of a third-party provider does not constitute an endorsement or guarantee by EquiShare.
+The identification or use of a third-party provider does not constitute an endorsement or guarantee by BillCompass.
 
 ## 19. Availability, Changes, and Discontinuation
 
-EquiShare is provided as a developing, first-version service.
+BillCompass is provided as a developing, first-version service.
 
 We do not promise:
 
@@ -477,7 +477,7 @@ Where reasonably practical, we may provide notice of a material discontinuation,
 
 ## 20. Free Service and Possible Future Charges
 
-EquiShare is currently provided without a subscription or usage fee.
+BillCompass is currently provided without a subscription or usage fee.
 
 We may introduce paid features, subscriptions, or other charges in the future.
 
@@ -489,7 +489,7 @@ A future paid feature may be governed by additional terms.
 
 TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, THE SERVICE IS PROVIDED **“AS IS,” “AS AVAILABLE,” AND “WITH ALL FAULTS.”**
 
-EQUISHARE DISCLAIMS ALL REPRESENTATIONS, WARRANTIES, GUARANTEES, AND CONDITIONS, WHETHER EXPRESS, IMPLIED, STATUTORY, OR OTHERWISE, INCLUDING WARRANTIES OR CONDITIONS OF:
+BILLCOMPASS DISCLAIMS ALL REPRESENTATIONS, WARRANTIES, GUARANTEES, AND CONDITIONS, WHETHER EXPRESS, IMPLIED, STATUTORY, OR OTHERWISE, INCLUDING WARRANTIES OR CONDITIONS OF:
 
 * MERCHANTABILITY;
 * FITNESS FOR A PARTICULAR PURPOSE;
@@ -504,7 +504,7 @@ EQUISHARE DISCLAIMS ALL REPRESENTATIONS, WARRANTIES, GUARANTEES, AND CONDITIONS,
 * QUIET ENJOYMENT; AND
 * COMPATIBILITY.
 
-WITHOUT LIMITING THE ABOVE, EQUISHARE DOES NOT WARRANT THAT:
+WITHOUT LIMITING THE ABOVE, BILLCOMPASS DOES NOT WARRANT THAT:
 
 * A BILL OR BALANCE IS CORRECT;
 * A CALCULATION IS ACCURATE;
@@ -523,9 +523,9 @@ WITHOUT LIMITING THE ABOVE, EQUISHARE DOES NOT WARRANT THAT:
 * THIRD-PARTY SERVICES WILL REMAIN AVAILABLE; OR
 * USE OF THE SERVICE WILL PREVENT A FINANCIAL, PERSONAL, LEGAL, OR OTHER DISPUTE.
 
-YOU USE EQUISHARE AT YOUR OWN RISK.
+YOU USE BILLCOMPASS AT YOUR OWN RISK.
 
-NO INFORMATION OR COMMUNICATION FROM EQUISHARE CREATES A WARRANTY UNLESS EXPRESSLY SET OUT IN A WRITTEN AGREEMENT SIGNED BY EQUISHARE.
+NO INFORMATION OR COMMUNICATION FROM BILLCOMPASS CREATES A WARRANTY UNLESS EXPRESSLY SET OUT IN A WRITTEN AGREEMENT SIGNED BY BILLCOMPASS.
 
 Some jurisdictions do not permit the exclusion of certain warranties or conditions. In those jurisdictions, the exclusions above apply only to the maximum extent permitted by applicable law.
 
@@ -533,7 +533,7 @@ Nothing in these Terms excludes a warranty, condition, right, or remedy that can
 
 ## 22. Limitation of Liability
 
-TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, EQUISHARE, MARCO SCHAPIRA, AND THEIR SERVICE PROVIDERS, CONTRACTORS, REPRESENTATIVES, SUCCESSORS, AND ASSIGNS WILL NOT BE LIABLE FOR ANY:
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, BILLCOMPASS, MARCO SCHAPIRA, AND THEIR SERVICE PROVIDERS, CONTRACTORS, REPRESENTATIVES, SUCCESSORS, AND ASSIGNS WILL NOT BE LIABLE FOR ANY:
 
 * INDIRECT DAMAGES;
 * INCIDENTAL DAMAGES;
@@ -560,21 +560,21 @@ TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, EQUISHARE, MARCO SCHAPIRA, AN
 * THIRD-PARTY SERVICE FAILURE; OR
 * OTHER LOSS ARISING FROM OR RELATING TO THE SERVICE.
 
-THIS EXCLUSION APPLIES REGARDLESS OF WHETHER THE CLAIM IS BASED ON CONTRACT, TORT, NEGLIGENCE, STRICT LIABILITY, STATUTE, EQUITY, OR ANOTHER LEGAL THEORY, AND EVEN IF EQUISHARE WAS ADVISED THAT THE LOSS WAS POSSIBLE.
+THIS EXCLUSION APPLIES REGARDLESS OF WHETHER THE CLAIM IS BASED ON CONTRACT, TORT, NEGLIGENCE, STRICT LIABILITY, STATUTE, EQUITY, OR ANOTHER LEGAL THEORY, AND EVEN IF BILLCOMPASS WAS ADVISED THAT THE LOSS WAS POSSIBLE.
 
-TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, THE TOTAL AGGREGATE LIABILITY OF EQUISHARE AND MARCO SCHAPIRA FOR ALL CLAIMS ARISING OUT OF OR RELATING TO THE SERVICE OR THESE TERMS WILL NOT EXCEED THE TOTAL AMOUNT YOU PAID DIRECTLY TO EQUISHARE FOR THE SERVICE DURING THE 12 MONTHS IMMEDIATELY BEFORE THE EVENT GIVING RISE TO THE CLAIM.
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, THE TOTAL AGGREGATE LIABILITY OF BILLCOMPASS AND MARCO SCHAPIRA FOR ALL CLAIMS ARISING OUT OF OR RELATING TO THE SERVICE OR THESE TERMS WILL NOT EXCEED THE TOTAL AMOUNT YOU PAID DIRECTLY TO BILLCOMPASS FOR THE SERVICE DURING THE 12 MONTHS IMMEDIATELY BEFORE THE EVENT GIVING RISE TO THE CLAIM.
 
-Because EquiShare is currently free, this amount will ordinarily be zero.
+Because BillCompass is currently free, this amount will ordinarily be zero.
 
 The exclusions and limitation above apply collectively to all claims and are an essential basis on which the Service is provided.
 
 Nothing in these Terms excludes or limits liability to the extent that the liability cannot legally be excluded or limited, including any mandatory statutory consumer rights or liability for fraud, wilful misconduct, or another category that applicable law does not permit to be excluded.
 
-Where applicable law does not allow a particular exclusion or limitation, EquiShare’s liability will be limited to the greatest extent permitted by that law.
+Where applicable law does not allow a particular exclusion or limitation, BillCompass’s liability will be limited to the greatest extent permitted by that law.
 
 ## 23. Indemnification
 
-To the maximum extent permitted by applicable law, you agree to defend, indemnify, and hold harmless EquiShare, Marco Schapira, and their service providers, contractors, representatives, successors, and assigns from claims, liabilities, damages, judgments, losses, penalties, expenses, and reasonable legal fees arising from or relating to:
+To the maximum extent permitted by applicable law, you agree to defend, indemnify, and hold harmless BillCompass, Marco Schapira, and their service providers, contractors, representatives, successors, and assigns from claims, liabilities, damages, judgments, losses, penalties, expenses, and reasonable legal fees arising from or relating to:
 
 * Your violation of these Terms;
 * Your User Content;
@@ -586,15 +586,15 @@ To the maximum extent permitted by applicable law, you agree to defend, indemnif
 * Your misuse of the Service; or
 * Your unauthorized access to or interference with the Service.
 
-EquiShare may assume control of the defence of a matter subject to indemnification. You agree to reasonably cooperate with that defence.
+BillCompass may assume control of the defence of a matter subject to indemnification. You agree to reasonably cooperate with that defence.
 
-This section does not require you to indemnify EquiShare for conduct for which indemnification cannot legally be required.
+This section does not require you to indemnify BillCompass for conduct for which indemnification cannot legally be required.
 
 ## 24. Governing Law and Disputes
 
 These Terms and disputes arising from or relating to them or the Service are governed by the laws of the Province of Ontario and the federal laws of Canada applicable in Ontario, without regard to conflict-of-law principles.
 
-Subject to any mandatory rights you have under applicable law, you and EquiShare agree that the courts located in Toronto, Ontario, Canada will have exclusive jurisdiction over disputes arising from or relating to these Terms or the Service.
+Subject to any mandatory rights you have under applicable law, you and BillCompass agree that the courts located in Toronto, Ontario, Canada will have exclusive jurisdiction over disputes arising from or relating to these Terms or the Service.
 
 Before beginning formal proceedings, you are encouraged to contact us at [privacy@split-the-bill.net](mailto:privacy@split-the-bill.net) and make a reasonable attempt to resolve the issue informally.
 
@@ -610,13 +610,13 @@ If you live outside Ontario, mandatory consumer-protection laws in your place of
 
 ## 25. International Use and Legal Compliance
 
-EquiShare is operated from Ontario, Canada, but may be accessed in other countries.
+BillCompass is operated from Ontario, Canada, but may be accessed in other countries.
 
 We do not represent that the Service is appropriate, legal, or available in every country or territory.
 
-You are responsible for determining whether your use of EquiShare complies with the laws that apply to you, including laws concerning privacy, contracts, consumer protection, financial records, taxation, sanctions, and receipt information.
+You are responsible for determining whether your use of BillCompass complies with the laws that apply to you, including laws concerning privacy, contracts, consumer protection, financial records, taxation, sanctions, and receipt information.
 
-You must not access or use the Service where doing so would violate applicable law or require EquiShare to obtain a licence, registration, or authorization that it has not obtained.
+You must not access or use the Service where doing so would violate applicable law or require BillCompass to obtain a licence, registration, or authorization that it has not obtained.
 
 ## 26. Changes to These Terms
 
@@ -642,7 +642,7 @@ If you do not agree to an update, you must stop using the Service and may delete
 
 ## 27. Electronic Communications
 
-You agree that EquiShare may provide agreements, notices, disclosures, verification messages, security messages, and other communications electronically, including through:
+You agree that BillCompass may provide agreements, notices, disclosures, verification messages, security messages, and other communications electronically, including through:
 
 * Email;
 * The Service;
@@ -657,7 +657,7 @@ Electronic communications satisfy any legal requirement that a communication be 
 
 ### 28.1 Entire agreement
 
-These Terms, the Privacy Policy, Apple’s Standard End User License Agreement where applicable, and any additional terms expressly presented for a feature form the applicable agreement concerning your use of EquiShare.
+These Terms, the Privacy Policy, Apple’s Standard End User License Agreement where applicable, and any additional terms expressly presented for a feature form the applicable agreement concerning your use of BillCompass.
 
 ### 28.2 Severability
 
@@ -665,19 +665,19 @@ If any provision of these Terms is found invalid, illegal, or unenforceable, tha
 
 ### 28.3 No waiver
 
-A failure or delay by EquiShare in enforcing a provision is not a waiver of that provision or of the right to enforce it later.
+A failure or delay by BillCompass in enforcing a provision is not a waiver of that provision or of the right to enforce it later.
 
 ### 28.4 Assignment
 
 You may not transfer or assign your account, these Terms, or your rights under these Terms without our written permission.
 
-EquiShare may assign or transfer these Terms to a successor, purchaser, service operator, affiliated entity, or entity acquiring all or part of the EquiShare business or assets, subject to applicable law.
+BillCompass may assign or transfer these Terms to a successor, purchaser, service operator, affiliated entity, or entity acquiring all or part of the BillCompass business or assets, subject to applicable law.
 
 ### 28.5 No partnership or agency
 
-These Terms do not create an employment, partnership, joint venture, fiduciary, franchise, or agency relationship between you and EquiShare.
+These Terms do not create an employment, partnership, joint venture, fiduciary, franchise, or agency relationship between you and BillCompass.
 
-You do not have authority to bind EquiShare.
+You do not have authority to bind BillCompass.
 
 ### 28.6 No third-party beneficiaries
 
@@ -685,7 +685,7 @@ Except where expressly stated, these Terms do not give rights to a person who is
 
 ### 28.7 Force majeure
 
-EquiShare is not responsible for a delay or failure caused by events beyond our reasonable control, including internet or hosting failures, third-party outages, cyberattacks, natural disasters, fires, floods, epidemics, labour disruptions, government actions, war, civil unrest, infrastructure failures, or failures of application stores or telecommunications providers.
+BillCompass is not responsible for a delay or failure caused by events beyond our reasonable control, including internet or hosting failures, third-party outages, cyberattacks, natural disasters, fires, floods, epidemics, labour disruptions, government actions, war, civil unrest, infrastructure failures, or failures of application stores or telecommunications providers.
 
 ### 28.8 Headings
 
@@ -695,14 +695,14 @@ Section headings are provided for convenience and do not affect interpretation.
 
 Words such as “including” and “includes” mean “including without limitation.”
 
-Any provision intended to protect EquiShare or limit liability applies to Marco Schapira and the applicable service providers, contractors, representatives, successors, and assigns where appropriate.
+Any provision intended to protect BillCompass or limit liability applies to Marco Schapira and the applicable service providers, contractors, representatives, successors, and assigns where appropriate.
 
 ## 29. Contact Information
 
-EquiShare is operated by:
+BillCompass is operated by:
 
 **Marco Schapira**
-Operating under the name EquiShare
+Operating under the name BillCompass
 15 Pendrith St.
 Toronto, Ontario
 Canada

@@ -1,6 +1,6 @@
 {
-    "name": "EquiShare",
-    "short_name": "EquiShare",
+    "name": "BillCompass",
+    "short_name": "BillCompass",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

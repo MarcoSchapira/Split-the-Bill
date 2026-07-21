@@ -74,7 +74,7 @@ class _AddFriendSheetState extends ConsumerState<AddFriendSheet> {
         children: [
           const Text('Add friend', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
           const SizedBox(height: 8),
-          const Text('Invite someone who already has an EquiShare account.'),
+          const Text('Invite someone who already has a BillCompass account.'),
           const SizedBox(height: 16),
           if (_error != null) ...[ErrorBanner(message: _error!), const SizedBox(height: 12)],
           TextField(
@@ -134,7 +134,7 @@ class _AccountNotFoundDialog extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              'No EquiShare account exists for this email. '
+              'No BillCompass account exists for this email. '
               'Ask them to sign up first, then try inviting them again.',
               textAlign: TextAlign.center,
               style: TextStyle(

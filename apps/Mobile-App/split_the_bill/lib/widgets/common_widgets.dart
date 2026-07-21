@@ -150,6 +150,71 @@ class LoadingView extends StatelessWidget {
   }
 }
 
+/// Full-screen branded loading view shown while restoring the user's session.
+class SessionLoadingView extends StatelessWidget {
+  const SessionLoadingView({super.key});
+
+  static const _background = Color(0xFF0B745D);
+  static const _logoSize = 128.0;
+  static const _borderRadius = 28.0;
+  static const _borderWidth = 4.0;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: _background,
+      alignment: Alignment.center,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(_borderRadius),
+              border: Border.all(color: Colors.white, width: _borderWidth),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x33000000),
+                  blurRadius: 24,
+                  offset: Offset(0, 12),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(_borderRadius - _borderWidth),
+              child: Image.asset(
+                'assets/equishare_logo_mobile.png',
+                width: _logoSize,
+                height: _logoSize,
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+          const SizedBox(height: 28),
+          const Text(
+            'Loading',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.2,
+            ),
+          ),
+          const SizedBox(height: 20),
+          const SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(
+              color: Colors.white,
+              strokeWidth: 2.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class Eyebrow extends StatelessWidget {
   const Eyebrow(this.text, {super.key});
 
@@ -185,7 +250,7 @@ class AppBrandTitle extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         const Text(
-          'EquiShare',
+          'BillCompass',
           style: TextStyle(
             color: AppColors.accent,
             fontSize: 24,

@@ -5,8 +5,8 @@ import 'routing/app_router.dart';
 import 'theme/app_theme.dart';
 import 'widgets/common_widgets.dart';
 
-class EquiShareApp extends ConsumerWidget {
-  const EquiShareApp({super.key});
+class BillCompassApp extends ConsumerWidget {
+  const BillCompassApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -14,14 +14,18 @@ class EquiShareApp extends ConsumerWidget {
     if (auth.isLoading) {
       return MaterialApp(
         theme: AppTheme.light(),
-        home: const Scaffold(body: LoadingView(message: 'Restoring your session...')),
+        debugShowCheckedModeBanner: false,
+        home: const Scaffold(
+          backgroundColor: Color(0xFF0B745D),
+          body: SessionLoadingView(),
+        ),
       );
     }
 
     final router = ref.watch(routerProvider);
 
     return MaterialApp.router(
-      title: 'EquiShare',
+      title: 'BillCompass',
       theme: AppTheme.light(),
       routerConfig: router,
       debugShowCheckedModeBanner: false,

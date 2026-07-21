@@ -44,7 +44,7 @@ Future<bool?> showAiReceiptConsentDialog(BuildContext context) {
               ),
               const SizedBox(height: 10),
               const Text(
-                'EquiShare sends your receipt image to Google Gemini to extract '
+                'BillCompass sends your receipt image to Google Gemini to extract '
                 'receipt information. Information visible on the receipt will be '
                 'processed by Google.',
                 textAlign: TextAlign.center,

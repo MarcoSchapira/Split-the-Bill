@@ -62,6 +62,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             AppScaffold(navigationShell: navigationShell),
         branches: [
           StatefulShellBranch(
+            preload: true,
             routes: [
               GoRoute(
                 path: '/dashboard',
@@ -116,6 +117,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
           StatefulShellBranch(
+            preload: true,
             routes: [
               GoRoute(
                 path: '/bills',
@@ -140,6 +142,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
           StatefulShellBranch(
+            preload: true,
             routes: [
               GoRoute(
                 path: '/requests',
@@ -150,6 +153,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
           StatefulShellBranch(
+            preload: true,
             routes: [
               GoRoute(
                 path: '/groups',

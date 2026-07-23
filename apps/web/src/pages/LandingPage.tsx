@@ -1,10 +1,10 @@
 import { Link } from 'react-router-dom'
 import { ArrowRight } from 'lucide-react'
 import { LandingHeader } from '../components/LandingHeader'
+import { LandingFeatureShowcase } from '../components/landing/LandingFeatureShowcase'
 import {
   faqItems,
   howItWorksSteps,
-  landingFeatures,
   whyChooseItems,
 } from '../components/landing/landingContent'
 import '../styles/landing.css'
@@ -49,7 +49,7 @@ export function LandingPage() {
             </div>
             <div className="landing-hero-image-wrap">
               <img
-                src="/dashboard.png"
+                src="/images/dashboard.png"
                 alt="BillCompass dashboard showing shared balances, friends, and recent bills"
               />
             </div>
@@ -134,23 +134,7 @@ export function LandingPage() {
             bills fair, organized, and easy for everyone to understand.
           </p>
         </div>
-        <div className="landing-features-grid">
-          {landingFeatures.map((feature) => {
-            const Icon = feature.icon
-            return (
-              <article className="landing-feature-tile" key={feature.title}>
-                <div className="landing-feature-media" role="img" aria-label={feature.imageLabel}>
-                  <Icon strokeWidth={1.75} />
-                  <span>{feature.imageLabel}</span>
-                </div>
-                <div className="landing-feature-body">
-                  <h3>{feature.title}</h3>
-                  <p>{feature.description}</p>
-                </div>
-              </article>
-            )
-          })}
-        </div>
+        <LandingFeatureShowcase />
       </section>
 
       <section
@@ -189,7 +173,7 @@ export function LandingPage() {
         <div className="landing-free-banner">
           <span className="landing-free-badge">100% free</span>
           <p className="eyebrow">No subscriptions. No paywalls.</p>
-          <h2 id="free-heading">Split bills for free, forever</h2>
+          <h2 id="free-heading">Split all your bills for free</h2>
           <p>
             BillCompass is fully free to use. Create your account, invite friends,
             scan receipts, and track every shared expense without worrying about

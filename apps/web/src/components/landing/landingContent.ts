@@ -3,23 +3,23 @@ import {
   Camera,
   ChartPie,
   CheckCircle2,
-  CreditCard,
   Divide,
-  FolderOpen,
   HandCoins,
   Layers,
   Receipt,
   ScanLine,
-  Smartphone,
   Users,
-  Wallet,
 } from 'lucide-react'
 
-export type LandingFeature = {
+export type LandingShowcaseFeature = {
+  id: string
   icon: LucideIcon
   title: string
   description: string
-  imageLabel: string
+  bullets: string[]
+  image?: string
+  imageAlt: string
+  previewLabel: string
 }
 
 export type LandingWhyItem = {
@@ -54,76 +54,86 @@ export const howItWorksSteps = [
   },
 ] as const
 
-export const landingFeatures: LandingFeature[] = [
+export const landingShowcaseFeatures: LandingShowcaseFeature[] = [
   {
-    icon: ScanLine,
-    title: 'Scan receipts automatically',
-    description:
-      'Turn a receipt photo into a structured bill with line items, tax, tip, and totals — ready to split immediately.',
-    imageLabel: 'Receipt scan preview',
-  },
-  {
-    icon: Divide,
-    title: 'Split by individual items',
-    description:
-      'Assign meals, drinks, and purchases to the right people, or share appetizers and household items between multiple friends.',
-    imageLabel: 'Item assignment preview',
-  },
-  {
-    icon: HandCoins,
-    title: 'Split by exact amounts',
-    description:
-      'When everyone owes something different, enter custom shares or divide the total evenly with just a few taps.',
-    imageLabel: 'Custom split preview',
-  },
-  {
-    icon: Wallet,
-    title: 'See who owes who',
-    description:
-      'View what you owe, what you are owed, and your net balance from one clear dashboard across every shared expense.',
-    imageLabel: 'Balance overview preview',
-  },
-  {
-    icon: CreditCard,
-    title: 'Track payments',
-    description:
-      'Know who has paid, who still owes money, and how much remains outstanding — then confirm payments as they arrive.',
-    imageLabel: 'Payment tracking preview',
-  },
-  {
-    icon: Users,
-    title: 'Create groups for ongoing expenses',
-    description:
-      'Manage roommates, couples, families, and travel groups with shared balances that stay organized over time.',
-    imageLabel: 'Groups preview',
-  },
-  {
+    id: 'full-bill',
     icon: Receipt,
-    title: 'Store complete receipt details',
+    title: 'Every detail of the bill, in one place',
     description:
-      'Keep item names, quantities, prices, merchant information, and receipt metadata together with every bill.',
-    imageLabel: 'Receipt details preview',
+      'Open any bill and review line items, each person’s share, payment status, tax, tip, and totals together — without jumping between screens.',
+    bullets: [
+      'See itemized receipt lines, quantities, and prices',
+      'Review each person’s share and what they still owe',
+      'Track who has paid and what remains outstanding',
+    ],
+    image: '/images/full-bill.png',
+    imageAlt: 'BillCompass bill detail showing line items, shares, and payment status',
+    previewLabel: 'Full bill view',
   },
   {
-    icon: FolderOpen,
-    title: 'Organize every bill in one place',
+    id: 'requests',
+    icon: HandCoins,
+    title: 'See who owes who across every bill',
     description:
-      'Restaurant tabs, groceries, rent, trips, and shared purchases live in one calm list instead of scattered notes.',
-    imageLabel: 'Bill list preview',
+      'Your requests view brings outstanding balances into one place so you always know what needs attention and who still needs to pay.',
+    bullets: [
+      'Follow payment status on all your shared bills',
+      'See what you owe and what friends owe you',
+      'Keep balances current as payments are confirmed',
+    ],
+    image: '/images/requests.png',
+    imageAlt: 'BillCompass requests screen showing who owes who',
+    previewLabel: 'Requests & balances',
   },
   {
-    icon: Smartphone,
-    title: 'Stay synced across devices',
+    id: 'groups',
+    icon: Users,
+    title: 'Groups for ongoing shared expenses',
     description:
-      'Use BillCompass on web and mobile with friends so balances stay up to date wherever you split expenses.',
-    imageLabel: 'Cross-device sync preview',
+      'Create groups for roommates, couples, trips, or friend circles and keep recurring costs organized with everyone on the same page.',
+    bullets: [
+      'Add members and split new expenses within a group',
+      'Manage household, travel, and social tabs together',
+      'See shared balances for everyone in the group',
+    ],
+    image: '/images/spain-group.png',
+    imageAlt: 'BillCompass group view with members and shared bills',
+    previewLabel: 'Group expenses',
+  },
+  {
+    id: 'split-flexible',
+    icon: Divide,
+    title: 'Split by final amount or by individual items',
+    description:
+      'Choose the split that fits the moment — assign exact amounts when shares differ, or divide line items when everyone ordered something different.',
+    bullets: [
+      'Enter custom amounts for each person on a bill',
+      'Divide the total evenly when that is the fair split',
+      'Assign meals, drinks, and purchases to the right people',
+    ],
+    imageAlt: 'BillCompass split options for custom amounts and line items',
+    previewLabel: 'Flexible splitting',
+  },
+  {
+    id: 'receipt-scan',
+    icon: ScanLine,
+    title: 'Turn captured receipts into new bills automatically',
+    description:
+      'Take a photo or import from your library and BillCompass extracts line items, tax, tip, and totals into a bill that is ready to split.',
+    bullets: [
+      'Capture receipts with your phone camera on the go',
+      'Import existing receipt images from your photo library',
+      'Start splitting right away without retyping every item',
+    ],
+    imageAlt: 'BillCompass receipt capture converting a photo into a bill',
+    previewLabel: 'Receipt scanning',
   },
 ]
 
 export const whyChooseItems: LandingWhyItem[] = [
   {
     icon: Camera,
-    title: 'Less math, fewer awkward conversations',
+    title: 'Less math, more time',
     description:
       'Replace back-of-napkin calculations and payment reminders with a shared record everyone can trust.',
   },

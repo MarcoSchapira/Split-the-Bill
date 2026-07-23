@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:go_router/go_router.dart';
+import '../../api/api_exception.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../theme/app_colors.dart';
@@ -107,6 +109,31 @@ class _BillListItem extends ConsumerWidget {
 
   final Bill bill;
 
+  Future<void> _editBill(BuildContext context) async {
+    await context.push('/bills/${bill.id}/edit');
+  }
+
+  Future<void> _deleteBill(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showConfirmDialog(
+      context,
+      title: 'Delete bill',
+      message:
+          'Delete "${bill.description}"? This permanently removes the bill for every participant and cannot be undone.',
+    );
+    if (confirmed != true) return;
+
+    try {
+      await ref.read(billsApiProvider).deleteBill(bill.id);
+      notifyDataChanged(ref);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(apiErrorMessage(e, 'Unable to delete bill.'))),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final shares = _sortedShares(bill);
@@ -136,9 +163,12 @@ class _BillListItem extends ConsumerWidget {
       allDebtorsSettled: allDebtorsSettled,
       debtorCount: debtorCount,
     );
+    final canEdit = bill.canEdit;
+    final canDelete = bill.canDelete;
+    final actionCount = (canEdit ? 1 : 0) + (canDelete ? 1 : 0);
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+    final card = Card(
+      margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
       elevation: 0,
       color: AppColors.surface,
@@ -253,6 +283,129 @@ class _BillListItem extends ConsumerWidget {
           ),
         ),
       ),
+    );
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: actionCount == 0
+          ? card
+          : Slidable(
+              key: ValueKey('bill-actions-${bill.id}'),
+              groupTag: 'bill-list',
+              closeOnScroll: true,
+              endActionPane: ActionPane(
+                motion: const BehindMotion(),
+                extentRatio: actionCount == 2 ? 0.58 : 0.32,
+                dragDismissible: false,
+                openThreshold: 0.18,
+                closeThreshold: 0.12,
+                children: [
+                  if (canEdit)
+                    CustomSlidableAction(
+                      onPressed: (_) => _editBill(context),
+                      autoClose: true,
+                      padding: EdgeInsets.zero,
+                      backgroundColor: Colors.transparent,
+                      child: const _BillSwipeAction(
+                        icon: Icons.edit_outlined,
+                        label: 'Edit',
+                        backgroundColor: AppColors.surfaceMuted,
+                        foregroundColor: AppColors.textH,
+                        leftPadding: 10,
+                      ),
+                    ),
+                  if (canDelete)
+                    CustomSlidableAction(
+                      onPressed: (_) => _deleteBill(context, ref),
+                      autoClose: true,
+                      padding: EdgeInsets.zero,
+                      backgroundColor: Colors.transparent,
+                      child: _BillSwipeAction(
+                        icon: Icons.delete_outline,
+                        label: 'Delete',
+                        backgroundColor: AppColors.errorBg,
+                        foregroundColor: AppColors.error,
+                        leftPadding: canEdit ? 8 : 10,
+                      ),
+                    ),
+                ],
+              ),
+              child: card,
+            ),
+    );
+  }
+}
+
+class _BillSwipeAction extends StatelessWidget {
+  const _BillSwipeAction({
+    required this.icon,
+    required this.label,
+    required this.backgroundColor,
+    required this.foregroundColor,
+    this.leftPadding = 10,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color backgroundColor;
+  final Color foregroundColor;
+  final double leftPadding;
+
+  @override
+  Widget build(BuildContext context) {
+    final animation = Slidable.of(context)?.animation;
+
+    Widget content = Padding(
+      padding: EdgeInsets.only(left: leftPadding),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: foregroundColor.withValues(alpha: 0.12),
+          ),
+        ),
+        child: SizedBox(
+          width: double.infinity,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: foregroundColor, size: 22),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  color: foregroundColor,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                  letterSpacing: 0.1,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (animation == null) return content;
+
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, child) {
+        final progress = Curves.easeOutCubic.transform(animation.value);
+        return Opacity(
+          opacity: progress,
+          child: Transform.translate(
+            offset: Offset(18 * (1 - progress), 0),
+            child: Transform.scale(
+              scale: 0.84 + (progress * 0.16),
+              alignment: Alignment.centerLeft,
+              child: child,
+            ),
+          ),
+        );
+      },
+      child: content,
     );
   }
 }

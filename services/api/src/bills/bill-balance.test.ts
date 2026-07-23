@@ -52,7 +52,7 @@ describe("userSummaryForBill", () => {
     });
   });
 
-  it("returns only debtor-marked share ids for group payer confirmation", () => {
+  it("returns all unconfirmed debtor share ids for group payer confirmation", () => {
     expect(
       sharesToSettle(
         {
@@ -60,7 +60,8 @@ describe("userSummaryForBill", () => {
           shares: [
             { id: "share-a", userId: "user-a", shareCents: 1000, ...unsettled },
             { id: "share-b", userId: "user-b", shareCents: 1000, payerMarkedAsPaid: true, lenderConfirmedPaid: false },
-            { id: "share-c", userId: "user-c", shareCents: 1000, payerMarkedAsPaid: true, lenderConfirmedPaid: false },
+            { id: "share-c", userId: "user-c", shareCents: 1000, payerMarkedAsPaid: false, lenderConfirmedPaid: false },
+            { id: "share-d", userId: "user-d", shareCents: 1000, payerMarkedAsPaid: false, lenderConfirmedPaid: true },
           ],
         },
         "user-a",
@@ -124,7 +125,7 @@ describe("userSummaryForBill", () => {
     ).toEqual([]);
   });
 
-  it("does not let the lender confirm before the debtor marks paid", () => {
+  it("lets the lender confirm without the debtor marking paid first", () => {
     expect(
       sharesToSettle(
         { payerId: "user-a", shares },
@@ -132,7 +133,7 @@ describe("userSummaryForBill", () => {
         undefined,
         "user-b",
       ),
-    ).toEqual([]);
+    ).toEqual(["share-b"]);
   });
 
   it("returns one confirmed participant share for payer-targeted unsettle", () => {

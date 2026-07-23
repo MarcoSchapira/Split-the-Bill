@@ -188,7 +188,7 @@ export function friendAwaitingConfirmationCents(items: RequestItem[]): number {
 export function canActOnRequest(item: RequestItem): boolean {
   if (item.lenderConfirmedPaid) return false
   if (item.role === 'debtor') return !item.payerMarkedAsPaid
-  return item.payerMarkedAsPaid
+  return true
 }
 
 export function requestStatusOrder(item: Pick<RequestItem, 'payerMarkedAsPaid' | 'lenderConfirmedPaid'>): number {

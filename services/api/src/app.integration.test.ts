@@ -1694,7 +1694,7 @@ describe("bill settle API", () => {
     expect(updated.body.bill.userSummary.settled).toBe(true);
   });
 
-  it("requires the debtor to mark paid before the lender can confirm", async () => {
+  it("lets the lender confirm without the debtor marking paid first", async () => {
     const payer = await register("lender-confirm-payer@example.com");
     const friend = await register("lender-confirm-friend@example.com");
     await becomeFriends(payer, friend);
@@ -1708,15 +1708,21 @@ describe("bill settle API", () => {
     });
 
     const beforeSettle = await request(app).get("/dashboard").set(bearer(payer.token));
-    const rejected = await request(app)
+    const settled = await request(app)
       .post(`/bills/${created.body.bill.id as string}/settle`)
       .set(bearer(payer.token));
     const afterSettle = await request(app).get("/dashboard").set(bearer(payer.token));
 
-    expect(rejected.status).toBe(400);
-    expect(rejected.body.error.code).toBe("NOTHING_TO_SETTLE");
+    const friendShare = settled.body.bill.shares.find(
+      (share: { user: { id: string } }) => share.user.id === friend.user.id,
+    );
+
+    expect(settled.status).toBe(200);
+    expect(friendShare.payerMarkedAsPaid).toBe(false);
+    expect(friendShare.lenderConfirmedPaid).toBe(true);
+    expect(settled.body.bill.userSummary.settled).toBe(true);
     expect(beforeSettle.body.dashboard.totalOwedToYouCents).toBe(1000);
-    expect(afterSettle.body.dashboard.totalOwedToYouCents).toBe(1000);
+    expect(afterSettle.body.dashboard.totalOwedToYouCents).toBe(0);
   });
 
   it("keeps balance outstanding when debtor marks before lender confirms", async () => {

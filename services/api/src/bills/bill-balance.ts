@@ -25,7 +25,8 @@ function canDebtorSettle(
   return (
     share.userId === actingUserId &&
     share.userId !== bill.payerId &&
-    !share.payerMarkedAsPaid
+    !share.payerMarkedAsPaid &&
+    !share.lenderConfirmedPaid
   );
 }
 
@@ -37,7 +38,6 @@ function canLenderSettle(
   return (
     bill.payerId === actingUserId &&
     share.userId !== bill.payerId &&
-    share.payerMarkedAsPaid &&
     !share.lenderConfirmedPaid
   );
 }

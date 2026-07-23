@@ -39,7 +39,7 @@ describe('request derivation', () => {
 
     expect(canActOnRequest({ ...unpaid, role: 'debtor' })).toBe(true)
     expect(canActOnRequest({ ...pending, role: 'debtor' })).toBe(false)
-    expect(canActOnRequest({ ...unpaid, role: 'lender' })).toBe(false)
+    expect(canActOnRequest({ ...unpaid, role: 'lender' })).toBe(true)
     expect(canActOnRequest({ ...pending, role: 'lender' })).toBe(true)
     expect(canActOnRequest({ ...completed, role: 'lender' })).toBe(false)
 

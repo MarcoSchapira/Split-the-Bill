@@ -126,13 +126,15 @@ export function BillDetailPage() {
             <div className="bc-detail-main">
               <section className="bc-card bc-settlement-card">
                 <div className="bc-section-heading"><div><p className="eyebrow">Settlement</p><h2>Participant shares</h2></div><span className={`bc-status ${bill.userSummary.settled ? 'completed' : 'open'}`}>{bill.userSummary.settled ? 'All complete' : 'In progress'}</span></div>
-                <p className="bc-section-intro">A debtor marks their payment first. The person who paid the bill then confirms receiving it.</p>
+                <p className="bc-section-intro">Debtors can mark payments as sent. The person who paid the bill can confirm receipt at any time.</p>
                 <div className="bc-share-list">
                   {sortedShares.map((share) => {
                     const status = shareStatus(share, bill.payerId)
                     const isCurrentUser = share.user.id === auth.user?.id
                     const canMarkPaid = isCurrentUser && status === 'unpaid'
-                    const canConfirm = auth.user?.id === bill.payerId && status === 'awaiting'
+                    const canConfirm =
+                      auth.user?.id === bill.payerId &&
+                      (status === 'unpaid' || status === 'awaiting')
                     return (
                       <article className="bc-share-row" key={share.id}>
                         <span className="bc-avatar">{displayName(share.user).slice(0, 1).toUpperCase()}</span>
@@ -141,7 +143,6 @@ export function BillDetailPage() {
                         <div className="bc-share-action">
                           {canMarkPaid ? <button className="secondary-button" disabled={activeShareId === share.id} type="button" onClick={() => void settleShare(share)}>{activeShareId === share.id ? 'Saving…' : 'Mark paid'}</button> : null}
                           {canConfirm ? <button className="primary-button compact" disabled={activeShareId === share.id} type="button" onClick={() => void settleShare(share)}>{activeShareId === share.id ? 'Saving…' : 'Confirm payment'}</button> : null}
-                          {!canMarkPaid && !canConfirm && status === 'unpaid' && auth.user?.id === bill.payerId ? <small>Waiting for {displayName(share.user)}</small> : null}
                           {status === 'awaiting' && isCurrentUser ? <small>The payer still needs to confirm.</small> : null}
                         </div>
                       </article>

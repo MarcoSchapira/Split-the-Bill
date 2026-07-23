@@ -28,7 +28,7 @@ function outstandingActions(bills: Bill[] | undefined, userId: string | undefine
   for (const bill of bills) {
     for (const share of bill.shares) {
       if (share.shareCents <= 0 || share.user.id === bill.payerId || share.lenderConfirmedPaid) continue
-      if (bill.payerId === userId && share.payerMarkedAsPaid) confirm += 1
+      if (bill.payerId === userId) confirm += 1
       if (share.user.id === userId && !share.payerMarkedAsPaid) markPaid += 1
     }
   }
@@ -174,7 +174,7 @@ export function DashboardPage() {
               <div className="bc-error">Action items are unavailable right now.</div>
             ) : <div className="bc-list">
               <Link className="bc-list-row" to="/requests?tab=owed-to-you">
-                <div className="bc-list-row__main"><strong>Confirm payments</strong><span>Marked paid by someone else</span></div>
+                <div className="bc-list-row__main"><strong>Confirm payments</strong><span>Outstanding amounts owed to you</span></div>
                 <span className={actions.confirm ? 'bc-badge bc-badge--warning' : 'bc-badge'}><ArrowDownLeft size={13} />{actions.confirm}</span>
               </Link>
               <Link className="bc-list-row" to="/requests?tab=you-owe">

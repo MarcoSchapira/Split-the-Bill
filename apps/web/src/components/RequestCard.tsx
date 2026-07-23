@@ -81,7 +81,7 @@ function requestStatusTitle(item: RequestItem): string {
   if (status === 'pending') {
     return item.role === 'debtor' ? 'Awaiting confirmation' : 'Action needed'
   }
-  return item.role === 'debtor' ? 'Payment due' : 'Awaiting payment'
+  return item.role === 'debtor' ? 'Payment due' : 'Action needed'
 }
 
 function requestStatusDetail(item: RequestItem, counterpartyName: string): string {
@@ -97,9 +97,9 @@ function requestStatusDetail(item: RequestItem, counterpartyName: string): strin
       : `${counterpartyName} marked this paid. Confirm after you receive it.`
   }
   if (item.role === 'debtor') {
-    return `Mark paid after you send payment. ${counterpartyName} will then confirm it.`
+    return `Mark paid after you send payment. ${counterpartyName} can also confirm receipt.`
   }
-  return `Waiting for ${counterpartyName} to send payment and mark it paid.`
+  return `Confirm once you've received payment from ${counterpartyName}.`
 }
 
 function formatRequestDate(value: string): string {

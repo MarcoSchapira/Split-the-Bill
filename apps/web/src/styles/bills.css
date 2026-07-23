@@ -313,7 +313,13 @@
   min-width: 0;
 }
 
-.bc-field > span,
+.bc-field-label {
+  align-items: baseline;
+  display: flex;
+  gap: 0.35em;
+}
+
+.bc-field-label > span,
 .bc-field small {
   color: var(--text-muted);
   font-size: 11px;
@@ -1460,8 +1466,8 @@
 }
 
 .bc-share-list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) 168px 88px minmax(105px, max-content);
 }
 
 .bc-share-row {
@@ -1469,14 +1475,13 @@
   border-top: 1px solid var(--border);
   display: grid;
   gap: 12px;
-  grid-template-columns: 38px minmax(0, 1fr) auto minmax(105px, auto);
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
   min-height: 76px;
   padding: 12px 0;
 }
 
 .bc-share-person {
-  display: flex;
-  flex-direction: column;
   min-width: 0;
 }
 
@@ -1491,16 +1496,38 @@
   align-items: center;
   color: var(--text-muted);
   display: inline-flex;
-  font-size: 10px;
-  gap: 5px;
-  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 750;
+  gap: 6px;
+  justify-content: flex-start;
+  justify-self: start;
+  line-height: 1.3;
+  min-width: 0;
+  text-align: left;
 }
 
 .bc-share-state i {
   background: var(--text-muted);
   border-radius: 50%;
-  height: 6px;
-  width: 6px;
+  flex-shrink: 0;
+  height: 7px;
+  width: 7px;
+}
+
+.bc-share-state.payer {
+  color: var(--accent);
+}
+
+.bc-share-state.payer i {
+  background: var(--accent);
+}
+
+.bc-share-state.unpaid {
+  color: var(--error);
+}
+
+.bc-share-state.unpaid i {
+  background: var(--error);
 }
 
 .bc-share-state.awaiting {
@@ -1522,6 +1549,8 @@
 .bc-share-amount {
   color: var(--text-h);
   font-size: 14px;
+  justify-self: end;
+  text-align: right;
   white-space: nowrap;
 }
 
@@ -1535,13 +1564,6 @@
   font-size: 11px;
   min-width: 98px;
   padding: 8px 10px;
-}
-
-.bc-share-action small {
-  color: var(--text-muted);
-  font-size: 10px;
-  max-width: 120px;
-  text-align: right;
 }
 
 .bc-detail-item-head,
@@ -1841,19 +1863,23 @@
     flex: 1;
   }
 
+  .bc-share-list {
+    grid-template-columns: 34px minmax(0, 1fr) minmax(108px, 1fr) 72px;
+  }
+
   .bc-share-row {
     align-items: center;
-    grid-template-columns: 34px minmax(0, 1fr) auto;
+    gap: 10px;
+    min-height: 0;
+  }
+
+  .bc-share-state {
+    font-size: 11px;
   }
 
   .bc-share-action {
     grid-column: 2 / -1;
     justify-content: flex-start;
-  }
-
-  .bc-share-action small {
-    max-width: none;
-    text-align: left;
   }
 
   .bc-review-hero {

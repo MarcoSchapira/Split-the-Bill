@@ -703,7 +703,6 @@ BillCompass is operated by:
 
 **Marco Schapira**
 Operating under the name BillCompass
-15 Pendrith St.
 Toronto, Ontario
 Canada
 

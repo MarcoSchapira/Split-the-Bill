@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { sendRegistrationCode } from '../api/authApi'
 import { apiErrorMessage } from '../api/client'
 import { useAuth } from '../auth/useAuth'
+import { AuthBrandLink } from '../components/AuthBrandLink'
 
 const RESEND_COOLDOWN_SECONDS = 60
 const REGISTRATION_ERROR_ID = 'registration-form-error'
@@ -133,8 +134,8 @@ export function RegisterPage() {
 
   return (
     <main className="auth-shell">
+      <AuthBrandLink />
       <section className="brand-panel">
-        <p className="eyebrow">BillCompass</p>
         <h1>Start a fair tab.</h1>
         <p>
           Invite registered friends and keep every shared cost

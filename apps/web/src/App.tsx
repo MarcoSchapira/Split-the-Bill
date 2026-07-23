@@ -98,7 +98,7 @@ function RouteEffects() {
     let observer: MutationObserver | null = null
 
     const focusPageHeading = () => {
-      const heading = document.querySelector<HTMLElement>('#main-content h1, main h1')
+      const heading = document.querySelector<HTMLElement>('#main-content h1')
       if (!heading) return false
       heading.tabIndex = -1
       heading.focus({ preventScroll: true })

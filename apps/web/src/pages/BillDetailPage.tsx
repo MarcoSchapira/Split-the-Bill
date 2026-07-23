@@ -23,7 +23,7 @@ function shareStatus(share: BillShare, payerId: string): ShareStatus {
 function shareStatusCopy(status: ShareStatus) {
   if (status === 'payer') return 'Paid the bill'
   if (status === 'completed') return 'Payment confirmed'
-  if (status === 'awaiting') return 'Marked paid · confirmation needed'
+  if (status === 'awaiting') return 'Marked paid · confirmation pending'
   return 'Payment outstanding'
 }
 
@@ -138,12 +138,12 @@ export function BillDetailPage() {
                     return (
                       <article className="bc-share-row" key={share.id}>
                         <span className="bc-avatar">{displayName(share.user).slice(0, 1).toUpperCase()}</span>
-                        <div className="bc-share-person"><strong>{displayName(share.user)}{isCurrentUser ? ' (you)' : ''}</strong><span className={`bc-share-state ${status}`}><i />{shareStatusCopy(status)}</span></div>
+                        <div className="bc-share-person"><strong>{displayName(share.user)}{isCurrentUser ? ' (you)' : ''}</strong></div>
+                        <span className={`bc-share-state ${status}`}><i />{shareStatusCopy(status)}</span>
                         <strong className="bc-share-amount">{formatCad(share.shareCents)}</strong>
                         <div className="bc-share-action">
                           {canMarkPaid ? <button className="secondary-button" disabled={activeShareId === share.id} type="button" onClick={() => void settleShare(share)}>{activeShareId === share.id ? 'Saving…' : 'Mark paid'}</button> : null}
                           {canConfirm ? <button className="primary-button compact" disabled={activeShareId === share.id} type="button" onClick={() => void settleShare(share)}>{activeShareId === share.id ? 'Saving…' : 'Confirm payment'}</button> : null}
-                          {status === 'awaiting' && isCurrentUser ? <small>The payer still needs to confirm.</small> : null}
                         </div>
                       </article>
                     )

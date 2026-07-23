@@ -1,10 +1,10 @@
 import { Link } from 'react-router-dom'
 
 type LandingHeaderProps = {
-  showFeaturesLink?: boolean
+  minimal?: boolean
 }
 
-export function LandingHeader({ showFeaturesLink = true }: LandingHeaderProps) {
+export function LandingHeader({ minimal = false }: LandingHeaderProps) {
   return (
     <header className="landing-header">
       <Link className="landing-brand" to="/" aria-label="BillCompass home">
@@ -12,11 +12,19 @@ export function LandingHeader({ showFeaturesLink = true }: LandingHeaderProps) {
         <strong>Shared expenses, simplified</strong>
       </Link>
       <nav className="landing-navigation" aria-label="Public navigation">
-        {showFeaturesLink ? (
-          <a className="landing-nav-link" href="#features">
-            Features
-          </a>
-        ) : null}
+        {minimal ? null : (
+          <>
+            <a className="landing-nav-link" href="/#how-it-works">
+              How it works
+            </a>
+            <a className="landing-nav-link" href="/#features">
+              Features
+            </a>
+            <a className="landing-nav-link" href="/#faq">
+              FAQ
+            </a>
+          </>
+        )}
         <Link className="landing-nav-link" to="/login">
           Login
         </Link>

@@ -665,7 +665,6 @@ Your continued use of the Service after an updated Privacy Policy takes effect c
 BillCompass is operated by:
 
 **Marco Schapira**
-15 Pendrith St.
 Toronto, Ontario
 Canada
 

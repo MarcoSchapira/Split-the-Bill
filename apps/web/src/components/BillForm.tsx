@@ -789,7 +789,7 @@ export function BillForm({
               <div className="bc-field-grid">
                 <label className="bc-field bc-field-wide">Title<input maxLength={120} required value={description} onChange={(event) => { touch(); setDescription(event.target.value) }} placeholder="Dinner, groceries, weekend rental…" /></label>
                 <label className="bc-field">Date<input required type="date" value={incurredDate} onChange={(event) => { touch(); setIncurredDate(event.target.value) }} /></label>
-                <label className="bc-field">Time <span>(optional)</span><input type="time" value={incurredTime} onChange={(event) => { touch(); setIncurredTime(event.target.value) }} /></label>
+                <label className="bc-field"><span className="bc-field-label">Time <span>(optional)</span></span><input type="time" value={incurredTime} onChange={(event) => { touch(); setIncurredTime(event.target.value) }} /></label>
               </div>
               <fieldset className="bc-choice-fieldset">
                 <legend>Bill format</legend>

@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { apiErrorMessage } from '../api/client'
 import { useAuth } from '../auth/useAuth'
+import { AuthBrandLink } from '../components/AuthBrandLink'
 
 const LOGIN_ERROR_ID = 'login-form-error'
 
@@ -33,8 +34,8 @@ export function LoginPage() {
 
   return (
     <main className="auth-shell">
+      <AuthBrandLink />
       <section className="brand-panel">
-        <p className="eyebrow">BillCompass</p>
         <h1>Shared expenses, clear balances.</h1>
         <p>
           Keep shared expenses organized and settle together with an account built on

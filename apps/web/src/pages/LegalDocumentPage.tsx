@@ -45,7 +45,7 @@ export function LegalDocumentPage({ title, documentPath }: LegalDocumentPageProp
 
   return (
     <main className="landing-page legal-page">
-      <LandingHeader showFeaturesLink={false} />
+      <LandingHeader minimal />
 
       <section className="legal-document">
         <h1 className="legal-document-title">{title}</h1>

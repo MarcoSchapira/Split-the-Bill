@@ -583,7 +583,8 @@ class _BillDetailScreenState extends ConsumerState<BillDetailScreen> {
     final confirmed = await showConfirmDialog(
       context,
       title: 'Delete bill',
-      message: 'Delete "${bill.description}"? This cannot be undone.',
+      message:
+          'Delete "${bill.description}"? This permanently removes the bill for every participant and cannot be undone.',
     );
     if (confirmed != true) return;
 

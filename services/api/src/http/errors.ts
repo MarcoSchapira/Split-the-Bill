@@ -1,5 +1,6 @@
 import type { ErrorRequestHandler, RequestHandler } from "express";
 import { ZodError } from "zod";
+import { safeLogError } from "./safeLogError";
 
 type ValidationIssue = {
   path: string;
@@ -64,7 +65,7 @@ export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
     return;
   }
 
-  console.error(error);
+  safeLogError("Unexpected API error", error);
   const message =
     process.env.NODE_ENV === "production"
       ? "An unexpected error occurred"

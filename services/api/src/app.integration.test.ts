@@ -1086,6 +1086,9 @@ describe("bill ledger and dashboard API", () => {
     expect(forbiddenRetarget.body.error.code).toBe("BILL_RETARGET_FORBIDDEN");
     expect(deleted.status).toBe(204);
     expect(dashboardAfterDelete.body.dashboard.balances[0].balanceCents).toBe(0);
+    expect(
+      await prismaAdmin.bill.findUnique({ where: { id: created.body.bill.id as string } }),
+    ).toBeNull();
   });
 
   it("lists bills shared with a specific friend via friendUserId", async () => {

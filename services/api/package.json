@@ -11,7 +11,7 @@
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
     "test": "npm run test:unit && npm run test:integration && npm run test:integration:cookie",
-    "test:unit": "vitest run src/auth/password.test.ts src/auth/jwt.test.ts src/http/errors.test.ts src/receipts/receipt.validation.test.ts src/receipts/receipt.mime.test.ts src/receipts/parse-gemini-json.test.ts src/activity/activity.test.ts src/bills/bill-balance.test.ts src/bills/bill-split.test.ts src/bills/bill.types.test.ts src/bills/participants.test.ts src/groups/group-balance.test.ts src/groups/group-bill-sync.test.ts",
+    "test:unit": "vitest run src/auth/password.test.ts src/auth/jwt.test.ts src/http/errors.test.ts src/http/safeLogError.test.ts src/receipts/receipt.validation.test.ts src/receipts/receipt.mime.test.ts src/receipts/parse-gemini-json.test.ts src/activity/activity.test.ts src/bills/bill-balance.test.ts src/bills/bill-split.test.ts src/bills/bill.types.test.ts src/bills/participants.test.ts src/groups/group-balance.test.ts src/groups/group-bill-sync.test.ts",
     "test:db:prepare": "dotenv -e .env.test -- node scripts/verify-test-environment.cjs && dotenv -e .env.test -- prisma migrate deploy && dotenv -e .env.test -- prisma generate",
     "test:integration": "npm run test:db:prepare && dotenv -e .env.test -- vitest run src/app.integration.test.ts",
     "test:integration:cookie": "npm run test:db:prepare && dotenv -e .env.test -- vitest run src/auth.cookie.integration.test.ts",

@@ -37,7 +37,11 @@ export function BillList({
   }
 
   async function remove(bill: Bill) {
-    if (!window.confirm(`Delete "${bill.description}"?`)) {
+    if (
+      !window.confirm(
+        `Delete "${bill.description}"? This permanently removes the bill for every participant and cannot be undone.`,
+      )
+    ) {
       return
     }
 

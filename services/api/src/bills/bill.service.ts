@@ -765,13 +765,16 @@ export async function updateBill(
 
 export async function deleteBill(tx: PrismaTransaction, actingUserId: string, billId: string) {
   const bill = await findVisibleBill(tx, actingUserId, billId);
+  const recipientIds = bill.shares.map((share) => share.user.id);
+  const incurredDate = bill.incurredAt.toISOString().slice(0, 10);
+  const amount = (bill.totalCents / 100).toFixed(2);
 
-  await tx.bill.update({ where: { id: billId }, data: { deletedAt: new Date() } });
+  // Omit billId so this event survives the cascade when the bill row is removed.
   await createActivity(tx, {
     actorId: actingUserId,
-    recipientIds: bill.shares.map((share) => share.user.id),
-    billId,
+    recipientIds,
     type: "BILL_DELETED",
-    message: `deleted the bill "${bill.description}".`,
+    message: `deleted the bill "${bill.description}" on ${incurredDate} ($${amount}).`,
   });
+  await tx.bill.delete({ where: { id: billId } });
 }

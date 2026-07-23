@@ -52,6 +52,30 @@ describe("unexpected API errors", () => {
         message: "An unexpected error occurred",
       },
     });
+    expect(consoleError).toHaveBeenCalledWith("Unexpected API error", {
+      name: "Error",
+      message: "Database credentials leaked here",
+    });
+    consoleError.mockRestore();
+  });
+
+  it("does not dump raw error objects to production logs", () => {
+    process.env.NODE_ENV = "production";
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const error = Object.assign(
+      new Error("postgres://user:secret@db/app failed"),
+      { stack: "should-not-be-logged" },
+    );
+
+    sendUnexpectedError(error);
+
+    expect(consoleError).toHaveBeenCalledTimes(1);
+    const [, payload] = consoleError.mock.calls[0] ?? [];
+    expect(payload).toEqual({
+      name: "Error",
+      message: expect.stringContaining("[REDACTED]"),
+    });
+    expect(payload).not.toHaveProperty("stack");
     consoleError.mockRestore();
   });
 });

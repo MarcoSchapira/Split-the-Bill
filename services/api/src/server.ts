@@ -3,6 +3,7 @@ import app from "./app";
 import { assertJwtConfiguration } from "./auth/jwt";
 import { assertProductionConfiguration } from "./config";
 import { assertDatabaseRoleConfiguration } from "./db/verifyDbRoles";
+import { safeLogError } from "./http/safeLogError";
 
 const PORT = process.env.PORT ?? 3000;
 
@@ -17,6 +18,6 @@ async function start(): Promise<void> {
 }
 
 start().catch((error) => {
-  console.error(error);
+  safeLogError("API server failed to start", error);
   process.exit(1);
 });

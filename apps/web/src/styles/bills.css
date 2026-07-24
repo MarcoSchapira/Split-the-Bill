@@ -328,8 +328,8 @@
 
 .bc-field input,
 .bc-field select,
+.bc-field-computed output,
 .bc-total-field input,
-.bc-items-summary input,
 .bc-custom-split input,
 .bc-filter-panel input,
 .bc-filter-panel select {
@@ -345,10 +345,19 @@
   width: 100%;
 }
 
+.bc-field-computed output {
+  align-items: center;
+  background: var(--surface-muted);
+  border-color: transparent;
+  color: var(--text-h);
+  display: flex;
+  font-variant-numeric: tabular-nums;
+  font-weight: 750;
+}
+
 .bc-field input:focus,
 .bc-field select:focus,
 .bc-total-field input:focus,
-.bc-items-summary input:focus,
 .bc-custom-split input:focus,
 .bc-filter-panel input:focus,
 .bc-filter-panel select:focus {
@@ -492,7 +501,8 @@
   gap: 4px;
 }
 
-.bc-item-row .bc-field input {
+.bc-item-row .bc-field input,
+.bc-item-row .bc-field-computed output {
   font-size: 13px;
   min-height: 38px;
   padding: 8px 9px;
@@ -577,19 +587,23 @@
   font-weight: 650;
 }
 
-.bc-items-summary label {
-  align-items: center;
+.bc-items-summary-total {
+  align-items: baseline;
   color: var(--text-h);
   display: flex;
+  flex-wrap: wrap;
   font-size: 13px;
   font-weight: 750;
-  gap: 7px;
-  white-space: nowrap;
+  gap: 8px;
+  justify-content: flex-end;
+  text-align: right;
 }
 
-.bc-items-summary input {
-  min-height: 38px;
-  width: 110px;
+.bc-items-summary-total strong {
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
 .bc-details {
@@ -1791,11 +1805,11 @@
   }
 
   .bc-item-row .bc-field:nth-of-type(3),
-  .bc-item-row .bc-field:nth-of-type(4) {
+  .bc-item-row .bc-field-computed {
     grid-column: auto;
   }
 
-  .bc-item-row .bc-field:nth-of-type(4) {
+  .bc-item-row .bc-field-computed {
     grid-column: 2 / 4;
   }
 
@@ -1813,8 +1827,9 @@
     flex-direction: column;
   }
 
-  .bc-items-summary label {
+  .bc-items-summary-total {
     justify-content: space-between;
+    text-align: left;
   }
 
   .bc-ledger-row {
@@ -1917,7 +1932,7 @@
   }
 
   .bc-item-row .bc-field:not(.bc-item-name),
-  .bc-item-row .bc-field:nth-of-type(4) {
+  .bc-item-row .bc-field-computed {
     grid-column: 2 / -1;
   }
 

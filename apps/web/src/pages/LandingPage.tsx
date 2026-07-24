@@ -94,7 +94,7 @@ export function LandingPage() {
           <div className="landing-split-copy">
             <p className="eyebrow">Mobile app</p>
             <h2 id="mobile-heading">
-              Also available
+              Available
               <span className="landing-split-title-accent">on mobile too</span>
             </h2>
             <p>

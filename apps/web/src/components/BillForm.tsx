@@ -133,12 +133,27 @@ function toIncurredAt(date: string, time: string): string {
   return `${date}T${time || '00:00'}:00.000Z`
 }
 
+function derivedLineTotalCents(quantity: string, unitPrice: string): number | null {
+  const qty = Number(quantity)
+  const unitCents = parseAmountToCents(unitPrice)
+  if (!Number.isFinite(qty) || qty <= 0 || unitCents == null) return null
+  return Math.round(qty * unitCents)
+}
+
 function lineTotalCents(item: LineItemDraft): number | null {
-  return parseAmountToCents(item.totalPrice)
+  return derivedLineTotalCents(item.quantity, item.unitPrice)
 }
 
 function sumItemCents(items: LineItemDraft[]): number {
   return items.reduce((sum, item) => sum + (lineTotalCents(item) ?? 0), 0)
+}
+
+function withDerivedLineTotal(item: LineItemDraft): LineItemDraft {
+  const totalCents = lineTotalCents(item)
+  return {
+    ...item,
+    totalPrice: totalCents == null ? '' : moneyValue(totalCents),
+  }
 }
 
 function parsedReceiptItems(receipt: ParsedReceipt): LineItemDraft[] {
@@ -202,11 +217,10 @@ export function BillForm({
   const [paymentMethod, setPaymentMethod] = useState(bill?.paymentMethod ?? '')
   const [cardLast4, setCardLast4] = useState(bill?.cardLast4 ?? '')
   const [itemCount, setItemCount] = useState(bill?.itemCount == null ? '' : String(bill.itemCount))
-  const [subtotalAmount, setSubtotalAmount] = useState(moneyValue(bill?.subtotalCents))
   const [taxAmount, setTaxAmount] = useState(moneyValue(bill?.taxCents))
   const [tipAmount, setTipAmount] = useState(moneyValue(bill?.tipCents))
   const [feesAmount, setFeesAmount] = useState(moneyValue(bill?.otherFeesCents))
-  const [items, setItems] = useState<LineItemDraft[]>(billLineItems(bill))
+  const [items, setItems] = useState<LineItemDraft[]>(() => billLineItems(bill).map(withDerivedLineTotal))
   const [customAmounts, setCustomAmounts] = useState<Record<string, string>>(() =>
     Object.fromEntries(
       (bill?.shares ?? []).map((share) => [share.user.id, moneyValue(share.shareCents)]),
@@ -333,10 +347,16 @@ export function BillForm({
     ]
   }, [bill, currentUser, groupDetail, peopleById, selectedFriendIds, selectedGroupId, target])
 
-  const totalCents = parseAmountToCents(totalAmount)
+  const taxCents = parseAmountToCents(taxAmount) ?? 0
+  const tipCents = parseAmountToCents(tipAmount) ?? 0
+  const feesCents = parseAmountToCents(feesAmount) ?? 0
+  const computedSubtotalCents = sumItemCents(items)
+  const computedReceiptTotalCents = computedSubtotalCents + taxCents + tipCents + feesCents
+  const totalCents = contentMode === 'items'
+    ? (computedReceiptTotalCents > 0 ? computedReceiptTotalCents : null)
+    : parseAmountToCents(totalAmount)
   const participantIds = participants.map((participant) => participant.id)
   const activePayerId = participantIds.includes(payerId) ? payerId : participantIds[0] ?? ''
-  const computedSubtotalCents = sumItemCents(items)
   const isHistoricalDeletedGroup = Boolean(
     bill?.isSplitWithGroup && bill.groupId == null && selectedGroupId === '',
   )
@@ -371,6 +391,9 @@ export function BillForm({
   function chooseContentMode(mode: ContentMode) {
     if (mode === contentMode) return
     touch()
+    if (mode === 'total' && contentMode === 'items' && computedReceiptTotalCents > 0) {
+      setTotalAmount(moneyValue(computedReceiptTotalCents))
+    }
     setContentMode(mode)
     if (mode === 'items' && items.length === 0) {
       setItems([
@@ -380,26 +403,14 @@ export function BillForm({
     if (mode === 'total' && splitMode === 'items') setSplitMode('equal')
   }
 
-  function updateItem(key: string, patch: Partial<LineItemDraft>, deriveTotal = false) {
+  function updateItem(key: string, patch: Partial<LineItemDraft>) {
     touch()
-    setItems((current) => {
-      const next = current.map((item) => {
+    setItems((current) =>
+      current.map((item) => {
         if (item.key !== key) return item
-        const updated = { ...item, ...patch }
-        if (!deriveTotal) return updated
-        const quantity = Number(updated.quantity)
-        const unitCents = parseAmountToCents(updated.unitPrice)
-        return {
-          ...updated,
-          totalPrice:
-            Number.isFinite(quantity) && quantity > 0 && unitCents != null
-              ? moneyValue(Math.round(quantity * unitCents))
-              : '',
-        }
-      })
-      setSubtotalAmount(moneyValue(sumItemCents(next)))
-      return next
-    })
+        return withDerivedLineTotal({ ...item, ...patch })
+      }),
+    )
   }
 
   function addItem() {
@@ -418,11 +429,7 @@ export function BillForm({
       ?? row?.parentElement?.querySelector<HTMLElement>('.bc-items-head button')
 
     touch()
-    setItems((current) => {
-      const next = current.filter((item) => item.key !== key)
-      setSubtotalAmount(moneyValue(sumItemCents(next)))
-      return next
-    })
+    setItems((current) => current.filter((item) => item.key !== key))
     window.requestAnimationFrame(() => focusTarget?.focus())
   }
 
@@ -437,16 +444,12 @@ export function BillForm({
   }
 
   function applyParsedReceipt(receipt: ParsedReceipt) {
-    const nextItems = parsedReceiptItems(receipt)
-    const parsedSubtotal = receipt.subtotal == null
-      ? sumItemCents(nextItems)
-      : Math.round(receipt.subtotal * 100)
-    const parsedTotal = receipt.total == null
-      ? parsedSubtotal +
-        Math.round((receipt.tax ?? 0) * 100) +
-        Math.round((receipt.tip ?? 0) * 100) +
-        Math.round((receipt.other_fees ?? 0) * 100)
-      : Math.round(receipt.total * 100)
+    const nextItems = parsedReceiptItems(receipt).map(withDerivedLineTotal)
+    const parsedSubtotal = sumItemCents(nextItems)
+    const parsedTaxCents = Math.round((receipt.tax ?? 0) * 100)
+    const parsedTipCents = Math.round((receipt.tip ?? 0) * 100)
+    const parsedFeesCents = Math.round((receipt.other_fees ?? 0) * 100)
+    const parsedTotal = parsedSubtotal + parsedTaxCents + parsedTipCents + parsedFeesCents
 
     setSource('capture')
     setDescription(receipt.store_name?.trim() || 'Receipt')
@@ -459,11 +462,10 @@ export function BillForm({
     setCardLast4(receipt.card_last_4 ?? '')
     setItemCount(receipt.item_count == null ? String(nextItems.length) : String(receipt.item_count))
     setItems(nextItems)
-    setSubtotalAmount(moneyValue(parsedSubtotal))
     setTaxAmount(dollarsValue(receipt.tax))
     setTipAmount(dollarsValue(receipt.tip))
     setFeesAmount(dollarsValue(receipt.other_fees))
-    setTotalAmount(moneyValue(parsedTotal))
+    setTotalAmount(moneyValue(parsedTotal > 0 ? parsedTotal : null))
     if (receipt.date) setIncurredDate(receipt.date.slice(0, 10))
     if (receipt.time) setIncurredTime(receipt.time.slice(0, 5))
     if (nextItems.length > 0) setContentMode('items')
@@ -540,7 +542,7 @@ export function BillForm({
     for (const [index, item] of items.entries()) {
       const quantity = Number(item.quantity)
       const unitPriceCents = parseAmountToCents(item.unitPrice)
-      const totalPriceCents = parseAmountToCents(item.totalPrice)
+      const totalPriceCents = lineTotalCents(item)
       if (!item.name.trim()) return { inputs: [], error: `Name item ${index + 1}.` }
       if (!Number.isFinite(quantity) || quantity <= 0) {
         return { inputs: [], error: `Enter a valid quantity for ${item.name}.` }
@@ -649,9 +651,9 @@ export function BillForm({
         paymentMethod: nullable(paymentMethod),
         cardLast4: nullable(cardLast4),
         itemCount: parsedItemCount ?? (lineItemResult.inputs.length > 0 ? lineItemResult.inputs.length : null),
-        subtotalCents:
-          parseAmountToCents(subtotalAmount) ??
-          (lineItemResult.inputs.length > 0 ? computedSubtotalCents : null),
+        subtotalCents: contentMode === 'items' || lineItemResult.inputs.length > 0
+          ? computedSubtotalCents
+          : null,
         otherFeesCents: parseAmountToCents(feesAmount),
         taxCents: parseAmountToCents(taxAmount),
         tipCents: parseAmountToCents(tipAmount),
@@ -807,13 +809,18 @@ export function BillForm({
               ) : (
                 <div className="bc-items-editor">
                   <div className="bc-items-head"><h3>Line items</h3><button className="text-button" type="button" onClick={addItem}>+ Add item</button></div>
-                  {items.map((item, index) => (
+                  {items.map((item, index) => {
+                    const itemTotalCents = lineTotalCents(item)
+                    return (
                     <article className="bc-item-row" key={item.key}>
                       <div className="bc-item-number">{index + 1}</div>
                       <label className="bc-field bc-item-name">Item<input value={item.name} onChange={(event) => updateItem(item.key, { name: event.target.value })} placeholder="Item name" /></label>
-                      <label className="bc-field">Qty<input inputMode="decimal" min="0.01" step="0.01" type="number" value={item.quantity} onChange={(event) => updateItem(item.key, { quantity: event.target.value }, true)} /></label>
-                      <label className="bc-field">Unit price<input inputMode="decimal" min="0" step="0.01" type="number" value={item.unitPrice} onChange={(event) => updateItem(item.key, { unitPrice: event.target.value }, true)} /></label>
-                      <label className="bc-field">Line total<input inputMode="decimal" min="0" step="0.01" type="number" value={item.totalPrice} onChange={(event) => updateItem(item.key, { totalPrice: event.target.value })} /></label>
+                      <label className="bc-field">Qty<input inputMode="decimal" min="0.01" step="0.01" type="number" value={item.quantity} onChange={(event) => updateItem(item.key, { quantity: event.target.value })} /></label>
+                      <label className="bc-field">Unit price<input inputMode="decimal" min="0" step="0.01" type="number" value={item.unitPrice} onChange={(event) => updateItem(item.key, { unitPrice: event.target.value })} /></label>
+                      <div className="bc-field bc-field-computed">
+                        <span>Line total</span>
+                        <output aria-live="polite">{itemTotalCents == null ? '—' : formatCad(itemTotalCents)}</output>
+                      </div>
                       <button aria-label={`Remove ${item.name || `item ${index + 1}`}`} className="bc-remove-item" type="button" onClick={(event) => removeItem(item.key, event.currentTarget)}>×</button>
                       {splitMode === 'items' ? (
                         <div className="bc-item-assignments">
@@ -824,14 +831,24 @@ export function BillForm({
                         </div>
                       ) : null}
                     </article>
-                  ))}
+                    )
+                  })}
                   <div className="bc-adjustment-grid">
-                    <label className="bc-field">Subtotal<input inputMode="decimal" min="0" step="0.01" type="number" value={subtotalAmount} onChange={(event) => { touch(); setSubtotalAmount(event.target.value) }} /></label>
+                    <div className="bc-field bc-field-computed">
+                      <span>Subtotal</span>
+                      <output aria-live="polite">{formatCad(computedSubtotalCents)}</output>
+                    </div>
                     <label className="bc-field">Tax<input inputMode="decimal" min="0" step="0.01" type="number" value={taxAmount} onChange={(event) => { touch(); setTaxAmount(event.target.value) }} /></label>
                     <label className="bc-field">Tip<input inputMode="decimal" min="0" step="0.01" type="number" value={tipAmount} onChange={(event) => { touch(); setTipAmount(event.target.value) }} /></label>
                     <label className="bc-field">Other fees<input inputMode="decimal" min="0" step="0.01" type="number" value={feesAmount} onChange={(event) => { touch(); setFeesAmount(event.target.value) }} /></label>
                   </div>
-                  <div className="bc-items-summary"><span>Items currently add to {formatCad(computedSubtotalCents)}</span><label>Final receipt total <b>$</b><input inputMode="decimal" min="0.01" required step="0.01" type="number" value={totalAmount} onChange={(event) => { touch(); setTotalAmount(event.target.value) }} /></label></div>
+                  <div className="bc-items-summary">
+                    <span>Subtotal + tax + tip + fees</span>
+                    <div className="bc-items-summary-total">
+                      <span>Final receipt total</span>
+                      <strong aria-live="polite">{formatCad(computedReceiptTotalCents)}</strong>
+                    </div>
+                  </div>
                 </div>
               )}
 

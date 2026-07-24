@@ -111,6 +111,7 @@ export const landingShowcaseFeatures: LandingShowcaseFeature[] = [
       'Divide the total evenly when that is the fair split',
       'Assign meals, drinks, and purchases to the right people',
     ],
+    image: '/images/ways-to-split.png',
     imageAlt: 'BillCompass split options for custom amounts and line items',
     previewLabel: 'Flexible splitting',
   },
@@ -125,6 +126,7 @@ export const landingShowcaseFeatures: LandingShowcaseFeature[] = [
       'Import existing receipt images from your photo library',
       'Start splitting right away without retyping every item',
     ],
+    image: '/images/edit-bill.png',
     imageAlt: 'BillCompass receipt capture converting a photo into a bill',
     previewLabel: 'Receipt scanning',
   },
@@ -181,7 +183,7 @@ export const faqItems: LandingFaqItem[] = [
   {
     question: 'Will my friends need an account?',
     answer:
-      'Friends join through invitations so everyone shares the same source of truth for balances, bills, and payment status.',
+      'Yes, friends join through invitations so everyone shares the same source of truth for balances, bills, and payment status.',
   },
   {
     question: 'Can I use BillCompass on my phone and on the web?',

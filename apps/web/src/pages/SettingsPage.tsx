@@ -148,7 +148,7 @@ export function SettingsPage() {
           <section className="bc-card">
             <div className="bc-card-header"><div className="bc-settings-heading"><ShieldCheck size={20} /><div><h2 className="bc-card-title">Receipt privacy</h2><p>Control AI-assisted receipt extraction.</p></div></div></div>
             {auth.user?.aiReceiptConsentAt ? (
-              <div className="bc-settings-consent"><CheckCircle2 size={20} /><div><strong>Consent recorded</strong><span>Saved {new Date(auth.user.aiReceiptConsentAt).toLocaleDateString('en-CA')}.</span></div></div>
+              <div className="bc-settings-consent"><CheckCircle2 size={20} /><div><strong>Permission recorded</strong><span>Saved {new Date(auth.user.aiReceiptConsentAt).toLocaleDateString('en-CA')}.</span></div></div>
             ) : (
               <div className="bc-stack">
                 <p className="bc-settings-copy">Receipt images are sent to Google Gemini only when you choose Scan receipt. Images are used to extract editable details and are not retained on the bill.</p>

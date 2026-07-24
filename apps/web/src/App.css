@@ -540,6 +540,14 @@
   font-size: 18px;
 }
 
+.brand-panel a,
+.brand-panel a:link,
+.brand-panel a:visited,
+.brand-panel a:hover,
+.brand-panel a:active {
+  color: #ffffff;
+}
+
 .eyebrow {
   color: var(--accent);
   font-size: 12px;

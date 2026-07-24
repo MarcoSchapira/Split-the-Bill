@@ -1,0 +1,193 @@
+.route-error {
+  position: relative;
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  padding: clamp(88px, 14vw, 120px) clamp(20px, 5vw, 40px) clamp(40px, 8vw, 64px);
+  color: var(--bc-copy, #5f6d68);
+  background:
+    radial-gradient(circle at 88% 8%, rgb(139 224 202 / 22%), transparent 28rem),
+    radial-gradient(circle at 12% 92%, rgb(8 115 91 / 8%), transparent 22rem),
+    var(--bc-canvas, #f7f8f4);
+  font-family: 'Plus Jakarta Sans', Inter, 'Avenir Next', 'Segoe UI', sans-serif;
+  overflow: hidden;
+}
+
+.route-error__brand {
+  position: absolute;
+  top: clamp(20px, 4vw, 36px);
+  right: clamp(20px, 4vw, 36px);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--bc-ink, #112824);
+  text-decoration: none;
+  animation: route-error-enter 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.route-error__brand:hover {
+  opacity: 0.88;
+}
+
+.route-error__brand:focus-visible {
+  outline: 2px solid var(--bc-accent, #08735b);
+  outline-offset: 4px;
+  border-radius: 10px;
+}
+
+.route-error__logo {
+  display: block;
+  width: clamp(40px, 5vw, 48px);
+  height: clamp(40px, 5vw, 48px);
+  flex: 0 0 auto;
+  border-radius: 12px;
+  object-fit: cover;
+  box-shadow: 0 8px 22px rgb(17 40 36 / 12%);
+}
+
+.route-error__brand-name {
+  font-size: clamp(1.15rem, 2.4vw, 1.45rem);
+  font-weight: 750;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.route-error__main {
+  width: min(100%, 34rem);
+  text-align: center;
+  animation: route-error-enter 640ms cubic-bezier(0.22, 1, 0.36, 1) 60ms both;
+}
+
+.route-error__eyebrow {
+  margin: 0 0 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--bc-accent, #08735b);
+}
+
+.route-error__title {
+  margin: 0 0 14px;
+  color: var(--bc-ink, #112824);
+  font-size: clamp(1.85rem, 4.5vw, 2.55rem);
+  font-weight: 750;
+  letter-spacing: -0.045em;
+  line-height: 1.12;
+}
+
+.route-error__copy {
+  margin: 0 auto 28px;
+  max-width: 28rem;
+  font-size: clamp(0.98rem, 2vw, 1.08rem);
+  line-height: 1.55;
+  color: var(--bc-copy, #5f6d68);
+}
+
+.route-error__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.route-error__reload {
+  appearance: none;
+  border: 0;
+  border-radius: 13px;
+  padding: 14px 28px;
+  min-width: 11.5rem;
+  background: var(--bc-accent, #08735b);
+  color: #ffffff;
+  font: inherit;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  box-shadow: 0 10px 28px rgb(8 115 91 / 22%);
+  transition:
+    background 160ms ease,
+    transform 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.route-error__reload:hover {
+  background: var(--bc-accent-dark, #055844);
+  transform: translateY(-1px);
+  box-shadow: 0 14px 32px rgb(8 115 91 / 28%);
+}
+
+.route-error__reload:active {
+  transform: translateY(0);
+}
+
+.route-error__reload:focus-visible {
+  outline: 2px solid var(--bc-accent, #08735b);
+  outline-offset: 3px;
+}
+
+.route-error__home-link {
+  color: var(--bc-accent, #08735b);
+  font-size: 0.95rem;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.route-error__home-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.route-error__home-link:focus-visible {
+  outline: 2px solid var(--bc-accent, #08735b);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.route-error__details {
+  margin-top: 36px;
+  text-align: left;
+  color: var(--bc-muted, #5f6d68);
+  font-size: 0.82rem;
+}
+
+.route-error__details summary {
+  cursor: pointer;
+  font-weight: 650;
+  color: var(--bc-ink, #112824);
+}
+
+.route-error__details pre {
+  margin: 10px 0 0;
+  padding: 12px 14px;
+  overflow: auto;
+  border-radius: var(--bc-radius-sm, 10px);
+  background: var(--bc-surface-soft, #f1f5f1);
+  border: 1px solid var(--bc-line, #dce5de);
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+@keyframes route-error-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-error__brand,
+  .route-error__main {
+    animation: none;
+  }
+
+  .route-error__reload:hover {
+    transform: none;
+  }
+}

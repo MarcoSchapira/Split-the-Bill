@@ -7,8 +7,10 @@ import { LandingPage } from './pages/LandingPage'
 import { OldLandingPage } from './pages/OldLandingPage'
 import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
+import { RouteErrorPage } from './pages/RouteErrorPage'
 import './App.css'
 import './styles/workspace.css'
+import './styles/route-error.css'
 
 const ActivityPage = lazy(() =>
   import('./pages/ActivityPage').then(({ ActivityPage }) => ({ default: ActivityPage })),
@@ -122,6 +124,7 @@ function RouteEffects() {
 const router = createBrowserRouter([
   {
     element: <RouteEffects />,
+    errorElement: <RouteErrorPage />,
     children: [
       { path: '/privacy', element: deferredPage(<PrivacyPolicyPage />) },
       { path: '/terms', element: deferredPage(<TermsOfServicePage />) },

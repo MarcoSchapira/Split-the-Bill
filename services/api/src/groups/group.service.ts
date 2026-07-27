@@ -375,6 +375,10 @@ export async function addGroupMember(
   await lockGroupMembershipMutation(tx, groupId);
   const group = await getGroupOrThrow(tx, groupId, actingUserId);
 
+  if (group.creatorId !== actingUserId) {
+    throw new ApiError(403, "GROUP_FORBIDDEN", "Only the group creator can add members");
+  }
+
   if (input.userId === actingUserId) {
     throw new ApiError(400, "INVALID_MEMBER", "You are already in this group");
   }

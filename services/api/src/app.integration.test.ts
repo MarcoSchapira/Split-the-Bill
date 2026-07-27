@@ -2168,13 +2168,97 @@ describe("groups API", () => {
       .set(bearer(friend.token))
       .send({ name: "Office" });
 
-    const forbidden = await request(app)
+    const forbiddenRemove = await request(app)
       .delete(`/groups/${group.body.group.id as string}/members/${owner.user.id}`)
       .set(bearer(friend.token));
 
+    const third = await register("group-perm-third@example.com");
+    await becomeFriends(friend, third);
+    const forbiddenAdd = await request(app)
+      .post(`/groups/${group.body.group.id as string}/members`)
+      .set(bearer(friend.token))
+      .send({ userId: third.user.id });
+
     expect(renamed.status).toBe(200);
     expect(renamed.body.group.name).toBe("Office");
-    expect(forbidden.status).toBe(403);
+    expect(forbiddenRemove.status).toBe(403);
+    expect(forbiddenAdd.status).toBe(403);
+    expect(forbiddenAdd.body.error.code).toBe("GROUP_FORBIDDEN");
+  });
+
+  it("lets participants rewrite share amounts while settlement stays dual-ack only", async () => {
+    const payer = await register("share-guard-payer@example.com");
+    const debtor = await register("share-guard-debtor@example.com");
+    await becomeFriends(payer, debtor);
+
+    const created = await request(app).post("/bills").set(bearer(payer.token)).send({
+      description: "Custom split",
+      incurredAt: "2026-05-25",
+      totalCents: 3000,
+      participantIds: [payer.user.id, debtor.user.id],
+      payerId: payer.user.id,
+      shares: [
+        { userId: payer.user.id, shareCents: 1000 },
+        { userId: debtor.user.id, shareCents: 2000 },
+      ],
+    });
+    expect(created.status).toBe(201);
+    const billId = created.body.bill.id as string;
+
+    const rewritten = await request(app)
+      .patch(`/bills/${billId}`)
+      .set(bearer(debtor.token))
+      .send({
+        description: "Custom split",
+        incurredAt: "2026-05-25",
+        totalCents: 3000,
+        participantIds: [payer.user.id, debtor.user.id],
+        payerId: payer.user.id,
+        shares: [
+          { userId: payer.user.id, shareCents: 500 },
+          { userId: debtor.user.id, shareCents: 2500 },
+        ],
+      });
+    expect(rewritten.status).toBe(200);
+    expect(
+      rewritten.body.bill.shares
+        .map((share: { user: { id: string }; shareCents: number }) => ({
+          id: share.user.id,
+          shareCents: share.shareCents,
+        }))
+        .sort((a: { id: string }, b: { id: string }) => a.id.localeCompare(b.id)),
+    ).toEqual(
+      [
+        { id: payer.user.id, shareCents: 500 },
+        { id: debtor.user.id, shareCents: 2500 },
+      ].sort((a, b) => a.id.localeCompare(b.id)),
+    );
+
+    const marked = await request(app)
+      .post(`/bills/${billId}/settle`)
+      .set(bearer(debtor.token));
+    expect(marked.status).toBe(200);
+    expect(
+      marked.body.bill.shares.find(
+        (share: { user: { id: string } }) => share.user.id === debtor.user.id,
+      ),
+    ).toMatchObject({
+      payerMarkedAsPaid: true,
+      lenderConfirmedPaid: false,
+    });
+
+    const confirmed = await request(app)
+      .post(`/bills/${billId}/settle`)
+      .set(bearer(payer.token));
+    expect(confirmed.status).toBe(200);
+    expect(
+      confirmed.body.bill.shares.find(
+        (share: { user: { id: string } }) => share.user.id === debtor.user.id,
+      ),
+    ).toMatchObject({
+      payerMarkedAsPaid: true,
+      lenderConfirmedPaid: true,
+    });
   });
 
   it("lets a member leave while keeping shares on existing group bills", async () => {

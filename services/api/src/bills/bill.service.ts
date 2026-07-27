@@ -678,16 +678,20 @@ export async function updateBill(
       };
 
   if (participantSetUnchanged) {
+    // Keep rows in place so participants can edit amounts without INSERT
+    // privileges for co-participant shares, and so settlement flags stay put.
     const updates: Array<{
       where: { id: string };
       data: { shareCents: number; lenderId: string };
     }> = [];
-    let canUpdateInPlace = true;
     for (const share of shares) {
       const existing = existingShareByUserId.get(share.userId);
       if (!existing) {
-        canUpdateInPlace = false;
-        break;
+        throw new ApiError(
+          500,
+          "BILL_SHARE_MISSING",
+          "Bill share rows are inconsistent with participants",
+        );
       }
       updates.push({
         where: { id: existing.id },
@@ -697,18 +701,9 @@ export async function updateBill(
         },
       });
     }
-    shareUpdate = canUpdateInPlace
-      ? { update: updates }
-      : {
-          deleteMany: {},
-          create: shares.map((share) => ({
-            userId: share.userId,
-            shareCents: share.shareCents,
-            lenderId: payerId,
-            ...(settledByUserId.get(share.userId) ?? {}),
-          })),
-        };
+    shareUpdate = { update: updates };
   } else {
+    // Retargeting is creator-only; recreate may insert shares for other users.
     shareUpdate = {
       deleteMany: {},
       create: shares.map((share) => ({

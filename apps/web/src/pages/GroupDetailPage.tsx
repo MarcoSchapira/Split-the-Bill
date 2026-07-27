@@ -138,7 +138,9 @@ export function GroupDetailPage() {
         </div>
         <div className="social-group-hero__actions">
           <Link className="bc-button bc-button--primary" to={`/bills/new?groupId=${group.id}`}><Plus aria-hidden="true" size={17} />Add expense</Link>
-          <button className="bc-button" onClick={() => { addMemberDialogFocus.capture(); setAddMemberOpen(true) }} type="button"><UserPlus aria-hidden="true" size={17} />Add member</button>
+          {isCreator ? (
+            <button className="bc-button" onClick={() => { addMemberDialogFocus.capture(); setAddMemberOpen(true) }} type="button"><UserPlus aria-hidden="true" size={17} />Add member</button>
+          ) : null}
           <button className="bc-icon-button" aria-label="Edit group" onClick={() => { editDialogFocus.capture(); setEditOpen(true) }} type="button"><Pencil aria-hidden="true" size={17} /></button>
         </div>
         <div className="social-group-metrics">
@@ -161,7 +163,12 @@ export function GroupDetailPage() {
       <Tabs.Content className="social-tab-panel" value={selectedTab}>
 
       {selectedTab === 'overview' ? (
-        <GroupOverview group={group} onAddMember={() => { addMemberDialogFocus.capture(); setAddMemberOpen(true) }} onShowBills={() => selectTab('bills')} />
+        <GroupOverview
+          canManageMembers={isCreator}
+          group={group}
+          onAddMember={() => { addMemberDialogFocus.capture(); setAddMemberOpen(true) }}
+          onShowBills={() => selectTab('bills')}
+        />
       ) : selectedTab === 'bills' ? (
         <GroupBills bills={group.bills} groupId={group.id} />
       ) : (
@@ -225,7 +232,17 @@ export function GroupDetailPage() {
   )
 }
 
-function GroupOverview({ group, onAddMember, onShowBills }: { group: GroupDetail; onAddMember: () => void; onShowBills: () => void }) {
+function GroupOverview({
+  canManageMembers,
+  group,
+  onAddMember,
+  onShowBills,
+}: {
+  canManageMembers: boolean
+  group: GroupDetail
+  onAddMember: () => void
+  onShowBills: () => void
+}) {
   const recentBills = group.bills.slice(0, 4)
   return (
     <div className="social-group-overview">
@@ -234,7 +251,12 @@ function GroupOverview({ group, onAddMember, onShowBills }: { group: GroupDetail
         {recentBills.length === 0 ? <div className="bc-empty"><ReceiptText aria-hidden="true" size={27} /><strong>No group bills yet</strong><p>Add an expense to split it evenly with current members.</p></div> : <BillRows bills={recentBills} />}
       </section>
       <section className="bc-card social-detail-section">
-        <div className="social-section-heading"><div><h2>Members</h2><p>New membership changes apply only to future bills.</p></div><button className="bc-button bc-button--soft" onClick={onAddMember} type="button"><UserPlus aria-hidden="true" size={16} />Add</button></div>
+        <div className="social-section-heading">
+          <div><h2>Members</h2><p>New membership changes apply only to future bills.</p></div>
+          {canManageMembers ? (
+            <button className="bc-button bc-button--soft" onClick={onAddMember} type="button"><UserPlus aria-hidden="true" size={16} />Add</button>
+          ) : null}
+        </div>
         <div className="social-member-preview">
           {group.members.slice(0, 6).map((member) => <div key={member.id}><div className="social-avatar">{avatarInitial(member.user)}</div><span><strong>{displayName(member.user)}</strong><small>{member.isCreator ? 'Creator' : member.user.email}</small></span></div>)}
         </div>
@@ -286,7 +308,12 @@ function GroupMembers({
   return (
     <div className="social-members-layout">
       <section className="bc-card social-detail-section">
-        <div className="social-section-heading"><div><h2>Group members</h2><p>Only the creator can remove another member.</p></div><button className="bc-button bc-button--soft" onClick={onAddMember} type="button"><UserPlus aria-hidden="true" size={16} />Add member</button></div>
+        <div className="social-section-heading">
+          <div><h2>Group members</h2><p>Only the creator can add or remove members.</p></div>
+          {isCreator ? (
+            <button className="bc-button bc-button--soft" onClick={onAddMember} type="button"><UserPlus aria-hidden="true" size={16} />Add member</button>
+          ) : null}
+        </div>
         <div className="social-member-list">
           {group.members.map((member) => {
             const isSelf = member.user.id === currentUserId

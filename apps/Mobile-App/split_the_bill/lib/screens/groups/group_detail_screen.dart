@@ -245,13 +245,15 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                       compact: true,
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: SecondaryButton(
-                      label: 'Add member',
-                      onPressed: _openAddMember,
+                  if (isCreator) ...[
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: SecondaryButton(
+                        label: 'Add member',
+                        onPressed: _openAddMember,
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
               const SizedBox(height: 24),
@@ -282,7 +284,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
               }),
               const SizedBox(height: 4),
               const Text(
-                'Only the creator can remove members',
+                'Only the creator can add or remove members',
                 style: TextStyle(
                   color: AppColors.text,
                   fontSize: 13,

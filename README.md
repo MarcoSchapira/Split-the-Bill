@@ -1,6 +1,6 @@
 # BillCompass
 
-Full-stack CAD expense-sharing platform with web, iOS, Android, and API clients.
+Full-stack expense-sharing platform with web, iOS, Android, and API clients.
 
 ## Prerequisites
 
